@@ -1,0 +1,6 @@
+[package]
+name = "org"
+version = "0.1.0"
+authors = ["PoiScript <poiscript@gmail.com>"]
+
+[dependencies]
