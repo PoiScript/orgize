@@ -16,7 +16,7 @@
 ## Elements
 
 - [ ] Babel Call
-- [ ] Blocks
+- [x] Blocks
 - [ ] Clock, Diary Sexp and Planning
 - [x] Comments
 - [ ] Fixed Width Areas

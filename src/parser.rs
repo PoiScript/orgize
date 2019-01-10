@@ -9,8 +9,10 @@ pub enum Container {
     Section { end: usize },
 
     Paragraph { end: usize, trailing: usize },
+    CenterBlock { content_end: usize, end: usize },
+    QuoteBlock { content_end: usize, end: usize },
+    SpecialBlock { content_end: usize, end: usize },
 
-    Block,
     Drawer,
     LatexEnv,
     List,
@@ -33,8 +35,37 @@ pub enum Event<'a> {
     StartParagraph,
     EndParagraph,
 
-    BlockStart,
-    BlockEnd,
+    StartCenterBlock,
+    EndCenterBlock,
+    StartQuoteBlock,
+    EndQuoteBlock,
+    StartSpecialBlock {
+        name: &'a str,
+        args: Option<&'a str>,
+    },
+    EndSpecialBlock,
+
+    CommentBlock {
+        content: &'a str,
+        args: Option<&'a str>,
+    },
+    ExampleBlock {
+        content: &'a str,
+        args: Option<&'a str>,
+    },
+    ExportBlock {
+        content: &'a str,
+        args: Option<&'a str>,
+    },
+    SrcBlock {
+        content: &'a str,
+        args: Option<&'a str>,
+    },
+    VerseBlock {
+        content: &'a str,
+        args: Option<&'a str>,
+    },
+
     DynBlockStart,
     DynBlockEnd,
     ListStart,
@@ -136,11 +167,30 @@ impl<'a> Parser<'a> {
         self.off += off;
 
         if let Some(ele) = ele {
-            if let Element::Paragraph { end, trailing } = ele {
-                self.stack.push(Container::Paragraph {
+            match ele {
+                Element::Paragraph { end, trailing } => self.stack.push(Container::Paragraph {
                     end: end + self.off - off,
                     trailing: trailing + self.off - off,
-                });
+                }),
+                Element::QuoteBlock {
+                    end, content_end, ..
+                } => self.stack.push(Container::QuoteBlock {
+                    content_end: content_end + self.off - off,
+                    end: end + self.off - off,
+                }),
+                Element::CenterBlock {
+                    end, content_end, ..
+                } => self.stack.push(Container::CenterBlock {
+                    content_end: content_end + self.off - off,
+                    end: end + self.off - off,
+                }),
+                Element::SpecialBlock {
+                    end, content_end, ..
+                } => self.stack.push(Container::SpecialBlock {
+                    content_end: content_end + self.off - off,
+                    end: end + self.off - off,
+                }),
+                _ => (),
             }
             ele.into()
         } else {
@@ -187,6 +237,9 @@ impl<'a> Parser<'a> {
             Container::Headline { .. } => Event::EndHeadline,
             Container::Italic { .. } => Event::EndItalic,
             Container::Bold { .. } => Event::EndBold,
+            Container::CenterBlock { .. } => Event::EndCenterBlock,
+            Container::QuoteBlock { .. } => Event::EndQuoteBlock,
+            Container::SpecialBlock { .. } => Event::EndSpecialBlock,
             _ => unimplemented!(),
         }
     }
@@ -205,7 +258,7 @@ impl<'a> Iterator for Parser<'a> {
                 Some(self.start_section_or_headline(tail))
             }
         } else {
-            let last = *self.stack.last_mut()?;
+            let last = *self.stack.last_mut().unwrap();
 
             Some(match last {
                 Container::Headline { beg, end } => {
@@ -215,6 +268,22 @@ impl<'a> Iterator for Parser<'a> {
                         self.start_section_or_headline(tail)
                     } else {
                         self.start_headline(tail)
+                    }
+                }
+                Container::CenterBlock {
+                    content_end, end, ..
+                }
+                | Container::QuoteBlock {
+                    content_end, end, ..
+                }
+                | Container::SpecialBlock {
+                    content_end, end, ..
+                } => {
+                    if self.off >= content_end {
+                        self.off = end;
+                        self.end()
+                    } else {
+                        self.next_ele(content_end)
                     }
                 }
                 Container::Section { end } => {
@@ -280,6 +349,14 @@ impl<'a> From<Element<'a>> for Event<'a> {
             Element::Keyword(kw) => Event::Keyword(kw),
             Element::Paragraph { .. } => Event::StartParagraph,
             Element::Rule => Event::Rule,
+            Element::CenterBlock { .. } => Event::StartCenterBlock,
+            Element::QuoteBlock { .. } => Event::StartQuoteBlock,
+            Element::SpecialBlock { name, args, .. } => Event::StartSpecialBlock { name, args },
+            Element::CommentBlock { args, content } => Event::CommentBlock { args, content },
+            Element::ExampleBlock { args, content } => Event::ExampleBlock { args, content },
+            Element::ExportBlock { args, content } => Event::ExportBlock { args, content },
+            Element::SrcBlock { args, content } => Event::SrcBlock { args, content },
+            Element::VerseBlock { args, content } => Event::VerseBlock { args, content },
         }
     }
 }
