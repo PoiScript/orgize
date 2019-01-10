@@ -5,7 +5,7 @@ pub struct Entity<'a> {
 
 impl<'a> Entity<'a> {
     pub fn parse(src: &'a str) -> Option<(Entity<'a>, usize)> {
-        expect!(src, 0, b'\\');
+        expect!(src, 0, b'\\')?;
 
         let name = position!(src, 1, |c| !c.is_ascii_alphabetic());
 

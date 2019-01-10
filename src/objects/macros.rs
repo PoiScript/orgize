@@ -5,7 +5,7 @@ pub struct Macros<'a> {
 }
 
 fn valid_name(ch: u8) -> bool {
-    ch.is_ascii_alphanumeric() || ch == b'-' && ch == b'_'
+    ch.is_ascii_alphanumeric() || ch == b'-' || ch == b'_'
 }
 
 impl<'a> Macros<'a> {
@@ -17,8 +17,8 @@ impl<'a> Macros<'a> {
         let name = until_while!(src, 3, |c| c == b'}' || c == b'(', valid_name);
 
         if src.as_bytes()[name] == b'}' {
-            expect!(src, name + 1, b'}');
-            expect!(src, name + 2, b'}');
+            expect!(src, name + 1, b'}')?;
+            expect!(src, name + 2, b'}')?;
             Some((
                 Macros {
                     name: &src[3..name],
@@ -27,12 +27,12 @@ impl<'a> Macros<'a> {
                 name + 3,
             ))
         } else {
-            let end = find!(src, name, "}}}");
-            expect!(src, end - 1, b')');
+            let end = &src[name..].find("}}}").map(|i| i + name)?;
+            expect!(src, end - 1, b')')?;
             Some((
                 Macros {
                     name: &src[3..name],
-                    args: if name == end {
+                    args: if name == *end {
                         None
                     } else {
                         Some(&src[name + 1..end - 1])
@@ -46,30 +46,12 @@ impl<'a> Macros<'a> {
 
 #[test]
 fn parse() {
-    assert_eq!(
-        Macros::parse("{{{poem(red,blue)}}}").unwrap(),
-        (
-            Macros {
-                name: "poem",
-                args: Some("red,blue")
-            },
-            "{{{poem(red,blue)}}}".len()
-        )
-    );
-    assert_eq!(
-        Macros::parse("{{{author}}}").unwrap(),
-        (
-            Macros {
-                name: "author",
-                args: None,
-            },
-            "{{{author}}}".len()
-        )
-    );
-    assert!(Macros::parse("{{author}}}").is_none());
-    assert!(Macros::parse("{{{0uthor}}}").is_none());
-    assert!(Macros::parse("{{{author}}").is_none());
-    assert!(Macros::parse("{{{poem(}}}").is_none());
-    assert!(Macros::parse("{{{poem)}}}").is_none());
-    // FIXME: assert_eq!(Macros::parse("{{{poem())}}}"), None);
+    parse_succ!(Macros, "{{{poem(red,blue)}}}", name: "poem", args: Some("red,blue"));
+    parse_succ!(Macros, "{{{poem())}}}", name: "poem", args: Some(")"));
+    parse_succ!(Macros, "{{{author}}}", name: "author", args: None);
+    parse_fail!(Macros, "{{author}}}");
+    parse_fail!(Macros, "{{{0uthor}}}");
+    parse_fail!(Macros, "{{{author}}");
+    parse_fail!(Macros, "{{{poem(}}}");
+    parse_fail!(Macros, "{{{poem)}}}");
 }

@@ -3,11 +3,10 @@
 #[macro_export]
 macro_rules! expect {
     ($src:ident, $index:expr, $expect:tt) => {
-        if $index >= $src.len() || $src.as_bytes()[$index] != $expect {
-            return None;
-        }
+        $src.as_bytes().get($index).filter(|&b| b == &$expect)
     };
     ($src:ident, $index:expr, $expect:expr) => {
+        // $src.as_bytes().get($index).filter($expect)
         if $index >= $src.len() || !$expect($src.as_bytes()[$index]) {
             return None;
         }
@@ -16,16 +15,15 @@ macro_rules! expect {
 
 #[macro_export]
 macro_rules! eol {
-    ($src:expr) => {{
-        let mut pos = 0;
-        while pos < $src.len() {
-            if $src.as_bytes()[pos] == b'\n' {
-                break;
-            }
-            pos += 1;
-        }
-        pos
-    }};
+    ($src:expr) => {
+        $src.find('\n').unwrap_or($src.len())
+    };
+    ($src:expr, $from:expr) => {
+        $src[$from..]
+            .find('\n')
+            .map(|i| i + $from)
+            .unwrap_or($src.len())
+    };
 }
 
 #[macro_export]
@@ -105,7 +103,7 @@ macro_rules! until_while {
 #[macro_export]
 macro_rules! cond_eq {
     ($s:ident, $i:expr, $p:expr) => {
-        if $i > $s.len() {
+        if $i >= $s.len() {
             return None;
         } else {
             $s.as_bytes()[$i] == $p
@@ -124,16 +122,6 @@ macro_rules! position {
 }
 
 #[macro_export]
-macro_rules! find {
-    ($s:ident, $i:expr, $p:expr) => {
-        match $s[$i..].find($p) {
-            Some(x) => x + $i,
-            None => return None,
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! starts_with {
     ($s:ident, $p:expr) => {
         if !$s.starts_with($p) {
@@ -143,18 +131,44 @@ macro_rules! starts_with {
 }
 
 #[macro_export]
-macro_rules! next_line {
-    ($s:ident, $p:expr) => {
-        self.chars().position(|c| c == ch).unwrap_or(self.len())
-        if !$s.starts_with($p) {
-            return None;
-        }
+macro_rules! skip_space {
+    ($src:ident, $from:expr) => {
+        until!($src[$from..], |c| c != b' ').unwrap_or(0) + $from
     };
 }
 
 #[macro_export]
-macro_rules! skip_whitespace {
-    ($src:ident, $from:ident) => {
-        until!($src[$from..], |c| c != b' ').unwrap_or(0) + $from
+macro_rules! skip_empty_line {
+    ($src:ident, $from:expr) => {{
+        let mut pos = $from;
+        while pos < $src.len() {
+            if $src.as_bytes()[pos] != b'\n' {
+                break;
+            }
+            pos += 1;
+        }
+        pos
+    }};
+}
+
+#[macro_export]
+macro_rules! parse_fail {
+    ($ty:ident, $src:expr) => {
+        assert_eq!($ty::parse($src), None);
+    };
+}
+
+#[macro_export]
+macro_rules! parse_succ {
+    ($ty:ident, $src:expr, $($field:ident : $value:expr),* ) => {
+        assert_eq!(
+            $ty::parse($src),
+            Some((
+                $ty {
+                    $( $field : $value ),*
+                },
+                $src.len()
+            )),
+        );
     };
 }

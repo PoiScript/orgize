@@ -1,4 +1,4 @@
-#[derive(PartialEq, Debug)]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct Headline<'a> {
     pub level: usize,
     pub priority: Option<char>,
@@ -69,7 +69,7 @@ impl<'a> Headline<'a> {
         let eol = eol!(src);
         let end = Headline::find_level(&src[eol..], level) + eol;
 
-        let mut title_start = skip_whitespace!(src, level);
+        let mut title_start = skip_space!(src, level);
 
         let keyword = match Headline::parse_keyword(&src[title_start..eol]) {
             Some((k, l)) => {
@@ -79,7 +79,7 @@ impl<'a> Headline<'a> {
             None => None,
         };
 
-        title_start = skip_whitespace!(src, title_start);
+        title_start = skip_space!(src, title_start);
 
         let priority = match Headline::parse_priority(&src[title_start..eol]) {
             Some(p) => {
@@ -89,7 +89,7 @@ impl<'a> Headline<'a> {
             None => None,
         };
 
-        title_start = skip_whitespace!(src, title_start);
+        title_start = skip_space!(src, title_start);
 
         let (tags, title_off) = Headline::parse_tags(&src[title_start..eol]);
 
@@ -112,35 +112,29 @@ impl<'a> Headline<'a> {
     // TODO: optimize
     pub fn find_level(src: &str, level: usize) -> usize {
         let mut pos = 0;
-        let end;
         'outer: loop {
             if pos >= src.len() {
-                end = src.len();
-                break;
+                return src.len();
             }
 
             if src.as_bytes()[pos] == b'*' && (pos == 0 || src.as_bytes()[pos - 1] == b'\n') {
                 let pos_ = pos;
                 'inner: loop {
                     if pos >= src.len() {
-                        end = src.len();
-                        break 'outer;
+                        return src.len();
                     }
                     if src.as_bytes()[pos] == b'*' {
                         pos += 1;
                     } else if src.as_bytes()[pos] == b' ' && pos - pos_ <= level {
-                        end = pos_;
-                        break 'outer;
+                        return pos_;
                     } else {
                         break 'inner;
                     }
                 }
             }
 
-            pos += 1;
+            pos += 1
         }
-
-        end
     }
 
     pub fn is_commented(&self) -> bool {

@@ -12,25 +12,13 @@ impl<'a> Keyword<'a> {
 
         let end = eol!(src);
 
-        if end == key + 1 {
-            Some((
-                Keyword {
-                    key: &src[2..key],
-                    value: "",
-                },
-                end,
-            ))
-        } else {
-            let space = position!(src, key + 1, |c| !c.is_ascii_whitespace());
-
-            Some((
-                Keyword {
-                    key: &src[2..key],
-                    value: &src[space..end],
-                },
-                end,
-            ))
-        }
+        Some((
+            Keyword {
+                key: &src[2..key],
+                value: &src[key + 1..end].trim(),
+            },
+            end,
+        ))
     }
 }
 

@@ -1,3 +1,4 @@
+#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct Rule;
 
 impl Rule {
@@ -14,10 +15,10 @@ impl Rule {
 
 #[test]
 fn parse() {
-    assert!(Rule::parse("-----").is_some());
-    assert!(Rule::parse("--------").is_some());
-    assert!(Rule::parse("   -----").is_some());
-    assert!(Rule::parse("\t\t-----").is_some());
+    assert_eq!(Rule::parse("-----").unwrap(), "-----".len());
+    assert_eq!(Rule::parse("--------").unwrap(), "--------".len());
+    assert_eq!(Rule::parse("   -----").unwrap(), "   -----".len());
+    assert_eq!(Rule::parse("\t\t-----").unwrap(), "\t\t-----".len());
 
     assert!(Rule::parse("").is_none());
     assert!(Rule::parse("----").is_none());

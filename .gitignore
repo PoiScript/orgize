@@ -1,3 +1,7 @@
 /target
 **/*.rs.bk
 Cargo.lock
+
+benches/*.org
+.gdb_history
+perf.data*

@@ -5,18 +5,21 @@ use objects::*;
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Copy, Clone, Debug)]
 pub enum Container {
-    Block,
-    Bold,
-    Drawer,
     Headline { beg: usize, end: usize },
-    Italic,
+    Section { end: usize },
+
+    Paragraph { end: usize, trailing: usize },
+
+    Block,
+    Drawer,
     LatexEnv,
     List,
-    Paragraph,
-    Section { end: usize },
-    StrikeThrough,
     Table,
-    Underline,
+
+    Italic { end: usize },
+    Strike { end: usize },
+    Bold { end: usize },
+    Underline { end: usize },
 }
 
 #[cfg_attr(test, derive(PartialEq, Debug))]
@@ -27,7 +30,9 @@ pub enum Event<'a> {
     StartSection,
     EndSection,
 
-    Paragraph,
+    StartParagraph,
+    EndParagraph,
+
     BlockStart,
     BlockEnd,
     DynBlockStart,
@@ -43,17 +48,17 @@ pub enum Event<'a> {
 
     Clock,
 
-    Comment,
+    Comment(&'a str),
 
     TableStart,
     TableEnd,
     TableCell,
 
     LatexEnv,
-    StrikeThrough,
     FnDef(FnDef<'a>),
     Keyword(Keyword<'a>),
     Rule,
+
     Cookie(Cookie<'a>),
     FnRef(FnRef<'a>),
     InlineCall(InlineCall<'a>),
@@ -63,13 +68,18 @@ pub enum Event<'a> {
     RadioTarget(RadioTarget<'a>),
     Snippet(Snippet<'a>),
     Target(Target<'a>),
-    Bold(&'a str),
-    Verbatim(&'a str),
-    Italic(&'a str),
-    Strike(&'a str),
-    Underline(&'a str),
-    Code(&'a str),
 
+    StartBold,
+    EndBold,
+    StartItalic,
+    EndItalic,
+    StartStrike,
+    EndStrike,
+    StartUnderline,
+    EndUnderline,
+
+    Verbatim(&'a str),
+    Code(&'a str),
     Text(&'a str),
 }
 
@@ -77,6 +87,8 @@ pub struct Parser<'a> {
     text: &'a str,
     stack: Vec<Container>,
     off: usize,
+    ele_buf: Option<(Element<'a>, usize)>,
+    obj_buf: Option<(Object<'a>, usize)>,
 }
 
 impl<'a> Parser<'a> {
@@ -85,6 +97,8 @@ impl<'a> Parser<'a> {
             text,
             stack: Vec::new(),
             off: 0,
+            ele_buf: None,
+            obj_buf: None,
         }
     }
 
@@ -100,11 +114,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn end_section(&mut self) -> Event<'a> {
-        self.stack.pop();
-        Event::EndSection
-    }
-
     fn start_headline(&mut self, tail: &'a str) -> Event<'a> {
         let (hdl, off, end) = Headline::parse(tail);
         self.stack.push(Container::Headline {
@@ -115,9 +124,71 @@ impl<'a> Parser<'a> {
         Event::StartHeadline(hdl)
     }
 
-    fn end_headline(&mut self) -> Event<'a> {
-        self.stack.pop();
-        Event::EndHeadline
+    fn next_ele(&mut self, end: usize) -> Event<'a> {
+        let (ele, off) = if let Some((ele, off)) = std::mem::replace(&mut self.ele_buf, None) {
+            (Some(ele), off)
+        } else {
+            let (off, ele, next_2) = Element::next_2(&self.text[self.off..end]);
+            self.ele_buf = next_2;
+            (ele, off)
+        };
+
+        self.off += off;
+
+        if let Some(ele) = ele {
+            if let Element::Paragraph { end, trailing } = ele {
+                self.stack.push(Container::Paragraph {
+                    end: end + self.off - off,
+                    trailing: trailing + self.off - off,
+                });
+            }
+            ele.into()
+        } else {
+            self.end()
+        }
+    }
+
+    fn next_obj(&mut self, end: usize) -> Event<'a> {
+        let (obj, off) = if let Some((obj, off)) = std::mem::replace(&mut self.obj_buf, None) {
+            (obj, off)
+        } else {
+            let (obj, off, next_2) = Object::next_2(&self.text[self.off..end]);
+            self.obj_buf = next_2;
+            (obj, off)
+        };
+
+        self.off += off;
+
+        match obj {
+            Object::Underline { end } => self.stack.push(Container::Underline {
+                end: self.off + end,
+            }),
+            Object::Strike { end } => self.stack.push(Container::Strike {
+                end: self.off + end,
+            }),
+            Object::Italic { end } => self.stack.push(Container::Italic {
+                end: self.off + end,
+            }),
+            Object::Bold { end } => self.stack.push(Container::Bold {
+                end: self.off + end,
+            }),
+            _ => (),
+        }
+
+        obj.into()
+    }
+
+    fn end(&mut self) -> Event<'a> {
+        match self.stack.pop().unwrap() {
+            Container::Paragraph { .. } => Event::EndParagraph,
+            Container::Underline { .. } => Event::EndUnderline,
+            Container::Section { .. } => Event::EndSection,
+            Container::Strike { .. } => Event::EndStrike,
+            Container::Headline { .. } => Event::EndHeadline,
+            Container::Italic { .. } => Event::EndItalic,
+            Container::Bold { .. } => Event::EndBold,
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -139,7 +210,7 @@ impl<'a> Iterator for Parser<'a> {
             Some(match last {
                 Container::Headline { beg, end } => {
                     if self.off >= end {
-                        self.end_headline()
+                        self.end()
                     } else if self.off == beg {
                         self.start_section_or_headline(tail)
                     } else {
@@ -148,18 +219,67 @@ impl<'a> Iterator for Parser<'a> {
                 }
                 Container::Section { end } => {
                     if self.off >= end {
-                        self.end_section()
+                        self.end()
                     } else {
-                        match Element::find_elem(&self.text[self.off..end]) {
-                            (Element::Paragraph(_), off) => {
-                                self.off += off;
-                                Event::Paragraph
-                            }
-                        }
+                        self.next_ele(end)
+                    }
+                }
+                Container::Paragraph { end, trailing } => {
+                    if self.off >= end {
+                        self.off = trailing;
+                        self.end()
+                    } else {
+                        self.next_obj(end)
+                    }
+                }
+                Container::Bold { end }
+                | Container::Underline { end }
+                | Container::Italic { end }
+                | Container::Strike { end } => {
+                    if self.off >= end {
+                        self.off += 1;
+                        self.end()
+                    } else {
+                        self.next_obj(end)
                     }
                 }
                 _ => unimplemented!(),
             })
+        }
+    }
+}
+
+impl<'a> From<Object<'a>> for Event<'a> {
+    fn from(obj: Object<'a>) -> Self {
+        match obj {
+            Object::Bold { .. } => Event::StartBold,
+            Object::Code(c) => Event::Code(c),
+            Object::Cookie(c) => Event::Cookie(c),
+            Object::FnRef(f) => Event::FnRef(f),
+            Object::InlineCall(i) => Event::InlineCall(i),
+            Object::InlineSrc(i) => Event::InlineSrc(i),
+            Object::Italic { .. } => Event::StartItalic,
+            Object::Link(l) => Event::Link(l),
+            Object::Macros(m) => Event::Macros(m),
+            Object::RadioTarget(r) => Event::RadioTarget(r),
+            Object::Snippet(s) => Event::Snippet(s),
+            Object::Strike { .. } => Event::StartStrike,
+            Object::Target(t) => Event::Target(t),
+            Object::Text(t) => Event::Text(t),
+            Object::Underline { .. } => Event::StartUnderline,
+            Object::Verbatim(v) => Event::Verbatim(v),
+        }
+    }
+}
+
+impl<'a> From<Element<'a>> for Event<'a> {
+    fn from(ele: Element<'a>) -> Self {
+        match ele {
+            Element::Comment(c) => Event::Comment(c),
+            Element::FnDef(fd) => Event::FnDef(fd),
+            Element::Keyword(kw) => Event::Keyword(kw),
+            Element::Paragraph { .. } => Event::StartParagraph,
+            Element::Rule => Event::Rule,
         }
     }
 }
@@ -171,29 +291,52 @@ fn parse() {
     let expected = vec![
         StartHeadline(Headline::new(1, None, None, "Title 1", None)),
         StartSection,
-        Paragraph,
+        StartParagraph,
+        StartBold,
+        Text("Section 1"),
+        EndBold,
+        EndParagraph,
         EndSection,
         StartHeadline(Headline::new(2, None, None, "Title 2", None)),
         StartSection,
-        Paragraph,
+        StartParagraph,
+        StartUnderline,
+        Text("Section 2"),
+        EndUnderline,
+        EndParagraph,
         EndSection,
         EndHeadline,
         EndHeadline,
         StartHeadline(Headline::new(1, None, None, "Title 3", None)),
         StartSection,
-        Paragraph,
+        StartParagraph,
+        StartItalic,
+        Text("Section 3"),
+        EndItalic,
+        EndParagraph,
         EndSection,
         EndHeadline,
-        StartHeadline(Headline::new(1, None, None, "Title 4 ", None)),
+        StartHeadline(Headline::new(1, None, None, "Title 4", None)),
         StartSection,
-        Paragraph,
+        StartParagraph,
+        Verbatim("Section 4"),
+        EndParagraph,
         EndSection,
         EndHeadline,
     ];
 
     assert_eq!(
-        Parser::new("* Title 1\nSection 1\n** Title 2\nSection 2\n* Title 3\nSection 3\n* Title 4 \nSection 4")
-            .collect::<Vec<_>>(),
+        Parser::new(
+            r#"* Title 1
+*Section 1*
+** Title 2
+_Section 2_
+* Title 3
+/Section 3/
+* Title 4
+=Section 4="#
+        )
+        .collect::<Vec<_>>(),
         expected
     );
 }

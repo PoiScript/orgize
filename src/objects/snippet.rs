@@ -14,12 +14,12 @@ impl<'a> Snippet<'a> {
             return None;
         }
 
-        let end = find!(src, name + 1, "@@");
+        let end = &src[name + 1..].find("@@").map(|i| i + name + 1)?;
 
         Some((
             Snippet {
                 name: &src[2..name],
-                value: &src[name + 1..end],
+                value: &src[name + 1..*end],
             },
             end + 2,
         ))

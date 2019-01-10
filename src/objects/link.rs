@@ -26,7 +26,7 @@ impl<'a> Link<'a> {
                 && c != b'['
                 && c != b'\n');
 
-            expect!(src, desc + 1, b']');
+            expect!(src, desc + 1, b']')?;
 
             Some((
                 Link {

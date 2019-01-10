@@ -1,8 +1,6 @@
-use objects::Objects;
-
 #[cfg_attr(test, derive(PartialEq, Debug))]
 // TODO: text-markup, entities, latex-fragments, subscript and superscript
-pub struct RadioTarget<'a>(Objects<'a>);
+pub struct RadioTarget<'a>(&'a str);
 
 impl<'a> RadioTarget<'a> {
     pub fn parse(src: &'a str) -> Option<(RadioTarget<'a>, usize)> {
@@ -12,10 +10,10 @@ impl<'a> RadioTarget<'a> {
         let end = until_while!(src, 3, b'>', |c| c != b'<' && c != b'\n');
 
         expect!(src, end - 1, |c| c != b' ');
-        expect!(src, end + 1, b'>');
-        expect!(src, end + 2, b'>');
+        expect!(src, end + 1, b'>')?;
+        expect!(src, end + 2, b'>')?;
 
-        Some((RadioTarget(Objects::new(&src[3..end])), end + 3))
+        Some((RadioTarget(&src[3..end]), end + 3))
     }
 }
 
@@ -30,7 +28,7 @@ impl<'a> Target<'a> {
         let end = until_while!(src, 2, b'>', |c| c != b'<' && c != b'\n');
 
         expect!(src, end - 1, |c| c != b' ');
-        expect!(src, end + 1, b'>');
+        expect!(src, end + 1, b'>')?;
 
         Some((Target(&src[2..end]), end + 2))
     }
@@ -40,19 +38,19 @@ impl<'a> Target<'a> {
 fn parse() {
     assert_eq!(
         RadioTarget::parse("<<<target>>>").unwrap(),
-        (RadioTarget(Objects::new("target")), "<<<target>>>".len())
+        (RadioTarget("target"), "<<<target>>>".len())
     );
     assert_eq!(
         RadioTarget::parse("<<<tar get>>>").unwrap(),
-        (RadioTarget(Objects::new("tar get")), "<<<tar get>>>".len())
+        (RadioTarget("tar get"), "<<<tar get>>>".len())
     );
-    assert!(RadioTarget::parse("<<<target >>>").is_none());
-    assert!(RadioTarget::parse("<<< target>>>").is_none());
-    assert!(RadioTarget::parse("<<<ta<get>>>").is_none());
-    assert!(RadioTarget::parse("<<<ta>get>>>").is_none());
-    assert!(RadioTarget::parse("<<<ta\nget>>>").is_none());
-    assert!(RadioTarget::parse("<<target>>>").is_none());
-    assert!(RadioTarget::parse("<<<target>>").is_none());
+    parse_fail!(RadioTarget, "<<<target >>>");
+    parse_fail!(RadioTarget, "<<< target>>>");
+    parse_fail!(RadioTarget, "<<<ta<get>>>");
+    parse_fail!(RadioTarget, "<<<ta>get>>>");
+    parse_fail!(RadioTarget, "<<<ta\nget>>>");
+    parse_fail!(RadioTarget, "<<target>>>");
+    parse_fail!(RadioTarget, "<<<target>>");
 
     assert_eq!(
         Target::parse("<<target>>").unwrap(),
@@ -62,11 +60,11 @@ fn parse() {
         Target::parse("<<tar get>>").unwrap(),
         (Target("tar get"), "<<tar get>>".len())
     );
-    assert!(Target::parse("<<target >>").is_none());
-    assert!(Target::parse("<< target>>").is_none());
-    assert!(Target::parse("<<ta<get>>").is_none());
-    assert!(Target::parse("<<ta>get>>").is_none());
-    assert!(Target::parse("<<ta\nget>>").is_none());
-    assert!(Target::parse("<target>>").is_none());
-    assert!(Target::parse("<<target>").is_none());
+    parse_fail!(Target, "<<target >>");
+    parse_fail!(Target, "<< target>>");
+    parse_fail!(Target, "<<ta<get>>");
+    parse_fail!(Target, "<<ta>get>>");
+    parse_fail!(Target, "<<ta\nget>>");
+    parse_fail!(Target, "<target>>");
+    parse_fail!(Target, "<<target>");
 }
