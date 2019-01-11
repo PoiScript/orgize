@@ -5,8 +5,10 @@ extern crate jetscii;
 mod utils;
 
 mod elements;
+mod export;
 mod headline;
 mod objects;
 mod parser;
 
+pub use export::{HtmlHandler, Render};
 pub use parser::Parser;

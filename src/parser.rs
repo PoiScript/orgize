@@ -71,8 +71,6 @@ pub enum Event<'a> {
     DynBlockEnd,
     ListStart,
     ListEnd,
-    ParagraphStart,
-    ParagraphEnd,
 
     AffKeywords,
 
