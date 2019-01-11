@@ -1,4 +1,4 @@
-//! Until macros
+//! Utils macros
 
 #[macro_export]
 macro_rules! expect {

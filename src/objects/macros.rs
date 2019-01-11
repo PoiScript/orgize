@@ -1,3 +1,5 @@
+use jetscii::Substring;
+
 #[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct Macros<'a> {
     pub name: &'a str,
@@ -27,12 +29,12 @@ impl<'a> Macros<'a> {
                 name + 3,
             ))
         } else {
-            let end = &src[name..].find("}}}").map(|i| i + name)?;
+            let end = Substring::new("}}}").find(&src[name..]).map(|i| i + name)?;
             expect!(src, end - 1, b')')?;
             Some((
                 Macros {
                     name: &src[3..name],
-                    args: if name == *end {
+                    args: if name == end {
                         None
                     } else {
                         Some(&src[name + 1..end - 1])

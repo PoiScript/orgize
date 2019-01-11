@@ -29,14 +29,14 @@ impl Emphasis {
                 || ch == b'}');
         }
 
-        Some(end - 1)
+        Some(end)
     }
 }
 
 #[test]
 fn parse() {
-    assert_eq!(Emphasis::parse("*bold*", b'*').unwrap(), "bold".len());
-    assert_eq!(Emphasis::parse("*bo\nld*", b'*').unwrap(), "bo\nld".len());
+    assert_eq!(Emphasis::parse("*bold*", b'*').unwrap(), "*bold".len());
+    assert_eq!(Emphasis::parse("*bo\nld*", b'*').unwrap(), "*bo\nld".len());
     assert!(Emphasis::parse("*bold*a", b'*').is_none());
     assert!(Emphasis::parse("*bold*", b'/').is_none());
     assert!(Emphasis::parse("*bold *", b'*').is_none());

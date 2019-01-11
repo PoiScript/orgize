@@ -112,14 +112,14 @@ impl<'a> Headline<'a> {
     // TODO: optimize
     pub fn find_level(src: &str, level: usize) -> usize {
         let mut pos = 0;
-        'outer: loop {
+        loop {
             if pos >= src.len() {
                 return src.len();
             }
 
             if src.as_bytes()[pos] == b'*' && (pos == 0 || src.as_bytes()[pos - 1] == b'\n') {
                 let pos_ = pos;
-                'inner: loop {
+                loop {
                     if pos >= src.len() {
                         return src.len();
                     }
@@ -128,7 +128,7 @@ impl<'a> Headline<'a> {
                     } else if src.as_bytes()[pos] == b' ' && pos - pos_ <= level {
                         return pos_;
                     } else {
-                        break 'inner;
+                        break;
                     }
                 }
             }

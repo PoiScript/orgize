@@ -156,58 +156,56 @@ impl<'a> Parser<'a> {
     }
 
     fn next_ele(&mut self, end: usize) -> Event<'a> {
-        let (ele, off) = if let Some((ele, off)) = std::mem::replace(&mut self.ele_buf, None) {
-            (Some(ele), off)
-        } else {
-            let (off, ele, next_2) = Element::next_2(&self.text[self.off..end]);
-            self.ele_buf = next_2;
-            (ele, off)
-        };
-
-        self.off += off;
+        let (ele, off) = self
+            .ele_buf
+            .take()
+            .map(|(ele, off)| (Some(ele), off))
+            .unwrap_or_else(|| {
+                let (off, ele, next_2) = Element::next_2(&self.text[self.off..end]);
+                self.ele_buf = next_2;
+                (ele, off)
+            });
 
         if let Some(ele) = ele {
             match ele {
                 Element::Paragraph { end, trailing } => self.stack.push(Container::Paragraph {
-                    end: end + self.off - off,
-                    trailing: trailing + self.off - off,
+                    end: end + self.off,
+                    trailing: trailing + self.off,
                 }),
                 Element::QuoteBlock {
                     end, content_end, ..
                 } => self.stack.push(Container::QuoteBlock {
-                    content_end: content_end + self.off - off,
-                    end: end + self.off - off,
+                    content_end: content_end + self.off,
+                    end: end + self.off,
                 }),
                 Element::CenterBlock {
                     end, content_end, ..
                 } => self.stack.push(Container::CenterBlock {
-                    content_end: content_end + self.off - off,
-                    end: end + self.off - off,
+                    content_end: content_end + self.off,
+                    end: end + self.off,
                 }),
                 Element::SpecialBlock {
                     end, content_end, ..
                 } => self.stack.push(Container::SpecialBlock {
-                    content_end: content_end + self.off - off,
-                    end: end + self.off - off,
+                    content_end: content_end + self.off,
+                    end: end + self.off,
                 }),
                 _ => (),
             }
+            self.off += off;
             ele.into()
         } else {
+            self.off += off;
             self.end()
         }
     }
 
     fn next_obj(&mut self, end: usize) -> Event<'a> {
-        let (obj, off) = if let Some((obj, off)) = std::mem::replace(&mut self.obj_buf, None) {
-            (obj, off)
-        } else {
+        let (obj, off) = self.obj_buf.take().unwrap_or_else(|| {
             let (obj, off, next_2) = Object::next_2(&self.text[self.off..end]);
             self.obj_buf = next_2;
             (obj, off)
-        };
-
-        self.off += off;
+        });
 
         match obj {
             Object::Underline { end } => self.stack.push(Container::Underline {
@@ -224,6 +222,8 @@ impl<'a> Parser<'a> {
             }),
             _ => (),
         }
+
+        self.off += off;
 
         obj.into()
     }

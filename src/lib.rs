@@ -1,4 +1,7 @@
 #[macro_use]
+extern crate jetscii;
+
+#[macro_use]
 mod utils;
 
 mod elements;
