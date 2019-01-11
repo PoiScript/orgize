@@ -1,4 +1,5 @@
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct InlineCall<'a> {
     pub name: &'a str,
     pub args: &'a str,

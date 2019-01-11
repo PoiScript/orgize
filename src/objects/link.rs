@@ -1,4 +1,5 @@
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Link<'a> {
     pub path: &'a str,
     pub desc: Option<&'a str>,
@@ -6,7 +7,9 @@ pub struct Link<'a> {
 
 impl<'a> Link<'a> {
     pub fn parse(src: &'a str) -> Option<(Link<'a>, usize)> {
-        starts_with!(src, "[[");
+        if cfg!(test) {
+            starts_with!(src, "[[");
+        }
 
         let path = until_while!(src, 2, b']', |c| c != b']'
             && c != b'<'

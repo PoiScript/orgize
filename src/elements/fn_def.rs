@@ -1,4 +1,5 @@
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct FnDef<'a> {
     pub label: &'a str,
     pub contents: &'a str,

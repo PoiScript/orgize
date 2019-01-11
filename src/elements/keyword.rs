@@ -1,4 +1,5 @@
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Keyword<'a> {
     pub key: &'a str,
     pub value: &'a str,
@@ -6,11 +7,14 @@ pub struct Keyword<'a> {
 
 impl<'a> Keyword<'a> {
     pub fn parse(src: &'a str) -> Option<(Keyword<'a>, usize)> {
-        starts_with!(src, "#+");
+        if cfg!(test) {
+            starts_with!(src, "#+");
+        }
 
         let key = until_while!(src, 2, b':', |c: u8| c.is_ascii_uppercase() || c == b'_');
 
-        let end = eol!(src);
+        // includes the eol character
+        let end = src.find('\n').map(|i| i + 1).unwrap_or(src.len());
 
         Some((
             Keyword {
@@ -22,14 +26,16 @@ impl<'a> Keyword<'a> {
     }
 }
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct AffKeyword<'a> {
     pub key: AffKeywordKey<'a>,
     pub option: Option<&'a str>,
     pub value: &'a str,
 }
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub enum AffKeywordKey<'a> {
     Caption,
     Header,
@@ -141,13 +147,13 @@ fn parse() {
         )
     );
     assert_eq!(
-        Keyword::parse("#+KEY:VALUE").unwrap(),
+        Keyword::parse("#+KEY:VALUE\n").unwrap(),
         (
             Keyword {
                 key: "KEY",
                 value: "VALUE",
             },
-            "#+KEY:VALUE".len()
+            "#+KEY:VALUE\n".len()
         )
     );
     assert!(Keyword::parse("#+KE Y: VALUE").is_none());

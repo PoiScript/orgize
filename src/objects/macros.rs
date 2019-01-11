@@ -1,6 +1,7 @@
 use jetscii::Substring;
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Macros<'a> {
     pub name: &'a str,
     pub args: Option<&'a str>,

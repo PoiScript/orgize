@@ -1,4 +1,5 @@
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct DynBlock<'a> {
     pub name: &'a str,
     pub para: &'a str,

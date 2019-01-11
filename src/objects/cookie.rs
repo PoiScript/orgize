@@ -1,11 +1,14 @@
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Cookie<'a> {
     value: &'a str,
 }
 
 impl<'a> Cookie<'a> {
     pub fn parse(src: &'a str) -> Option<(Cookie<'a>, usize)> {
-        starts_with!(src, '[');
+        if cfg!(test) {
+            starts_with!(src, '[');
+        }
 
         let num1 = until_while!(src, 1, |c| c == b'%' || c == b'/', |c: u8| c
             .is_ascii_digit());

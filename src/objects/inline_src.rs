@@ -1,4 +1,5 @@
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct InlineSrc<'a> {
     pub lang: &'a str,
     pub option: Option<&'a str>,

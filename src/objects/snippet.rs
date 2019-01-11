@@ -1,6 +1,7 @@
 use jetscii::Substring;
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Snippet<'a> {
     pub name: &'a str,
     pub value: &'a str,
@@ -8,7 +9,9 @@ pub struct Snippet<'a> {
 
 impl<'a> Snippet<'a> {
     pub fn parse(src: &'a str) -> Option<(Snippet<'a>, usize)> {
-        starts_with!(src, "@@");
+        if cfg!(test) {
+            starts_with!(src, "@@");
+        }
 
         let name = until_while!(src, 2, b':', |c: u8| c.is_ascii_alphanumeric() || c == b'-');
 

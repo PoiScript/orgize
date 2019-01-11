@@ -1,10 +1,14 @@
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 // TODO: text-markup, entities, latex-fragments, subscript and superscript
 pub struct RadioTarget<'a>(&'a str);
 
 impl<'a> RadioTarget<'a> {
     pub fn parse(src: &'a str) -> Option<(RadioTarget<'a>, usize)> {
-        starts_with!(src, "<<<");
+        if cfg!(test) {
+            starts_with!(src, "<<<");
+        }
+
         expect!(src, 3, |c| c != b' ');
 
         let end = until_while!(src, 3, b'>', |c| c != b'<' && c != b'\n');
@@ -17,12 +21,16 @@ impl<'a> RadioTarget<'a> {
     }
 }
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Target<'a>(&'a str);
 
 impl<'a> Target<'a> {
     pub fn parse(src: &'a str) -> Option<(Target<'a>, usize)> {
-        starts_with!(src, "<<");
+        if cfg!(test) {
+            starts_with!(src, "<<");
+        }
+
         expect!(src, 2, |c| c != b' ');
 
         let end = until_while!(src, 2, b'>', |c| c != b'<' && c != b'\n');

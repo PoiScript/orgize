@@ -24,7 +24,8 @@ pub enum Container {
     Underline { end: usize },
 }
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub enum Event<'a> {
     StartHeadline(Headline<'a>),
     EndHeadline,
