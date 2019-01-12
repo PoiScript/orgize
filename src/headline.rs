@@ -47,7 +47,7 @@ impl<'a> Headline<'a> {
     #[inline]
     fn parse_tags(src: &'a str) -> (Option<&'a str>, usize) {
         if let Some(last) = src.split_whitespace().last() {
-            if last.starts_with(':') && last.ends_with(':') {
+            if last.len() > 2 && last.starts_with(':') && last.ends_with(':') {
                 (Some(last), src.rfind(':').unwrap() - last.len())
             } else {
                 (None, src.len())

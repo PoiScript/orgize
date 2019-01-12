@@ -3,7 +3,8 @@
 pub struct Block;
 
 impl Block {
-    pub fn parse(src: &str) -> Option<(usize, usize, usize, usize)> {
+    // return (name, args, contents-begin, contents-end, end)
+    pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
         if src.len() < 17 || !src[0..8].eq_ignore_ascii_case("#+BEGIN_") {
             return None;
         }
@@ -15,7 +16,17 @@ impl Block {
         let content = src.find(&format!("\n#+END_{}", &src[8..name]))?;
         let end = eol!(src, content + 1);
 
-        Some((name, args, content, end + 1))
+        Some((
+            &src[8..name],
+            if name == args {
+                None
+            } else {
+                Some(&src[name..args])
+            },
+            args,
+            content + 1,
+            end + 1,
+        ))
     }
 }
 

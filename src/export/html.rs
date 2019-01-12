@@ -1,4 +1,5 @@
-use elements::{FnDef, Keyword};
+#![allow(unused_variables)]
+
 use export::Handler;
 use headline::Headline;
 use objects::{Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target};
@@ -53,25 +54,35 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_end_special_block(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</div>")
     }
-    fn handle_comment_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()> {
+    fn handle_comment_block(
+        &mut self,
+        w: &mut W,
+        contents: &str,
+        args: Option<&str>,
+    ) -> Result<()> {
         Ok(())
     }
-    fn handle_example_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()> {
-        write!(w, "<pre><code>{}</code></pre>", content)
+    fn handle_example_block(
+        &mut self,
+        w: &mut W,
+        contents: &str,
+        args: Option<&str>,
+    ) -> Result<()> {
+        write!(w, "<pre><code>{}</code></pre>", contents)
     }
-    fn handle_export_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()> {
+    fn handle_export_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_src_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()> {
-        write!(w, "<pre><code>{}</code></pre>", content)
+    fn handle_src_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()> {
+        write!(w, "<pre><code>{}</code></pre>", contents)
     }
-    fn handle_verse_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()> {
+    fn handle_verse_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_dyn_block_start(&mut self, w: &mut W) -> Result<()> {
+    fn handle_start_dyn_block(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_dyn_block_end(&mut self, w: &mut W) -> Result<()> {
+    fn handle_end_dyn_block(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }
     fn handle_list_start(&mut self, w: &mut W) -> Result<()> {
@@ -89,7 +100,7 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_clock(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }
-    fn handle_comment(&mut self, w: &mut W, content: &str) -> Result<()> {
+    fn handle_comment(&mut self, w: &mut W, contents: &str) -> Result<()> {
         Ok(())
     }
     fn handle_table_start(&mut self, w: &mut W) -> Result<()> {
@@ -104,10 +115,10 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_latex_env(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }
-    fn handle_fn_def(&mut self, w: &mut W, fn_def: FnDef) -> Result<()> {
+    fn handle_fn_def(&mut self, w: &mut W, label: &str, contents: &str) -> Result<()> {
         Ok(())
     }
-    fn handle_keyword(&mut self, w: &mut W, kw: Keyword) -> Result<()> {
+    fn handle_keyword(&mut self, w: &mut W, key: &str, value: &str) -> Result<()> {
         Ok(())
     }
     fn handle_rule(&mut self, w: &mut W) -> Result<()> {
@@ -140,7 +151,11 @@ impl<W: Write> Handler<W> for HtmlHandler {
         Ok(())
     }
     fn handle_snippet(&mut self, w: &mut W, snippet: Snippet) -> Result<()> {
-        Ok(())
+        if snippet.name.eq_ignore_ascii_case("HTML") {
+            write!(w, "{}", snippet.value)
+        } else {
+            Ok(())
+        }
     }
     fn handle_target(&mut self, w: &mut W, target: Target) -> Result<()> {
         Ok(())
@@ -169,13 +184,13 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_end_underline(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</u>")
     }
-    fn handle_verbatim(&mut self, w: &mut W, content: &str) -> Result<()> {
-        write!(w, "<code>{}</code>", content)
+    fn handle_verbatim(&mut self, w: &mut W, contents: &str) -> Result<()> {
+        write!(w, "<code>{}</code>", contents)
     }
-    fn handle_code(&mut self, w: &mut W, content: &str) -> Result<()> {
-        write!(w, "<code>{}</code>", content)
+    fn handle_code(&mut self, w: &mut W, contents: &str) -> Result<()> {
+        write!(w, "<code>{}</code>", contents)
     }
-    fn handle_text(&mut self, w: &mut W, content: &str) -> Result<()> {
-        write!(w, "{}", content.replace('\n', " "))
+    fn handle_text(&mut self, w: &mut W, contents: &str) -> Result<()> {
+        write!(w, "{}", contents.replace('\n', " "))
     }
 }

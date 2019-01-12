@@ -16,13 +16,13 @@ macro_rules! expect {
 #[macro_export]
 macro_rules! eol {
     ($src:expr) => {
-        $src.find('\n').unwrap_or($src.len())
+        $src.find('\n').unwrap_or_else(|| $src.len())
     };
     ($src:expr, $from:expr) => {
         $src[$from..]
             .find('\n')
             .map(|i| i + $from)
-            .unwrap_or($src.len())
+            .unwrap_or_else(|| $src.len())
     };
 }
 
@@ -132,6 +132,9 @@ macro_rules! starts_with {
 
 #[macro_export]
 macro_rules! skip_space {
+    ($src:ident) => {
+        until!($src, |c| c != b' ').unwrap_or(0)
+    };
     ($src:ident, $from:expr) => {
         until!($src[$from..], |c| c != b' ').unwrap_or(0) + $from
     };

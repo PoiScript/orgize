@@ -13,7 +13,7 @@ impl<'a> Cookie<'a> {
         let num1 = until_while!(src, 1, |c| c == b'%' || c == b'/', |c: u8| c
             .is_ascii_digit());
 
-        if src.len() > num1 && src.as_bytes()[num1 + 1] == b']' {
+        if src.as_bytes()[num1] == b'%' && *src.as_bytes().get(num1 + 1)? == b']' {
             Some((
                 Cookie {
                     value: &src[0..num1 + 2],

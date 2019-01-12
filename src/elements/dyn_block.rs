@@ -1,12 +1,10 @@
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
-pub struct DynBlock<'a> {
-    pub name: &'a str,
-    pub para: &'a str,
-}
+pub struct DynBlock;
 
-impl<'a> DynBlock<'a> {
-    pub fn parse(src: &'a str) -> Option<(DynBlock<'a>, usize, usize)> {
+impl DynBlock {
+    // return (name, parameters, contents-begin, contents-end, end)
+    pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
         if src.len() < 17 || !src[0..9].eq_ignore_ascii_case("#+BEGIN: ") {
             return None;
         }
@@ -19,12 +17,15 @@ impl<'a> DynBlock<'a> {
         let end = eol!(src, content + 1);
 
         Some((
-            DynBlock {
-                name: &src[9..name],
-                para: &src[name..args].trim(),
+            &src[9..name],
+            if name == args {
+                None
+            } else {
+                Some(&src[name..args].trim())
             },
-            content,
-            end,
+            args,
+            content + 1,
+            end + 1,
         ))
     }
 }
@@ -34,18 +35,11 @@ fn parse() {
     // TODO: testing
     assert_eq!(
         DynBlock::parse(
-            r"#+BEGIN: clocktable :scope file :block yesterday
+            r"#+BEGIN: clocktable :scope file
 CONTENTS
 #+END:
 "
         ),
-        Some((
-            DynBlock {
-                name: "clocktable",
-                para: ":scope file :block yesterday"
-            },
-            57,
-            64
-        ))
+        Some(("clocktable", Some(":scope file"), 31, 41, 48))
     )
 }

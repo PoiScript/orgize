@@ -9,14 +9,10 @@ pub enum Container {
     Section { end: usize },
 
     Paragraph { end: usize, trailing: usize },
-    CenterBlock { content_end: usize, end: usize },
-    QuoteBlock { content_end: usize, end: usize },
-    SpecialBlock { content_end: usize, end: usize },
-
-    Drawer,
-    LatexEnv,
-    List,
-    Table,
+    CenterBlock { contents_end: usize, end: usize },
+    QuoteBlock { contents_end: usize, end: usize },
+    SpecialBlock { contents_end: usize, end: usize },
+    DynBlock { contents_end: usize, end: usize },
 
     Italic { end: usize },
     Strike { end: usize },
@@ -45,30 +41,33 @@ pub enum Event<'a> {
         args: Option<&'a str>,
     },
     EndSpecialBlock,
+    StartDynBlock {
+        name: &'a str,
+        args: Option<&'a str>,
+    },
+    EndDynBlock,
 
     CommentBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
     ExampleBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
     ExportBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
     SrcBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
     VerseBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
 
-    DynBlockStart,
-    DynBlockEnd,
     ListStart,
     ListEnd,
 
@@ -85,8 +84,14 @@ pub enum Event<'a> {
     TableCell,
 
     LatexEnv,
-    FnDef(FnDef<'a>),
-    Keyword(Keyword<'a>),
+    FnDef {
+        label: &'a str,
+        contents: &'a str,
+    },
+    Keyword {
+        key: &'a str,
+        value: &'a str,
+    },
     Rule,
 
     Cookie(Cookie<'a>),
@@ -172,21 +177,27 @@ impl<'a> Parser<'a> {
                     trailing: trailing + self.off,
                 }),
                 Element::QuoteBlock {
-                    end, content_end, ..
+                    end, contents_end, ..
                 } => self.stack.push(Container::QuoteBlock {
-                    content_end: content_end + self.off,
+                    contents_end: contents_end + self.off,
                     end: end + self.off,
                 }),
                 Element::CenterBlock {
-                    end, content_end, ..
+                    end, contents_end, ..
                 } => self.stack.push(Container::CenterBlock {
-                    content_end: content_end + self.off,
+                    contents_end: contents_end + self.off,
                     end: end + self.off,
                 }),
                 Element::SpecialBlock {
-                    end, content_end, ..
+                    end, contents_end, ..
                 } => self.stack.push(Container::SpecialBlock {
-                    content_end: content_end + self.off,
+                    contents_end: contents_end + self.off,
+                    end: end + self.off,
+                }),
+                Element::DynBlock {
+                    end, contents_end, ..
+                } => self.stack.push(Container::DynBlock {
+                    contents_end: contents_end + self.off,
                     end: end + self.off,
                 }),
                 _ => (),
@@ -239,7 +250,7 @@ impl<'a> Parser<'a> {
             Container::CenterBlock { .. } => Event::EndCenterBlock,
             Container::QuoteBlock { .. } => Event::EndQuoteBlock,
             Container::SpecialBlock { .. } => Event::EndSpecialBlock,
-            _ => unimplemented!(),
+            Container::DynBlock { .. } => Event::EndDynBlock,
         }
     }
 }
@@ -248,12 +259,11 @@ impl<'a> Iterator for Parser<'a> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Event<'a>> {
-        let tail = &self.text[self.off..];
-
         if self.stack.is_empty() {
             if self.off >= self.text.len() {
                 None
             } else {
+                let tail = &self.text[self.off..];
                 Some(self.start_section_or_headline(tail))
             }
         } else {
@@ -261,6 +271,7 @@ impl<'a> Iterator for Parser<'a> {
 
             Some(match last {
                 Container::Headline { beg, end } => {
+                    let tail = &self.text[self.off..];
                     if self.off >= end {
                         self.end()
                     } else if self.off == beg {
@@ -269,20 +280,23 @@ impl<'a> Iterator for Parser<'a> {
                         self.start_headline(tail)
                     }
                 }
-                Container::CenterBlock {
-                    content_end, end, ..
+                Container::DynBlock {
+                    contents_end, end, ..
+                }
+                | Container::CenterBlock {
+                    contents_end, end, ..
                 }
                 | Container::QuoteBlock {
-                    content_end, end, ..
+                    contents_end, end, ..
                 }
                 | Container::SpecialBlock {
-                    content_end, end, ..
+                    contents_end, end, ..
                 } => {
-                    if self.off >= content_end {
+                    if self.off >= contents_end {
                         self.off = end;
                         self.end()
                     } else {
-                        self.next_ele(content_end)
+                        self.next_ele(contents_end)
                     }
                 }
                 Container::Section { end } => {
@@ -311,7 +325,6 @@ impl<'a> Iterator for Parser<'a> {
                         self.next_obj(end)
                     }
                 }
-                _ => unimplemented!(),
             })
         }
     }
@@ -344,18 +357,19 @@ impl<'a> From<Element<'a>> for Event<'a> {
     fn from(ele: Element<'a>) -> Self {
         match ele {
             Element::Comment(c) => Event::Comment(c),
-            Element::FnDef(fd) => Event::FnDef(fd),
-            Element::Keyword(kw) => Event::Keyword(kw),
+            Element::FnDef { label, contents } => Event::FnDef { label, contents },
+            Element::Keyword { key, value } => Event::Keyword { key, value },
             Element::Paragraph { .. } => Event::StartParagraph,
             Element::Rule => Event::Rule,
             Element::CenterBlock { .. } => Event::StartCenterBlock,
             Element::QuoteBlock { .. } => Event::StartQuoteBlock,
+            Element::DynBlock { name, args, .. } => Event::StartDynBlock { name, args },
             Element::SpecialBlock { name, args, .. } => Event::StartSpecialBlock { name, args },
-            Element::CommentBlock { args, content } => Event::CommentBlock { args, content },
-            Element::ExampleBlock { args, content } => Event::ExampleBlock { args, content },
-            Element::ExportBlock { args, content } => Event::ExportBlock { args, content },
-            Element::SrcBlock { args, content } => Event::SrcBlock { args, content },
-            Element::VerseBlock { args, content } => Event::VerseBlock { args, content },
+            Element::CommentBlock { args, contents } => Event::CommentBlock { args, contents },
+            Element::ExampleBlock { args, contents } => Event::ExampleBlock { args, contents },
+            Element::ExportBlock { args, contents } => Event::ExportBlock { args, contents },
+            Element::SrcBlock { args, contents } => Event::SrcBlock { args, contents },
+            Element::VerseBlock { args, contents } => Event::VerseBlock { args, contents },
         }
     }
 }

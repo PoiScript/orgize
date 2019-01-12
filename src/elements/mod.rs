@@ -2,12 +2,14 @@ pub mod block;
 pub mod dyn_block;
 pub mod fn_def;
 pub mod keyword;
+pub mod list;
 pub mod rule;
 
 pub use self::block::Block;
 pub use self::dyn_block::DynBlock;
 pub use self::fn_def::FnDef;
 pub use self::keyword::Keyword;
+pub use self::list::List;
 pub use self::rule::Rule;
 
 #[cfg_attr(test, derive(PartialEq, Debug))]
@@ -18,44 +20,55 @@ pub enum Element<'a> {
         // trailing space
         trailing: usize,
     },
-    Keyword(Keyword<'a>),
-    FnDef(FnDef<'a>),
-
+    Keyword {
+        key: &'a str,
+        value: &'a str,
+    },
+    FnDef {
+        label: &'a str,
+        contents: &'a str,
+    },
     CenterBlock {
         args: Option<&'a str>,
-        content_end: usize,
+        contents_end: usize,
         end: usize,
     },
     QuoteBlock {
         args: Option<&'a str>,
-        content_end: usize,
+        contents_end: usize,
         end: usize,
     },
     SpecialBlock {
         args: Option<&'a str>,
         name: &'a str,
-        content_end: usize,
+        contents_end: usize,
         end: usize,
     },
     CommentBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
     ExampleBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
     ExportBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
     SrcBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
     },
     VerseBlock {
-        content: &'a str,
         args: Option<&'a str>,
+        contents: &'a str,
+    },
+    DynBlock {
+        args: Option<&'a str>,
+        name: &'a str,
+        contents_end: usize,
+        end: usize,
     },
     Rule,
     Comment(&'a str),
@@ -75,9 +88,9 @@ impl<'a> Element<'a> {
         loop {
             // Unlike other element, footnote definition must starts at column 0
             if bytes[pos] == b'[' {
-                if let Some((fd, off)) = FnDef::parse(&src[pos..]) {
+                if let Some((label, contents, off)) = FnDef::parse(&src[pos..]) {
                     return if pos == start {
-                        (off + 1, Some(Element::FnDef(fd)), None)
+                        (off + 1, Some(Element::FnDef { label, contents }), None)
                     } else {
                         (
                             start,
@@ -85,7 +98,7 @@ impl<'a> Element<'a> {
                                 end: pos - 1,
                                 trailing: pos,
                             }),
-                            Some((Element::FnDef(fd), off + 1)),
+                            Some((Element::FnDef { label, contents }, off + 1)),
                         )
                     };
                 }
@@ -103,7 +116,7 @@ impl<'a> Element<'a> {
                             (
                                 start,
                                 Some(Element::Paragraph {
-                                    end: end - 1,
+                                    end,
                                     trailing: pos - 1,
                                 }),
                                 Some(($ele, $off)),
@@ -113,14 +126,7 @@ impl<'a> Element<'a> {
                 }
 
                 if bytes[pos] == b'\n' {
-                    return (
-                        start,
-                        Some(Element::Paragraph {
-                            end: end - 1,
-                            trailing: pos,
-                        }),
-                        None,
-                    );
+                    return (start, Some(Element::Paragraph { end, trailing: pos }), None);
                 }
 
                 // TODO: LaTeX environment
@@ -133,112 +139,99 @@ impl<'a> Element<'a> {
                     }
                 }
 
-                if bytes[pos] == b'#' && bytes[pos + 1] == b'+' {
-                    if let Some((name, args, content, end)) = Block::parse(&src[pos..]) {
-                        match &src[pos + 8..pos + name] {
-                            block_name if block_name.eq_ignore_ascii_case("CENTER") => ret!(
-                                Element::CenterBlock {
-                                    args: if name == args {
-                                        None
-                                    } else {
-                                        Some(&src[pos + name..pos + args])
-                                    },
-                                    content_end: content + 1,
-                                    end,
-                                },
-                                pos + args
-                            ),
-                            block_name if block_name.eq_ignore_ascii_case("QUOTE") => ret!(
-                                Element::QuoteBlock {
-                                    args: if name == args {
-                                        None
-                                    } else {
-                                        Some(&src[pos + name..pos + args].trim())
-                                    },
-                                    content_end: content + 1,
-                                    end,
-                                },
-                                pos + args
-                            ),
-                            block_name if block_name.eq_ignore_ascii_case("COMMENT") => ret!(
+                if bytes[pos] == b'#' && bytes.get(pos + 1).filter(|&&b| b == b'+').is_some() {
+                    if let Some((name, args, contents_beg, contents_end, end)) =
+                        Block::parse(&src[pos..])
+                    {
+                        match name.to_uppercase().as_str() {
+                            "COMMENT" => ret!(
                                 Element::CommentBlock {
-                                    args: if name == args {
-                                        None
-                                    } else {
-                                        Some(&src[pos + name..pos + args])
-                                    },
-                                    content: &src[pos + args + 1..pos + content],
+                                    args,
+                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
                                 },
                                 pos + end
                             ),
-                            block_name if block_name.eq_ignore_ascii_case("EXAMPLE") => ret!(
+                            "EXAMPLE" => ret!(
                                 Element::ExampleBlock {
-                                    args: if name == args {
-                                        None
-                                    } else {
-                                        Some(&src[pos + name..pos + args])
-                                    },
-                                    content: &src[pos + args + 1..pos + content],
+                                    args,
+                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
                                 },
                                 pos + end
                             ),
-                            block_name if block_name.eq_ignore_ascii_case("EXPORT") => ret!(
+                            "EXPORT" => ret!(
                                 Element::ExportBlock {
-                                    args: if name == args {
-                                        None
-                                    } else {
-                                        Some(&src[pos + name..pos + args])
-                                    },
-                                    content: &src[pos + args + 1..pos + content],
+                                    args,
+                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
                                 },
                                 pos + end
                             ),
-                            block_name if block_name.eq_ignore_ascii_case("SRC") => ret!(
+                            "SRC" => ret!(
                                 Element::SrcBlock {
-                                    args: if name == args {
-                                        None
-                                    } else {
-                                        Some(&src[pos + name..pos + args])
-                                    },
-                                    content: &src[pos + args + 1..pos + content],
+                                    args,
+                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
                                 },
                                 pos + end
                             ),
-                            block_name if block_name.eq_ignore_ascii_case("VERSE") => ret!(
+                            "VERSE" => ret!(
                                 Element::VerseBlock {
-                                    args: if name == args {
-                                        None
-                                    } else {
-                                        Some(&src[pos + name..pos + args])
-                                    },
-                                    content: &src[pos + args + 1..pos + content],
+                                    args,
+                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
                                 },
                                 pos + end
                             ),
-                            block_name => ret!(
-                                Element::SpecialBlock {
-                                    name: block_name,
-                                    args: if name == args {
-                                        None
-                                    } else {
-                                        Some(&src[pos + name..pos + args].trim())
-                                    },
-                                    content_end: content + 1,
+                            "CENTER" => ret!(
+                                Element::CenterBlock {
+                                    args,
+                                    contents_end,
                                     end,
                                 },
-                                pos + args
+                                pos + contents_beg
+                            ),
+                            "QUOTE" => ret!(
+                                Element::QuoteBlock {
+                                    args,
+                                    contents_end,
+                                    end,
+                                },
+                                pos + contents_beg
+                            ),
+                            _ => ret!(
+                                Element::SpecialBlock {
+                                    name,
+                                    args,
+                                    contents_end,
+                                    end,
+                                },
+                                pos + contents_beg
                             ),
                         };
                     }
 
-                    if let Some((kw, off)) = Keyword::parse(&src[pos..]) {
-                        ret!(Element::Keyword(kw), off)
+                    if let Some((name, args, contents_beg, contents_end, end)) =
+                        DynBlock::parse(&src[pos..])
+                    {
+                        ret!(
+                            Element::DynBlock {
+                                name,
+                                args,
+                                contents_end,
+                                end,
+                            },
+                            pos + contents_beg
+                        )
+                    }
+
+                    if let Some((key, value, off)) = Keyword::parse(&src[pos..]) {
+                        ret!(Element::Keyword { key, value }, off)
                     }
                 }
 
                 // Comment
-                if bytes[pos] == b'#' && bytes[pos + 1] == b' ' {
-                    let eol = eol!(src, pos);
+                if bytes[pos] == b'#' && bytes.get(pos + 1).filter(|&&b| b == b' ').is_some() {
+                    let eol = src[pos..]
+                        .find('\n')
+                        .map(|i| i + pos + 1)
+                        .unwrap_or_else(|| src.len());
                     ret!(Element::Comment(&src[pos + 1..eol]), eol);
                 }
             }

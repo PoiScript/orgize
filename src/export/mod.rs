@@ -2,7 +2,6 @@ mod html;
 
 pub use self::html::HtmlHandler;
 
-use elements::{FnDef, Keyword};
 use headline::Headline;
 use objects::{Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target};
 use parser::Parser;
@@ -26,25 +25,27 @@ pub trait Handler<W: Write> {
         args: Option<&str>,
     ) -> Result<()>;
     fn handle_end_special_block(&mut self, w: &mut W) -> Result<()>;
-    fn handle_comment_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()>;
-    fn handle_example_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()>;
-    fn handle_export_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()>;
-    fn handle_src_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()>;
-    fn handle_verse_block(&mut self, w: &mut W, content: &str, args: Option<&str>) -> Result<()>;
-    fn handle_dyn_block_start(&mut self, w: &mut W) -> Result<()>;
-    fn handle_dyn_block_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_comment_block(&mut self, w: &mut W, contents: &str, args: Option<&str>)
+        -> Result<()>;
+    fn handle_example_block(&mut self, w: &mut W, contents: &str, args: Option<&str>)
+        -> Result<()>;
+    fn handle_export_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()>;
+    fn handle_src_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()>;
+    fn handle_verse_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()>;
+    fn handle_start_dyn_block(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()>;
+    fn handle_end_dyn_block(&mut self, w: &mut W) -> Result<()>;
     fn handle_list_start(&mut self, w: &mut W) -> Result<()>;
     fn handle_list_end(&mut self, w: &mut W) -> Result<()>;
     fn handle_aff_keywords(&mut self, w: &mut W) -> Result<()>;
     fn handle_call(&mut self, w: &mut W) -> Result<()>;
     fn handle_clock(&mut self, w: &mut W) -> Result<()>;
-    fn handle_comment(&mut self, w: &mut W, content: &str) -> Result<()>;
+    fn handle_comment(&mut self, w: &mut W, contents: &str) -> Result<()>;
     fn handle_table_start(&mut self, w: &mut W) -> Result<()>;
     fn handle_table_end(&mut self, w: &mut W) -> Result<()>;
     fn handle_table_cell(&mut self, w: &mut W) -> Result<()>;
     fn handle_latex_env(&mut self, w: &mut W) -> Result<()>;
-    fn handle_fn_def(&mut self, w: &mut W, fn_def: FnDef) -> Result<()>;
-    fn handle_keyword(&mut self, w: &mut W, kw: Keyword) -> Result<()>;
+    fn handle_fn_def(&mut self, w: &mut W, label: &str, contents: &str) -> Result<()>;
+    fn handle_keyword(&mut self, w: &mut W, key: &str, value: &str) -> Result<()>;
     fn handle_rule(&mut self, w: &mut W) -> Result<()>;
     fn handle_cookie(&mut self, w: &mut W, cookie: Cookie) -> Result<()>;
     fn handle_fn_ref(&mut self, w: &mut W, fn_ref: FnRef) -> Result<()>;
@@ -63,9 +64,9 @@ pub trait Handler<W: Write> {
     fn handle_end_strike(&mut self, w: &mut W) -> Result<()>;
     fn handle_start_underline(&mut self, w: &mut W) -> Result<()>;
     fn handle_end_underline(&mut self, w: &mut W) -> Result<()>;
-    fn handle_verbatim(&mut self, w: &mut W, content: &str) -> Result<()>;
-    fn handle_code(&mut self, w: &mut W, content: &str) -> Result<()>;
-    fn handle_text(&mut self, w: &mut W, content: &str) -> Result<()>;
+    fn handle_verbatim(&mut self, w: &mut W, contents: &str) -> Result<()>;
+    fn handle_code(&mut self, w: &mut W, contents: &str) -> Result<()>;
+    fn handle_text(&mut self, w: &mut W, contents: &str) -> Result<()>;
 }
 
 pub struct Render<'a, W: Write, H: Handler<W>> {
@@ -107,28 +108,31 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
                         .handle_start_special_block(&mut self.writer, name, args)?
                 }
                 EndSpecialBlock => self.handler.handle_end_special_block(&mut self.writer)?,
-                CommentBlock { content, args } => {
+                CommentBlock { contents, args } => {
                     self.handler
-                        .handle_comment_block(&mut self.writer, content, args)?
+                        .handle_comment_block(&mut self.writer, contents, args)?
                 }
-                ExampleBlock { content, args } => {
+                ExampleBlock { contents, args } => {
                     self.handler
-                        .handle_example_block(&mut self.writer, content, args)?
+                        .handle_example_block(&mut self.writer, contents, args)?
                 }
-                ExportBlock { content, args } => {
+                ExportBlock { contents, args } => {
                     self.handler
-                        .handle_export_block(&mut self.writer, content, args)?
+                        .handle_export_block(&mut self.writer, contents, args)?
                 }
-                SrcBlock { content, args } => {
+                SrcBlock { contents, args } => {
                     self.handler
-                        .handle_src_block(&mut self.writer, content, args)?
+                        .handle_src_block(&mut self.writer, contents, args)?
                 }
-                VerseBlock { content, args } => {
+                VerseBlock { contents, args } => {
                     self.handler
-                        .handle_verse_block(&mut self.writer, content, args)?
+                        .handle_verse_block(&mut self.writer, contents, args)?
                 }
-                DynBlockStart => self.handler.handle_dyn_block_start(&mut self.writer)?,
-                DynBlockEnd => self.handler.handle_dyn_block_end(&mut self.writer)?,
+                StartDynBlock { name, args } => {
+                    self.handler
+                        .handle_start_dyn_block(&mut self.writer, name, args)?
+                }
+                EndDynBlock => self.handler.handle_end_dyn_block(&mut self.writer)?,
                 ListStart => self.handler.handle_list_start(&mut self.writer)?,
                 ListEnd => self.handler.handle_list_end(&mut self.writer)?,
                 AffKeywords => self.handler.handle_aff_keywords(&mut self.writer)?,
@@ -139,8 +143,13 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
                 TableEnd => self.handler.handle_table_end(&mut self.writer)?,
                 TableCell => self.handler.handle_table_cell(&mut self.writer)?,
                 LatexEnv => self.handler.handle_latex_env(&mut self.writer)?,
-                FnDef(f) => self.handler.handle_fn_def(&mut self.writer, f)?,
-                Keyword(keyword) => self.handler.handle_keyword(&mut self.writer, keyword)?,
+                FnDef { label, contents } => {
+                    self.handler
+                        .handle_fn_def(&mut self.writer, label, contents)?
+                }
+                Keyword { key, value } => {
+                    self.handler.handle_keyword(&mut self.writer, key, value)?
+                }
                 Rule => self.handler.handle_rule(&mut self.writer)?,
                 Cookie(cookie) => self.handler.handle_cookie(&mut self.writer, cookie)?,
                 FnRef(fnref) => self.handler.handle_fn_ref(&mut self.writer, fnref)?,
@@ -165,9 +174,9 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
                 EndStrike => self.handler.handle_end_strike(&mut self.writer)?,
                 StartUnderline => self.handler.handle_start_underline(&mut self.writer)?,
                 EndUnderline => self.handler.handle_end_underline(&mut self.writer)?,
-                Verbatim(content) => self.handler.handle_verbatim(&mut self.writer, content)?,
-                Code(content) => self.handler.handle_code(&mut self.writer, content)?,
-                Text(content) => self.handler.handle_text(&mut self.writer, content)?,
+                Verbatim(contents) => self.handler.handle_verbatim(&mut self.writer, contents)?,
+                Code(contents) => self.handler.handle_code(&mut self.writer, contents)?,
+                Text(contents) => self.handler.handle_text(&mut self.writer, contents)?,
             }
         }
 

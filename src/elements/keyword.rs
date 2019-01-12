@@ -1,12 +1,10 @@
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
-pub struct Keyword<'a> {
-    pub key: &'a str,
-    pub value: &'a str,
-}
+pub struct Keyword;
 
-impl<'a> Keyword<'a> {
-    pub fn parse(src: &'a str) -> Option<(Keyword<'a>, usize)> {
+impl Keyword {
+    // return (key, value, offset)
+    pub fn parse(src: &str) -> Option<(&str, &str, usize)> {
         if cfg!(test) {
             starts_with!(src, "#+");
         }
@@ -14,15 +12,9 @@ impl<'a> Keyword<'a> {
         let key = until_while!(src, 2, b':', |c: u8| c.is_ascii_uppercase() || c == b'_');
 
         // includes the eol character
-        let end = src.find('\n').map(|i| i + 1).unwrap_or(src.len());
+        let end = src.find('\n').map(|i| i + 1).unwrap_or_else(|| src.len());
 
-        Some((
-            Keyword {
-                key: &src[2..key],
-                value: &src[key + 1..end].trim(),
-            },
-            end,
-        ))
+        Some((&src[2..key], &src[key + 1..end].trim(), end))
     }
 }
 
@@ -118,43 +110,19 @@ fn parse_key<'a>(key: &'a str) -> Option<AffKeywordKey<'a>> {
 fn parse() {
     assert_eq!(
         Keyword::parse("#+KEY:").unwrap(),
-        (
-            Keyword {
-                key: "KEY",
-                value: "",
-            },
-            "#+KEY:".len()
-        )
+        ("KEY", "", "#+KEY:".len())
     );
     assert_eq!(
         Keyword::parse("#+KEY: VALUE").unwrap(),
-        (
-            Keyword {
-                key: "KEY",
-                value: "VALUE",
-            },
-            "#+KEY: VALUE".len()
-        )
+        ("KEY", "VALUE", "#+KEY: VALUE".len())
     );
     assert_eq!(
         Keyword::parse("#+K_E_Y: VALUE").unwrap(),
-        (
-            Keyword {
-                key: "K_E_Y",
-                value: "VALUE",
-            },
-            "#+K_E_Y: VALUE".len()
-        )
+        ("K_E_Y", "VALUE", "#+K_E_Y: VALUE".len())
     );
     assert_eq!(
         Keyword::parse("#+KEY:VALUE\n").unwrap(),
-        (
-            Keyword {
-                key: "KEY",
-                value: "VALUE",
-            },
-            "#+KEY:VALUE\n".len()
-        )
+        ("KEY", "VALUE", "#+KEY:VALUE\n".len())
     );
     assert!(Keyword::parse("#+KE Y: VALUE").is_none());
     assert!(Keyword::parse("#+ KEY: VALUE").is_none());

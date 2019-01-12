@@ -1,17 +1,14 @@
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
-pub struct FnDef<'a> {
-    pub label: &'a str,
-    pub contents: &'a str,
-}
+pub struct FnDef;
 
 #[inline]
 fn valid_label(ch: u8) -> bool {
     ch.is_ascii_alphanumeric() || ch == b'-' || ch == b'_'
 }
 
-impl<'a> FnDef<'a> {
-    pub fn parse(src: &'a str) -> Option<(FnDef<'a>, usize)> {
+impl FnDef {
+    pub fn parse(src: &str) -> Option<(&str, &str, usize)> {
         starts_with!(src, "[fn:");
 
         let label = until_while!(src, 4, b']', valid_label);
@@ -22,13 +19,7 @@ impl<'a> FnDef<'a> {
 
         let end = eol!(src);
 
-        Some((
-            FnDef {
-                label: &src[4..label],
-                contents: &src[label + 1..end],
-            },
-            end,
-        ))
+        Some((&src[4..label], &src[label + 1..end], end))
     }
 }
 
@@ -37,42 +28,30 @@ fn parse() {
     assert_eq!(
         FnDef::parse("[fn:1] https://orgmode.org").unwrap(),
         (
-            FnDef {
-                label: "1",
-                contents: " https://orgmode.org",
-            },
+            "1",
+            " https://orgmode.org",
             "[fn:1] https://orgmode.org".len()
         )
     );
     assert_eq!(
         FnDef::parse("[fn:word_1] https://orgmode.org").unwrap(),
         (
-            FnDef {
-                label: "word_1",
-                contents: " https://orgmode.org",
-            },
+            "word_1",
+            " https://orgmode.org",
             "[fn:word_1] https://orgmode.org".len()
         )
     );
     assert_eq!(
         FnDef::parse("[fn:WORD-1] https://orgmode.org").unwrap(),
         (
-            FnDef {
-                label: "WORD-1",
-                contents: " https://orgmode.org",
-            },
+            "WORD-1",
+            " https://orgmode.org",
             "[fn:WORD-1] https://orgmode.org".len()
         )
     );
     assert_eq!(
         FnDef::parse("[fn:WORD]").unwrap(),
-        (
-            FnDef {
-                label: "WORD",
-                contents: "",
-            },
-            "[fn:WORD]".len()
-        )
+        ("WORD", "", "[fn:WORD]".len())
     );
     assert!(FnDef::parse("[fn:] https://orgmode.org").is_none());
     assert!(FnDef::parse("[fn:wor d] https://orgmode.org").is_none());
