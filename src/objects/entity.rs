@@ -7,7 +7,7 @@ impl<'a> Entity<'a> {
     pub fn parse(src: &'a str) -> Option<(Entity<'a>, usize)> {
         expect!(src, 0, b'\\')?;
 
-        let name = position!(src, 1, |c| !c.is_ascii_alphabetic());
+        let name = 0;
 
         if src.as_bytes()[name] == b'[' {
             Some((

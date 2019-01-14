@@ -13,7 +13,7 @@ impl<'a> FnRef<'a> {
     pub fn parse(src: &'a str) -> Option<(FnRef<'a>, usize)> {
         starts_with!(src, "[fn:");
 
-        let label = until_while!(src, 4, |c| c == b']' || c == b':', valid_label);
+        let label = until_while!(src, 4, |c| c == b']' || c == b':', valid_label)?;
 
         if src.as_bytes()[label] == b':' {
             let mut pairs = 1;

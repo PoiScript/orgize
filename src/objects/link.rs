@@ -11,7 +11,7 @@ impl<'a> Link<'a> {
             starts_with!(src, "[[");
         }
 
-        let path = until_while!(src, 2, b']', |c| c != b'<' && c != b'>' && c != b'\n');
+        let path = until_while!(src, 2, b']', |c| c != b'<' && c != b'>' && c != b'\n')?;
 
         if cond_eq!(src, path + 1, b']') {
             Some((
@@ -22,7 +22,7 @@ impl<'a> Link<'a> {
                 path + 2,
             ))
         } else if src.as_bytes()[path + 1] == b'[' {
-            let desc = until_while!(src, path + 2, b']', |c| c != b'[');
+            let desc = until_while!(src, path + 2, b']', |c| c != b'[')?;
             expect!(src, desc + 1, b']')?;
 
             Some((

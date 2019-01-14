@@ -9,11 +9,11 @@ impl<'a> RadioTarget<'a> {
             starts_with!(src, "<<<");
         }
 
-        expect!(src, 3, |c| c != b' ');
+        expect!(src, 3, |c| c != b' ')?;
 
-        let end = until_while!(src, 3, b'>', |c| c != b'<' && c != b'\n');
+        let end = until_while!(src, 3, b'>', |c| c != b'<' && c != b'\n')?;
 
-        expect!(src, end - 1, |c| c != b' ');
+        expect!(src, end - 1, |c| c != b' ')?;
         expect!(src, end + 1, b'>')?;
         expect!(src, end + 2, b'>')?;
 
@@ -31,11 +31,11 @@ impl<'a> Target<'a> {
             starts_with!(src, "<<");
         }
 
-        expect!(src, 2, |c| c != b' ');
+        expect!(src, 2, |c| c != b' ')?;
 
-        let end = until_while!(src, 2, b'>', |c| c != b'<' && c != b'\n');
+        let end = until_while!(src, 2, b'>', |c| c != b'<' && c != b'\n')?;
 
-        expect!(src, end - 1, |c| c != b' ');
+        expect!(src, end - 1, |c| c != b' ')?;
         expect!(src, end + 1, b'>')?;
 
         Some((Target(&src[2..end]), end + 2))

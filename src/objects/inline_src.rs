@@ -11,15 +11,15 @@ impl<'a> InlineSrc<'a> {
         starts_with!(src, "src_");
 
         let lang = until_while!(src, 4, |c| c == b'[' || c == b'{', |c: u8| !c
-            .is_ascii_whitespace());
+            .is_ascii_whitespace())?;
 
         if lang == 4 {
             return None;
         }
 
         if src.as_bytes()[lang] == b'[' {
-            let option = until_while!(src, lang, b']', |c| c != b'\n');
-            let body = until_while!(src, option, b'}', |c| c != b'\n');
+            let option = until_while!(src, lang, b']', |c| c != b'\n')?;
+            let body = until_while!(src, option, b'}', |c| c != b'\n')?;
 
             Some((
                 InlineSrc {
@@ -30,7 +30,7 @@ impl<'a> InlineSrc<'a> {
                 body + 1,
             ))
         } else {
-            let body = until_while!(src, lang, b'}', |c| c != b'\n');
+            let body = until_while!(src, lang, b'}', |c| c != b'\n')?;
 
             Some((
                 InlineSrc {

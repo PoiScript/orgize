@@ -11,7 +11,7 @@ impl FnDef {
     pub fn parse(src: &str) -> Option<(&str, &str, usize)> {
         starts_with!(src, "[fn:");
 
-        let label = until_while!(src, 4, b']', valid_label);
+        let label = until_while!(src, 4, b']', valid_label)?;
 
         if label == 4 {
             return None;

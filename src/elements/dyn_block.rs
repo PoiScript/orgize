@@ -11,7 +11,7 @@ impl DynBlock {
 
         let args = eol!(src);
         let name = until_while!(src, 9, |c| c == b' ' || c == b'\n', |c: u8| c
-            .is_ascii_alphabetic());
+            .is_ascii_alphabetic())?;
         // TODO: ignore case matching
         let content = src.find("\n#+END:")?;
         let end = eol!(src, content + 1);

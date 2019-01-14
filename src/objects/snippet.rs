@@ -13,7 +13,7 @@ impl<'a> Snippet<'a> {
             starts_with!(src, "@@");
         }
 
-        let name = until_while!(src, 2, b':', |c: u8| c.is_ascii_alphanumeric() || c == b'-');
+        let name = until_while!(src, 2, b':', |c: u8| c.is_ascii_alphanumeric() || c == b'-')?;
 
         if name == 2 {
             return None;

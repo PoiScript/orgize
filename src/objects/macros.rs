@@ -15,9 +15,9 @@ impl<'a> Macros<'a> {
     pub fn parse(src: &'a str) -> Option<(Macros<'a>, usize)> {
         starts_with!(src, "{{{");
 
-        expect!(src, 3, |c: u8| c.is_ascii_alphabetic());
+        expect!(src, 3, |c: u8| c.is_ascii_alphabetic())?;
 
-        let name = until_while!(src, 3, |c| c == b'}' || c == b'(', valid_name);
+        let name = until_while!(src, 3, |c| c == b'}' || c == b'(', valid_name)?;
 
         if src.as_bytes()[name] == b'}' {
             expect!(src, name + 1, b'}')?;

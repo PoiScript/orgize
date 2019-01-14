@@ -11,7 +11,7 @@ impl Block {
 
         let args = eol!(src);
         let name = until_while!(src, 8, |c| c == b' ' || c == b'\n', |c: u8| c
-            .is_ascii_alphabetic());
+            .is_ascii_alphabetic())?;
         // TODO: ignore case match
         let content = src.find(&format!("\n#+END_{}", &src[8..name]))?;
         let end = eol!(src, content + 1);

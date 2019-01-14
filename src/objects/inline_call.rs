@@ -14,28 +14,28 @@ impl<'a> InlineCall<'a> {
         starts_with!(src, "call_");
 
         let mut pos = until_while!(src, 5, |c| c == b'[' || c == b'(', |c: u8| c
-            .is_ascii_graphic());
+            .is_ascii_graphic())?;
         let mut pos_;
 
         let name = &src[5..pos];
 
         let inside_header = if src.as_bytes()[pos] == b'[' {
             pos_ = pos;
-            pos = until_while!(src, pos, b']', |c: u8| c != b'\n') + 1;
-            expect!(src, pos, b'(');
+            pos = until_while!(src, pos, b']', |c: u8| c != b'\n')? + 1;
+            expect!(src, pos, b'(')?;
             Some(&src[pos_ + 1..pos - 1])
         } else {
             None
         };
 
         pos_ = pos;
-        pos = until_while!(src, pos, b')', |c| c != b'\n');
+        pos = until_while!(src, pos, b')', |c| c != b'\n')?;
         let args = &src[pos_ + 1..pos];
 
         let end_header = if src.len() > pos + 1 && src.as_bytes()[pos + 1] == b'[' {
             pos_ = pos;
             pos = until_while!(src, pos_ + 1, |c| c == b']', |c: u8| c != b'\n'
-                && c != b')');
+                && c != b')')?;
             Some(&src[pos_ + 2..pos])
         } else {
             None

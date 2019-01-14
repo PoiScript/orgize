@@ -11,7 +11,7 @@ impl<'a> Cookie<'a> {
         }
 
         let num1 = until_while!(src, 1, |c| c == b'%' || c == b'/', |c: u8| c
-            .is_ascii_digit());
+            .is_ascii_digit())?;
 
         if src.as_bytes()[num1] == b'%' && *src.as_bytes().get(num1 + 1)? == b']' {
             Some((
@@ -21,7 +21,7 @@ impl<'a> Cookie<'a> {
                 num1 + 2,
             ))
         } else {
-            let num2 = until_while!(src, num1 + 1, b']', |c: u8| c.is_ascii_digit());
+            let num2 = until_while!(src, num1 + 1, b']', |c: u8| c.is_ascii_digit())?;
             Some((
                 Cookie {
                     value: &src[0..=num2],

@@ -3,7 +3,7 @@ pub struct Emphasis;
 impl Emphasis {
     // TODO: return usize instead of Option<usize>
     pub fn parse(src: &str, marker: u8) -> Option<usize> {
-        expect!(src, 1, |c: u8| !c.is_ascii_whitespace());
+        expect!(src, 1, |c: u8| !c.is_ascii_whitespace())?;
 
         let mut lines = 0;
         let end = until_while!(src, 1, marker, |c| {
@@ -11,9 +11,9 @@ impl Emphasis {
                 lines += 1;
             }
             lines < 2
-        });
+        })?;
 
-        expect!(src, end - 1, |c: u8| !c.is_ascii_whitespace());
+        expect!(src, end - 1, |c: u8| !c.is_ascii_whitespace())?;
 
         if end < src.len() - 1 {
             expect!(src, end + 1, |ch| ch == b' '
@@ -26,7 +26,7 @@ impl Emphasis {
                 || ch == b'\''
                 || ch == b'\n'
                 || ch == b')'
-                || ch == b'}');
+                || ch == b'}')?;
         }
 
         Some(end)
