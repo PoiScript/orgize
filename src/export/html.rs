@@ -85,11 +85,25 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_end_dyn_block(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }
-    fn handle_list_start(&mut self, w: &mut W) -> Result<()> {
-        Ok(())
+    fn handle_start_list(&mut self, w: &mut W, is_ordered: bool) -> Result<()> {
+        if is_ordered {
+            write!(w, "<ol>")
+        } else {
+            write!(w, "<ul>")
+        }
     }
-    fn handle_list_end(&mut self, w: &mut W) -> Result<()> {
-        Ok(())
+    fn handle_end_list(&mut self, w: &mut W, is_ordered: bool) -> Result<()> {
+        if is_ordered {
+            write!(w, "</ol>")
+        } else {
+            write!(w, "</ul>")
+        }
+    }
+    fn handle_start_list_item(&mut self, w: &mut W) -> Result<()> {
+        write!(w, "<li>")
+    }
+    fn handle_end_list_item(&mut self, w: &mut W) -> Result<()> {
+        write!(w, "</li>")
     }
     fn handle_aff_keywords(&mut self, w: &mut W) -> Result<()> {
         Ok(())

@@ -72,6 +72,11 @@ pub enum Element<'a> {
     },
     Rule,
     Comment(&'a str),
+    List {
+        ident: usize,
+        is_ordered: bool,
+        end: usize,
+    },
 }
 
 impl<'a> Element<'a> {
@@ -125,6 +130,23 @@ impl<'a> Element<'a> {
                     };
                 }
 
+                if bytes[pos] == b'+'
+                    || bytes[pos] == b'-'
+                    || bytes[pos] == b'*'
+                    || (bytes[pos] >= b'0' && bytes[pos] <= b'9')
+                {
+                    if let Some((ident, is_ordered, list_end)) = List::parse(&src[end..]) {
+                        ret!(
+                            Element::List {
+                                ident,
+                                is_ordered,
+                                end: list_end
+                            },
+                            end
+                        );
+                    }
+                }
+
                 if bytes[pos] == b'\n' {
                     return (start, Some(Element::Paragraph { end, trailing: pos }), None);
                 }
@@ -134,7 +156,8 @@ impl<'a> Element<'a> {
 
                 // Rule
                 if bytes[pos] == b'-' {
-                    if let Some(off) = Rule::parse(&src[pos..]) {
+                    let off = Rule::parse(&src[pos..]);
+                    if off != 0 {
                         ret!(Element::Rule, off);
                     }
                 }
@@ -227,7 +250,7 @@ impl<'a> Element<'a> {
                 }
 
                 // Comment
-                if bytes[pos] == b'#' && bytes.get(pos + 1).filter(|&&b| b == b' ').is_some() {
+                if bytes[pos] == b'#' && bytes.get(pos + 1).map(|&b| b == b' ').unwrap_or(false) {
                     let eol = src[pos..]
                         .find('\n')
                         .map(|i| i + pos + 1)
