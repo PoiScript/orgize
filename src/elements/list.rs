@@ -1,5 +1,14 @@
 pub struct List;
 
+macro_rules! ident {
+    ($src:expr) => {
+        $src.as_bytes()
+            .iter()
+            .position(|&c| c != b' ' && c != b'\t')
+            .unwrap_or(0)
+    };
+}
+
 impl List {
     #[inline]
     fn is_item(src: &str) -> bool {
@@ -43,29 +52,29 @@ impl List {
     // returns (contents_begin, contents_end)
     // TODO: handle nested list
     pub fn parse_item(src: &str, ident: usize) -> (usize, usize) {
-        (
-            src[ident..].find(' ').map(|i| ident + i + 1).unwrap(),
-            if ident > 0 {
-                src.find(&format!("\n{:1$}", " ", ident))
-                    .map(|i| i + 1)
-                    .unwrap_or_else(|| src.len())
+        let beg = src[ident..].find(' ').map(|i| ident + i + 1).unwrap();
+        let mut pos = match src.find('\n') {
+            Some(i) => i + 1,
+            None => return (beg, src.len()),
+        };
+        while let Some(line_end) = src[pos..].find('\n').map(|i| i + pos + 1).or_else(|| {
+            if pos < src.len() {
+                Some(src.len())
             } else {
-                src.find('\n').map(|i| i + 1).unwrap_or_else(|| src.len())
-            },
-        )
+                None
+            }
+        }) {
+            if ident!(src[pos..]) == ident {
+                break;
+            }
+            pos = line_end;
+        }
+
+        (beg, pos)
     }
 
     // return (ident, is_ordered, end)
     pub fn parse(src: &str) -> Option<(usize, bool, usize)> {
-        macro_rules! ident {
-            ($src:expr) => {
-                $src.as_bytes()
-                    .iter()
-                    .position(|&c| c != b' ' && c != b'\t')
-                    .unwrap_or(0)
-            };
-        }
-
         let bytes = src.as_bytes();
         let starting_ident = ident!(src);
 
@@ -206,6 +215,7 @@ fn is_item() {
 #[test]
 fn parse_item() {
     assert_eq!(List::parse_item("+ Item1\n+ Item2", 0), (2, 8));
+    assert_eq!(List::parse_item("+ Item1\n\n+ Item2", 0), (2, 8));
     assert_eq!(
         List::parse_item(
             r"+ item1
@@ -213,7 +223,7 @@ fn parse_item() {
  + item2",
             0
         ),
-        (2, 8)
+        (2, 25)
     );
     assert_eq!(
         List::parse_item(
@@ -222,5 +232,26 @@ fn parse_item() {
             2
         ),
         (5, 11)
+    );
+    assert_eq!(
+        List::parse_item(
+            r"+ It
+  em1
++ Item2",
+            0
+        ),
+        (2, 11)
+    );
+    assert_eq!(
+        List::parse_item(
+            r#"1) Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec sit amet
+   ullamcorper ante, nec pellentesque nisi.
+2) Sed pulvinar ut arcu id aliquam.Curabitur quis justo eu magna maximus sodales.
+   Curabitur nisl nisi, ornare in enim id, sagittis facilisis magna.
+3) Curabitur venenatis molestie eros sit amet congue. Nunc at molestie leo, vitae
+   malesuada nisi."#,
+            0
+        ),
+        (3, 119)
     );
 }
