@@ -5,5 +5,3 @@ authors = ["PoiScript <poiscript@gmail.com>"]
 
 [dependencies]
 jetscii = "0.4.3"
-lazy_static = "1.2.0"
-regex = "1"

@@ -1,5 +1,3 @@
-use regex::Regex;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Block;
@@ -14,26 +12,33 @@ impl Block {
         let args = eol!(src);
         let name = until_while!(src, 8, |c| c == b' ' || c == b'\n', |c: u8| c
             .is_ascii_alphabetic())?;
-        let end_re = format!(r"(?im)^[ \t]*#\+END_{}[ \t]*$", &src[8..name]);
-        let end_re = Regex::new(&end_re).unwrap();
-        let (content, end) = end_re.find(src).map(|m| (m.start(), m.end()))?;
 
-        Some((
-            &src[8..name],
-            if name == args {
+        let mut pos = 0;
+        let end = format!(r"#+END_{}", &src[8..name]);
+        while let Some(line_end) = src[pos..].find('\n').map(|i| i + pos + 1).or_else(|| {
+            if pos < src.len() {
+                Some(src.len())
+            } else {
                 None
-            } else {
-                Some(&src[name..args])
-            },
-            args,
-            content,
-            // including the eol character
-            if end < src.len() && src.as_bytes()[end] == b'\n' {
-                end + 1
-            } else {
-                end
-            },
-        ))
+            }
+        }) {
+            if src[pos..line_end].trim().eq_ignore_ascii_case(&end) {
+                return Some((
+                    &src[8..name],
+                    if name == args {
+                        None
+                    } else {
+                        Some(&src[name..args])
+                    },
+                    args,
+                    pos,
+                    line_end,
+                ));
+            }
+            pos = line_end;
+        }
+
+        None
     }
 }
 

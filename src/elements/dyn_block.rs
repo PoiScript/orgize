@@ -12,21 +12,32 @@ impl DynBlock {
         let args = eol!(src);
         let name = until_while!(src, 9, |c| c == b' ' || c == b'\n', |c: u8| c
             .is_ascii_alphabetic())?;
-        // TODO: ignore case matching
-        let content = src.find("\n#+END:")?;
-        let end = eol!(src, content + 1);
 
-        Some((
-            &src[9..name],
-            if name == args {
-                None
+        let mut pos = 0;
+        while let Some(line_end) = src[pos..].find('\n').map(|i| i + pos + 1).or_else(|| {
+            if pos < src.len() {
+                Some(src.len())
             } else {
-                Some(&src[name..args].trim())
-            },
-            args,
-            content + 1,
-            end + 1,
-        ))
+                None
+            }
+        }) {
+            if src[pos..line_end].trim().eq_ignore_ascii_case("#+END:") {
+                return Some((
+                    &src[8..name].trim(),
+                    if name == args {
+                        None
+                    } else {
+                        Some(&src[name..args].trim())
+                    },
+                    args,
+                    pos,
+                    line_end,
+                ));
+            }
+            pos = line_end;
+        }
+
+        None
     }
 }
 

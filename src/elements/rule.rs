@@ -1,16 +1,16 @@
-use regex::Regex;
-
-lazy_static! {
-    static ref RULE_REGEX: Regex = Regex::new(r"^[ \t]*-{5,}[ \t]*\n?$").unwrap();
-}
-
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Rule;
 
 impl Rule {
     pub fn parse(src: &str) -> usize {
-        RULE_REGEX.find(src).map(|m| m.end()).unwrap_or(0)
+        let end = src.find('\n').map(|i| i + 1).unwrap_or_else(|| src.len());
+        let rules = &src[0..end].trim();
+        if rules.len() >= 5 && rules.chars().all(|c| c == '-') {
+            end
+        } else {
+            0
+        }
     }
 }
 
