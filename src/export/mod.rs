@@ -8,45 +8,38 @@ use parser::Parser;
 use std::io::{Result, Write};
 
 pub trait Handler<W: Write> {
-    fn handle_start_headline(&mut self, w: &mut W, hdl: Headline) -> Result<()>;
-    fn handle_end_headline(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_section(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_section(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_paragraph(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_paragraph(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_center_block(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_center_block(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_quote_block(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_quote_block(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_special_block(
-        &mut self,
-        w: &mut W,
-        name: &str,
-        args: Option<&str>,
-    ) -> Result<()>;
-    fn handle_end_special_block(&mut self, w: &mut W) -> Result<()>;
-    fn handle_comment_block(&mut self, w: &mut W, contents: &str, args: Option<&str>)
-        -> Result<()>;
-    fn handle_example_block(&mut self, w: &mut W, contents: &str, args: Option<&str>)
-        -> Result<()>;
-    fn handle_export_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()>;
-    fn handle_src_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()>;
-    fn handle_verse_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()>;
-    fn handle_start_dyn_block(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()>;
-    fn handle_end_dyn_block(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_list(&mut self, w: &mut W, is_ordered: bool) -> Result<()>;
-    fn handle_end_list(&mut self, w: &mut W, is_ordered: bool) -> Result<()>;
-    fn handle_start_list_item(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_list_item(&mut self, w: &mut W) -> Result<()>;
+    fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()>;
+    fn handle_headline_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_section_beg(&mut self, w: &mut W) -> Result<()>;
+    fn handle_section_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_paragraph_beg(&mut self, w: &mut W) -> Result<()>;
+    fn handle_paragraph_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_ctr_block_beg(&mut self, w: &mut W) -> Result<()>;
+    fn handle_ctr_block_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_qte_block_beg(&mut self, w: &mut W) -> Result<()>;
+    fn handle_qte_block_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_spl_block_beg(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()>;
+    fn handle_spl_block_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_comment_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()>;
+    fn handle_example_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()>;
+    fn handle_export_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()>;
+    fn handle_src_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()>;
+    fn handle_verse_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()>;
+    fn handle_dyn_block_beg(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()>;
+    fn handle_dyn_block_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_list_beg(&mut self, w: &mut W, ordered: bool) -> Result<()>;
+    fn handle_list_end(&mut self, w: &mut W, ordered: bool) -> Result<()>;
+    fn handle_list_beg_item(&mut self, w: &mut W) -> Result<()>;
+    fn handle_list_end_item(&mut self, w: &mut W) -> Result<()>;
     fn handle_aff_keywords(&mut self, w: &mut W) -> Result<()>;
     fn handle_call(&mut self, w: &mut W) -> Result<()>;
     fn handle_clock(&mut self, w: &mut W) -> Result<()>;
-    fn handle_comment(&mut self, w: &mut W, contents: &str) -> Result<()>;
+    fn handle_comment(&mut self, w: &mut W, cont: &str) -> Result<()>;
     fn handle_table_start(&mut self, w: &mut W) -> Result<()>;
     fn handle_table_end(&mut self, w: &mut W) -> Result<()>;
     fn handle_table_cell(&mut self, w: &mut W) -> Result<()>;
     fn handle_latex_env(&mut self, w: &mut W) -> Result<()>;
-    fn handle_fn_def(&mut self, w: &mut W, label: &str, contents: &str) -> Result<()>;
+    fn handle_fn_def(&mut self, w: &mut W, label: &str, cont: &str) -> Result<()>;
     fn handle_keyword(&mut self, w: &mut W, key: &str, value: &str) -> Result<()>;
     fn handle_rule(&mut self, w: &mut W) -> Result<()>;
     fn handle_cookie(&mut self, w: &mut W, cookie: Cookie) -> Result<()>;
@@ -58,17 +51,17 @@ pub trait Handler<W: Write> {
     fn handle_radio_target(&mut self, w: &mut W, target: RadioTarget) -> Result<()>;
     fn handle_snippet(&mut self, w: &mut W, snippet: Snippet) -> Result<()>;
     fn handle_target(&mut self, w: &mut W, target: Target) -> Result<()>;
-    fn handle_start_bold(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_bold(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_italic(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_italic(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_strike(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_strike(&mut self, w: &mut W) -> Result<()>;
-    fn handle_start_underline(&mut self, w: &mut W) -> Result<()>;
-    fn handle_end_underline(&mut self, w: &mut W) -> Result<()>;
-    fn handle_verbatim(&mut self, w: &mut W, contents: &str) -> Result<()>;
-    fn handle_code(&mut self, w: &mut W, contents: &str) -> Result<()>;
-    fn handle_text(&mut self, w: &mut W, contents: &str) -> Result<()>;
+    fn handle_bold_beg(&mut self, w: &mut W) -> Result<()>;
+    fn handle_bold_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_italic_beg(&mut self, w: &mut W) -> Result<()>;
+    fn handle_italic_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_strike_beg(&mut self, w: &mut W) -> Result<()>;
+    fn handle_strike_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_underline_beg(&mut self, w: &mut W) -> Result<()>;
+    fn handle_underline_end(&mut self, w: &mut W) -> Result<()>;
+    fn handle_verbatim(&mut self, w: &mut W, cont: &str) -> Result<()>;
+    fn handle_code(&mut self, w: &mut W, cont: &str) -> Result<()>;
+    fn handle_text(&mut self, w: &mut W, cont: &str) -> Result<()>;
 }
 
 pub struct Render<'a, W: Write, H: Handler<W>> {
@@ -94,75 +87,64 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
         use parser::Event::*;
 
         let w = &mut self.writer;
+        let h = &mut self.handler;
 
         for event in &mut self.parser {
             match event {
-                StartHeadline(hdl) => self.handler.handle_start_headline(w, hdl)?,
-                EndHeadline => self.handler.handle_end_headline(w)?,
-                StartSection => self.handler.handle_start_section(w)?,
-                EndSection => self.handler.handle_end_section(w)?,
-                StartParagraph => self.handler.handle_start_paragraph(w)?,
-                EndParagraph => self.handler.handle_end_paragraph(w)?,
-                StartCenterBlock => self.handler.handle_start_center_block(w)?,
-                EndCenterBlock => self.handler.handle_end_center_block(w)?,
-                StartQuoteBlock => self.handler.handle_start_quote_block(w)?,
-                EndQuoteBlock => self.handler.handle_end_quote_block(w)?,
-                StartSpecialBlock { name, args } => {
-                    self.handler.handle_start_special_block(w, name, args)?
-                }
-                EndSpecialBlock => self.handler.handle_end_special_block(w)?,
-                CommentBlock { contents, args } => {
-                    self.handler.handle_comment_block(w, contents, args)?
-                }
-                ExampleBlock { contents, args } => {
-                    self.handler.handle_example_block(w, contents, args)?
-                }
-                ExportBlock { contents, args } => {
-                    self.handler.handle_export_block(w, contents, args)?
-                }
-                SrcBlock { contents, args } => self.handler.handle_src_block(w, contents, args)?,
-                VerseBlock { contents, args } => {
-                    self.handler.handle_verse_block(w, contents, args)?
-                }
-                StartDynBlock { name, args } => {
-                    self.handler.handle_start_dyn_block(w, name, args)?
-                }
-                EndDynBlock => self.handler.handle_end_dyn_block(w)?,
-                StartList { is_ordered } => self.handler.handle_start_list(w, is_ordered)?,
-                EndList { is_ordered } => self.handler.handle_end_list(w, is_ordered)?,
-                StartListItem => self.handler.handle_start_list_item(w)?,
-                EndListItem => self.handler.handle_end_list_item(w)?,
-                AffKeywords => self.handler.handle_aff_keywords(w)?,
-                Call => self.handler.handle_call(w)?,
-                Clock => self.handler.handle_clock(w)?,
-                Comment(c) => self.handler.handle_comment(w, c)?,
-                TableStart => self.handler.handle_table_start(w)?,
-                TableEnd => self.handler.handle_table_end(w)?,
-                TableCell => self.handler.handle_table_cell(w)?,
-                LatexEnv => self.handler.handle_latex_env(w)?,
-                FnDef { label, contents } => self.handler.handle_fn_def(w, label, contents)?,
-                Keyword { key, value } => self.handler.handle_keyword(w, key, value)?,
-                Rule => self.handler.handle_rule(w)?,
-                Cookie(cookie) => self.handler.handle_cookie(w, cookie)?,
-                FnRef(fnref) => self.handler.handle_fn_ref(w, fnref)?,
-                InlineCall(inlinecall) => self.handler.handle_inline_call(w, inlinecall)?,
-                InlineSrc(inlinesrc) => self.handler.handle_inline_src(w, inlinesrc)?,
-                Link(link) => self.handler.handle_link(w, link)?,
-                Macros(macros) => self.handler.handle_macros(w, macros)?,
-                RadioTarget(radiotarget) => self.handler.handle_radio_target(w, radiotarget)?,
-                Snippet(snippet) => self.handler.handle_snippet(w, snippet)?,
-                Target(target) => self.handler.handle_target(w, target)?,
-                StartBold => self.handler.handle_start_bold(w)?,
-                EndBold => self.handler.handle_end_bold(w)?,
-                StartItalic => self.handler.handle_start_italic(w)?,
-                EndItalic => self.handler.handle_end_italic(w)?,
-                StartStrike => self.handler.handle_start_strike(w)?,
-                EndStrike => self.handler.handle_end_strike(w)?,
-                StartUnderline => self.handler.handle_start_underline(w)?,
-                EndUnderline => self.handler.handle_end_underline(w)?,
-                Verbatim(contents) => self.handler.handle_verbatim(w, contents)?,
-                Code(contents) => self.handler.handle_code(w, contents)?,
-                Text(contents) => self.handler.handle_text(w, contents)?,
+                HeadlineBeg(hdl) => h.handle_headline_beg(w, hdl)?,
+                HeadlineEnd => h.handle_headline_end(w)?,
+                SectionBeg => h.handle_section_beg(w)?,
+                SectionEnd => h.handle_section_end(w)?,
+                ParagraphBeg => h.handle_paragraph_beg(w)?,
+                ParagraphEnd => h.handle_paragraph_end(w)?,
+                CtrBlockBeg => h.handle_ctr_block_beg(w)?,
+                CtrBlockEnd => h.handle_ctr_block_end(w)?,
+                QteBlockBeg => h.handle_qte_block_beg(w)?,
+                QteBlockEnd => h.handle_qte_block_end(w)?,
+                SplBlockBeg { name, args } => h.handle_spl_block_beg(w, name, args)?,
+                SplBlockEnd => h.handle_spl_block_end(w)?,
+                CommentBlock { cont, args } => h.handle_comment_block(w, cont, args)?,
+                ExampleBlock { cont, args } => h.handle_example_block(w, cont, args)?,
+                ExportBlock { cont, args } => h.handle_export_block(w, cont, args)?,
+                SrcBlock { cont, args } => h.handle_src_block(w, cont, args)?,
+                VerseBlock { cont, args } => h.handle_verse_block(w, cont, args)?,
+                DynBlockBeg { name, args } => h.handle_dyn_block_beg(w, name, args)?,
+                DynBlockEnd => h.handle_dyn_block_end(w)?,
+                ListBeg { ordered } => h.handle_list_beg(w, ordered)?,
+                ListEnd { ordered } => h.handle_list_end(w, ordered)?,
+                ListItemBeg => h.handle_list_beg_item(w)?,
+                ListItemEnd => h.handle_list_end_item(w)?,
+                AffKeywords => h.handle_aff_keywords(w)?,
+                Call => h.handle_call(w)?,
+                Clock => h.handle_clock(w)?,
+                Comment(c) => h.handle_comment(w, c)?,
+                TableStart => h.handle_table_start(w)?,
+                TableEnd => h.handle_table_end(w)?,
+                TableCell => h.handle_table_cell(w)?,
+                LatexEnv => h.handle_latex_env(w)?,
+                FnDef { label, cont } => h.handle_fn_def(w, label, cont)?,
+                Keyword { key, value } => h.handle_keyword(w, key, value)?,
+                Rule => h.handle_rule(w)?,
+                Cookie(cookie) => h.handle_cookie(w, cookie)?,
+                FnRef(fnref) => h.handle_fn_ref(w, fnref)?,
+                InlineCall(inlinecall) => h.handle_inline_call(w, inlinecall)?,
+                InlineSrc(inlinesrc) => h.handle_inline_src(w, inlinesrc)?,
+                Link(link) => h.handle_link(w, link)?,
+                Macros(macros) => h.handle_macros(w, macros)?,
+                RadioTarget(radiotarget) => h.handle_radio_target(w, radiotarget)?,
+                Snippet(snippet) => h.handle_snippet(w, snippet)?,
+                Target(target) => h.handle_target(w, target)?,
+                BoldBeg => h.handle_bold_beg(w)?,
+                BoldEnd => h.handle_bold_end(w)?,
+                ItalicBeg => h.handle_italic_beg(w)?,
+                ItalicEnd => h.handle_italic_end(w)?,
+                StrikeBeg => h.handle_strike_beg(w)?,
+                StrikeEnd => h.handle_strike_end(w)?,
+                UnderlineBeg => h.handle_underline_beg(w)?,
+                UnderlineEnd => h.handle_underline_end(w)?,
+                Verbatim(cont) => h.handle_verbatim(w, cont)?,
+                Code(cont) => h.handle_code(w, cont)?,
+                Text(cont) => h.handle_text(w, cont)?,
             }
         }
 

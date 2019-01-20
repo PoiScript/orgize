@@ -8,101 +8,74 @@ use std::io::{Result, Write};
 pub struct HtmlHandler;
 
 impl<W: Write> Handler<W> for HtmlHandler {
-    fn handle_start_headline(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
-        write!(
-            w,
-            "<h{0}>{1}</h{0}>",
-            if hdl.level <= 6 { hdl.level } else { 6 },
-            hdl.title
-        )
+    fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
+        let level = if hdl.level <= 6 { hdl.level } else { 6 };
+        write!(w, "<h{0}>{1}</h{0}>", level, hdl.title)
     }
-    fn handle_end_headline(&mut self, w: &mut W) -> Result<()> {
+    fn handle_headline_end(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }
-    fn handle_start_section(&mut self, w: &mut W) -> Result<()> {
+    fn handle_section_beg(&mut self, w: &mut W) -> Result<()> {
         write!(w, "<section>")
     }
-    fn handle_end_section(&mut self, w: &mut W) -> Result<()> {
+    fn handle_section_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</section>")
     }
-    fn handle_start_paragraph(&mut self, w: &mut W) -> Result<()> {
+    fn handle_paragraph_beg(&mut self, w: &mut W) -> Result<()> {
         write!(w, "<p>")
     }
-    fn handle_end_paragraph(&mut self, w: &mut W) -> Result<()> {
+    fn handle_paragraph_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</p>")
     }
-    fn handle_start_center_block(&mut self, w: &mut W) -> Result<()> {
-        write!(w, "<div style=\"text-align: center\">")
+    fn handle_ctr_block_beg(&mut self, w: &mut W) -> Result<()> {
+        write!(w, r#"<div style="text-align: center">"#)
     }
-    fn handle_end_center_block(&mut self, w: &mut W) -> Result<()> {
+    fn handle_ctr_block_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</div>")
     }
-    fn handle_start_quote_block(&mut self, w: &mut W) -> Result<()> {
+    fn handle_qte_block_beg(&mut self, w: &mut W) -> Result<()> {
         write!(w, "<blockquote>")
     }
-    fn handle_end_quote_block(&mut self, w: &mut W) -> Result<()> {
+    fn handle_qte_block_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</blockquote>")
     }
-    fn handle_start_special_block(
-        &mut self,
-        w: &mut W,
-        name: &str,
-        args: Option<&str>,
-    ) -> Result<()> {
+    fn handle_spl_block_beg(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()> {
         write!(w, "<div>")
     }
-    fn handle_end_special_block(&mut self, w: &mut W) -> Result<()> {
+    fn handle_spl_block_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</div>")
     }
-    fn handle_comment_block(
-        &mut self,
-        w: &mut W,
-        contents: &str,
-        args: Option<&str>,
-    ) -> Result<()> {
+    fn handle_comment_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_example_block(
-        &mut self,
-        w: &mut W,
-        contents: &str,
-        args: Option<&str>,
-    ) -> Result<()> {
-        write!(w, "<pre><code>{}</code></pre>", contents)
+    fn handle_example_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
+        write!(w, "<pre><code>{}</code></pre>", cont)
     }
-    fn handle_export_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()> {
+    fn handle_export_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_src_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()> {
-        write!(w, "<pre><code>{}</code></pre>", contents)
+    fn handle_src_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
+        write!(w, "<pre><code>{}</code></pre>", cont)
     }
-    fn handle_verse_block(&mut self, w: &mut W, contents: &str, args: Option<&str>) -> Result<()> {
+    fn handle_verse_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_start_dyn_block(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()> {
+    fn handle_dyn_block_beg(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_end_dyn_block(&mut self, w: &mut W) -> Result<()> {
+    fn handle_dyn_block_end(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }
-    fn handle_start_list(&mut self, w: &mut W, is_ordered: bool) -> Result<()> {
-        if is_ordered {
-            write!(w, "<ol>")
-        } else {
-            write!(w, "<ul>")
-        }
+    fn handle_list_beg(&mut self, w: &mut W, ordered: bool) -> Result<()> {
+        write!(w, "{}", if ordered { "<ol>" } else { "<ul>" })
     }
-    fn handle_end_list(&mut self, w: &mut W, is_ordered: bool) -> Result<()> {
-        if is_ordered {
-            write!(w, "</ol>")
-        } else {
-            write!(w, "</ul>")
-        }
+    fn handle_list_end(&mut self, w: &mut W, ordered: bool) -> Result<()> {
+        write!(w, "{}", if ordered { "</ol>" } else { "</ul>" })
     }
-    fn handle_start_list_item(&mut self, w: &mut W) -> Result<()> {
+    fn handle_list_beg_item(&mut self, w: &mut W) -> Result<()> {
         write!(w, "<li>")
     }
-    fn handle_end_list_item(&mut self, w: &mut W) -> Result<()> {
+    fn handle_list_end_item(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</li>")
     }
     fn handle_aff_keywords(&mut self, w: &mut W) -> Result<()> {
@@ -114,7 +87,7 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_clock(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }
-    fn handle_comment(&mut self, w: &mut W, contents: &str) -> Result<()> {
+    fn handle_comment(&mut self, w: &mut W, cont: &str) -> Result<()> {
         Ok(())
     }
     fn handle_table_start(&mut self, w: &mut W) -> Result<()> {
@@ -129,7 +102,7 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_latex_env(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }
-    fn handle_fn_def(&mut self, w: &mut W, label: &str, contents: &str) -> Result<()> {
+    fn handle_fn_def(&mut self, w: &mut W, label: &str, cont: &str) -> Result<()> {
         Ok(())
     }
     fn handle_keyword(&mut self, w: &mut W, key: &str, value: &str) -> Result<()> {
@@ -151,12 +124,11 @@ impl<W: Write> Handler<W> for HtmlHandler {
         write!(w, "<code>{}</code>", inline_src.body)
     }
     fn handle_link(&mut self, w: &mut W, link: Link) -> Result<()> {
-        write!(
-            w,
-            "<a href=\"{}\">{}</a>",
-            link.path,
-            link.desc.unwrap_or(link.path)
-        )
+        if let Some(desc) = link.desc {
+            write!(w, r#"<a href="{}">{}</a>"#, link.path, desc)
+        } else {
+            write!(w, r#"<a href="{0}">{0}</a>"#, link.path)
+        }
     }
     fn handle_macros(&mut self, w: &mut W, macros: Macros) -> Result<()> {
         Ok(())
@@ -174,37 +146,37 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_target(&mut self, w: &mut W, target: Target) -> Result<()> {
         Ok(())
     }
-    fn handle_start_bold(&mut self, w: &mut W) -> Result<()> {
+    fn handle_bold_beg(&mut self, w: &mut W) -> Result<()> {
         write!(w, "<b>")
     }
-    fn handle_end_bold(&mut self, w: &mut W) -> Result<()> {
+    fn handle_bold_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</b>")
     }
-    fn handle_start_italic(&mut self, w: &mut W) -> Result<()> {
+    fn handle_italic_beg(&mut self, w: &mut W) -> Result<()> {
         write!(w, "<i>")
     }
-    fn handle_end_italic(&mut self, w: &mut W) -> Result<()> {
+    fn handle_italic_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</i>")
     }
-    fn handle_start_strike(&mut self, w: &mut W) -> Result<()> {
+    fn handle_strike_beg(&mut self, w: &mut W) -> Result<()> {
         write!(w, "<s>")
     }
-    fn handle_end_strike(&mut self, w: &mut W) -> Result<()> {
+    fn handle_strike_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</s>")
     }
-    fn handle_start_underline(&mut self, w: &mut W) -> Result<()> {
+    fn handle_underline_beg(&mut self, w: &mut W) -> Result<()> {
         write!(w, "<u>")
     }
-    fn handle_end_underline(&mut self, w: &mut W) -> Result<()> {
+    fn handle_underline_end(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</u>")
     }
-    fn handle_verbatim(&mut self, w: &mut W, contents: &str) -> Result<()> {
-        write!(w, "<code>{}</code>", contents)
+    fn handle_verbatim(&mut self, w: &mut W, cont: &str) -> Result<()> {
+        write!(w, "<code>{}</code>", cont)
     }
-    fn handle_code(&mut self, w: &mut W, contents: &str) -> Result<()> {
-        write!(w, "<code>{}</code>", contents)
+    fn handle_code(&mut self, w: &mut W, cont: &str) -> Result<()> {
+        write!(w, "<code>{}</code>", cont)
     }
-    fn handle_text(&mut self, w: &mut W, contents: &str) -> Result<()> {
-        write!(w, "{}", contents.replace('\n', " "))
+    fn handle_text(&mut self, w: &mut W, cont: &str) -> Result<()> {
+        write!(w, "{}", cont.replace('\n', " "))
     }
 }

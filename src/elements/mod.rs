@@ -15,10 +15,8 @@ pub use self::rule::Rule;
 #[cfg_attr(test, derive(PartialEq, Debug))]
 pub enum Element<'a> {
     Paragraph {
-        // end of the contents
+        cont_end: usize,
         end: usize,
-        // trailing space
-        trailing: usize,
     },
     Keyword {
         key: &'a str,
@@ -26,56 +24,56 @@ pub enum Element<'a> {
     },
     FnDef {
         label: &'a str,
-        contents: &'a str,
+        cont: &'a str,
     },
-    CenterBlock {
+    CtrBlock {
         args: Option<&'a str>,
-        contents_end: usize,
+        cont_end: usize,
         end: usize,
     },
-    QuoteBlock {
+    QteBlock {
         args: Option<&'a str>,
-        contents_end: usize,
+        cont_end: usize,
         end: usize,
     },
-    SpecialBlock {
+    SplBlock {
         args: Option<&'a str>,
         name: &'a str,
-        contents_end: usize,
+        cont_end: usize,
         end: usize,
     },
     CommentBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     ExampleBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     ExportBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     SrcBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     VerseBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     DynBlock {
         args: Option<&'a str>,
         name: &'a str,
-        contents_end: usize,
+        cont_end: usize,
         end: usize,
     },
     Rule,
     Comment(&'a str),
     List {
         ident: usize,
-        is_ordered: bool,
-        contents_end: usize,
+        ordered: bool,
+        cont_end: usize,
         end: usize,
     },
 }
@@ -94,17 +92,17 @@ impl<'a> Element<'a> {
         loop {
             // Unlike other element, footnote definition must starts at column 0
             if bytes[pos] == b'[' {
-                if let Some((label, contents, off)) = FnDef::parse(&src[pos..]) {
+                if let Some((label, cont, off)) = FnDef::parse(&src[pos..]) {
                     return if pos == start {
-                        (off + 1, Some(Element::FnDef { label, contents }), None)
+                        (off + 1, Some(Element::FnDef { label, cont }), None)
                     } else {
                         (
                             start,
                             Some(Element::Paragraph {
-                                end: pos - 1,
-                                trailing: pos,
+                                cont_end: pos - 1,
+                                end: pos,
                             }),
-                            Some((Element::FnDef { label, contents }, off + 1)),
+                            Some((Element::FnDef { label, cont }, off + 1)),
                         )
                     };
                 }
@@ -122,8 +120,8 @@ impl<'a> Element<'a> {
                             (
                                 start,
                                 Some(Element::Paragraph {
-                                    end,
-                                    trailing: pos - 1,
+                                    cont_end: end,
+                                    end: pos - 1,
                                 }),
                                 Some(($ele, $off)),
                             )
@@ -136,12 +134,12 @@ impl<'a> Element<'a> {
                     || bytes[pos] == b'*'
                     || (bytes[pos] >= b'0' && bytes[pos] <= b'9')
                 {
-                    if let Some((ident, is_ordered, contents_end, end)) = List::parse(&src[end..]) {
+                    if let Some((ident, ordered, cont_end, end)) = List::parse(&src[end..]) {
                         ret!(
                             Element::List {
                                 ident,
-                                is_ordered,
-                                contents_end,
+                                ordered,
+                                cont_end,
                                 end
                             },
                             0
@@ -150,7 +148,14 @@ impl<'a> Element<'a> {
                 }
 
                 if bytes[pos] == b'\n' {
-                    return (start, Some(Element::Paragraph { end, trailing: pos }), None);
+                    return (
+                        start,
+                        Some(Element::Paragraph {
+                            cont_end: end,
+                            end: pos,
+                        }),
+                        None,
+                    );
                 }
 
                 // TODO: LaTeX environment
@@ -165,66 +170,66 @@ impl<'a> Element<'a> {
                 }
 
                 if bytes[pos] == b'#' && bytes.get(pos + 1).filter(|&&b| b == b'+').is_some() {
-                    if let Some((name, args, contents_beg, contents_end, end)) =
+                    if let Some((name, args, contents_beg, cont_end, end)) =
                         Block::parse(&src[pos..])
                     {
                         match name.to_uppercase().as_str() {
                             "COMMENT" => ret!(
                                 Element::CommentBlock {
                                     args,
-                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
+                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
                                 },
                                 pos + end
                             ),
                             "EXAMPLE" => ret!(
                                 Element::ExampleBlock {
                                     args,
-                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
+                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
                                 },
                                 pos + end
                             ),
                             "EXPORT" => ret!(
                                 Element::ExportBlock {
                                     args,
-                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
+                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
                                 },
                                 pos + end
                             ),
                             "SRC" => ret!(
                                 Element::SrcBlock {
                                     args,
-                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
+                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
                                 },
                                 pos + end
                             ),
                             "VERSE" => ret!(
                                 Element::VerseBlock {
                                     args,
-                                    contents: &src[pos + contents_beg + 1..pos + contents_end - 1],
+                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
                                 },
                                 pos + end
                             ),
                             "CENTER" => ret!(
-                                Element::CenterBlock {
+                                Element::CtrBlock {
                                     args,
-                                    contents_end,
+                                    cont_end,
                                     end,
                                 },
                                 pos + contents_beg
                             ),
                             "QUOTE" => ret!(
-                                Element::QuoteBlock {
+                                Element::QteBlock {
                                     args,
-                                    contents_end,
+                                    cont_end,
                                     end,
                                 },
                                 pos + contents_beg
                             ),
                             _ => ret!(
-                                Element::SpecialBlock {
+                                Element::SplBlock {
                                     name,
                                     args,
-                                    contents_end,
+                                    cont_end,
                                     end,
                                 },
                                 pos + contents_beg
@@ -232,14 +237,14 @@ impl<'a> Element<'a> {
                         };
                     }
 
-                    if let Some((name, args, contents_beg, contents_end, end)) =
+                    if let Some((name, args, contents_beg, cont_end, end)) =
                         DynBlock::parse(&src[pos..])
                     {
                         ret!(
                             Element::DynBlock {
                                 name,
                                 args,
-                                contents_end,
+                                cont_end,
                                 end,
                             },
                             pos + contents_beg
@@ -268,8 +273,8 @@ impl<'a> Element<'a> {
                     return (
                         start,
                         Some(Element::Paragraph {
-                            end: pos - 1,
-                            trailing: pos,
+                            cont_end: pos - 1,
+                            end: pos,
                         }),
                         None,
                     );
@@ -278,8 +283,8 @@ impl<'a> Element<'a> {
                 return (
                     start,
                     Some(Element::Paragraph {
+                        cont_end: src.len(),
                         end: src.len(),
-                        trailing: src.len(),
                     }),
                     None,
                 );

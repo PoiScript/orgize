@@ -14,30 +14,30 @@ pub enum Container {
     },
 
     Paragraph {
-        end: usize,
-        trailing: usize,
-    },
-    CenterBlock {
-        contents_end: usize,
+        cont_end: usize,
         end: usize,
     },
-    QuoteBlock {
-        contents_end: usize,
+    CtrBlock {
+        cont_end: usize,
         end: usize,
     },
-    SpecialBlock {
-        contents_end: usize,
+    QteBlock {
+        cont_end: usize,
+        end: usize,
+    },
+    SplBlock {
+        cont_end: usize,
         end: usize,
     },
     DynBlock {
-        contents_end: usize,
+        cont_end: usize,
         end: usize,
     },
 
     List {
         ident: usize,
-        is_ordered: bool,
-        contents_end: usize,
+        ordered: bool,
+        cont_end: usize,
         end: usize,
     },
     ListItem {
@@ -61,59 +61,59 @@ pub enum Container {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub enum Event<'a> {
-    StartHeadline(Headline<'a>),
-    EndHeadline,
+    HeadlineBeg(Headline<'a>),
+    HeadlineEnd,
 
-    StartSection,
-    EndSection,
+    SectionBeg,
+    SectionEnd,
 
-    StartParagraph,
-    EndParagraph,
+    ParagraphBeg,
+    ParagraphEnd,
 
-    StartCenterBlock,
-    EndCenterBlock,
-    StartQuoteBlock,
-    EndQuoteBlock,
-    StartSpecialBlock {
+    CtrBlockBeg,
+    CtrBlockEnd,
+    QteBlockBeg,
+    QteBlockEnd,
+    SplBlockBeg {
         name: &'a str,
         args: Option<&'a str>,
     },
-    EndSpecialBlock,
-    StartDynBlock {
+    SplBlockEnd,
+    DynBlockBeg {
         name: &'a str,
         args: Option<&'a str>,
     },
-    EndDynBlock,
+    DynBlockEnd,
 
     CommentBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     ExampleBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     ExportBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     SrcBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
     VerseBlock {
         args: Option<&'a str>,
-        contents: &'a str,
+        cont: &'a str,
     },
 
-    StartList {
-        is_ordered: bool,
+    ListBeg {
+        ordered: bool,
     },
-    EndList {
-        is_ordered: bool,
+    ListEnd {
+        ordered: bool,
     },
-    StartListItem,
-    EndListItem,
+    ListItemBeg,
+    ListItemEnd,
 
     AffKeywords,
 
@@ -130,7 +130,7 @@ pub enum Event<'a> {
     LatexEnv,
     FnDef {
         label: &'a str,
-        contents: &'a str,
+        cont: &'a str,
     },
     Keyword {
         key: &'a str,
@@ -148,14 +148,14 @@ pub enum Event<'a> {
     Snippet(Snippet<'a>),
     Target(Target<'a>),
 
-    StartBold,
-    EndBold,
-    StartItalic,
-    EndItalic,
-    StartStrike,
-    EndStrike,
-    StartUnderline,
-    EndUnderline,
+    BoldBeg,
+    BoldEnd,
+    ItalicBeg,
+    ItalicEnd,
+    StrikeBeg,
+    StrikeEnd,
+    UnderlineBeg,
+    UnderlineEnd,
 
     Verbatim(&'a str),
     Code(&'a str),
@@ -181,26 +181,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn start_section_or_headline(&mut self, tail: &'a str) -> Event<'a> {
+    fn start_sec_or_hdl(&mut self, tail: &'a str) -> Event<'a> {
         let end = Headline::find_level(tail, std::usize::MAX);
         if end != 0 {
             self.stack.push(Container::Section {
                 end: self.off + end,
             });
-            Event::StartSection
+            Event::SectionBeg
         } else {
-            self.start_headline(tail)
+            self.start_hdl(tail)
         }
     }
 
-    fn start_headline(&mut self, tail: &'a str) -> Event<'a> {
+    fn start_hdl(&mut self, tail: &'a str) -> Event<'a> {
         let (hdl, off, end) = Headline::parse(tail);
         self.stack.push(Container::Headline {
             beg: self.off + off,
             end: self.off + end,
         });
         self.off += off;
-        Event::StartHeadline(hdl)
+        Event::HeadlineBeg(hdl)
     }
 
     fn next_ele(&mut self, end: usize) -> Event<'a> {
@@ -216,43 +216,35 @@ impl<'a> Parser<'a> {
 
         if let Some(ele) = ele {
             match ele {
-                Element::Paragraph { end, trailing } => self.stack.push(Container::Paragraph {
-                    end: end + self.off,
-                    trailing: trailing + self.off,
-                }),
-                Element::QuoteBlock {
-                    end, contents_end, ..
-                } => self.stack.push(Container::QuoteBlock {
-                    contents_end: contents_end + self.off,
+                Element::Paragraph { cont_end, end } => self.stack.push(Container::Paragraph {
+                    cont_end: cont_end + self.off,
                     end: end + self.off,
                 }),
-                Element::CenterBlock {
-                    end, contents_end, ..
-                } => self.stack.push(Container::CenterBlock {
-                    contents_end: contents_end + self.off,
+                Element::QteBlock { end, cont_end, .. } => self.stack.push(Container::QteBlock {
+                    cont_end: cont_end + self.off,
                     end: end + self.off,
                 }),
-                Element::SpecialBlock {
-                    end, contents_end, ..
-                } => self.stack.push(Container::SpecialBlock {
-                    contents_end: contents_end + self.off,
+                Element::CtrBlock { end, cont_end, .. } => self.stack.push(Container::CtrBlock {
+                    cont_end: cont_end + self.off,
                     end: end + self.off,
                 }),
-                Element::DynBlock {
-                    end, contents_end, ..
-                } => self.stack.push(Container::DynBlock {
-                    contents_end: contents_end + self.off,
+                Element::SplBlock { end, cont_end, .. } => self.stack.push(Container::SplBlock {
+                    cont_end: cont_end + self.off,
+                    end: end + self.off,
+                }),
+                Element::DynBlock { end, cont_end, .. } => self.stack.push(Container::DynBlock {
+                    cont_end: cont_end + self.off,
                     end: end + self.off,
                 }),
                 Element::List {
                     ident,
-                    is_ordered,
-                    contents_end,
+                    ordered,
+                    cont_end,
                     end,
                 } => self.stack.push(Container::List {
                     ident,
-                    is_ordered,
-                    contents_end: contents_end + self.off,
+                    ordered,
+                    cont_end: cont_end + self.off,
                     end: end + self.off,
                 }),
                 _ => (),
@@ -299,24 +291,24 @@ impl<'a> Parser<'a> {
             end: self.off + end,
         });
         self.off += beg;
-        Event::StartListItem
+        Event::ListItemBeg
     }
 
     fn end(&mut self) -> Event<'a> {
         match self.stack.pop().unwrap() {
-            Container::Paragraph { .. } => Event::EndParagraph,
-            Container::Underline { .. } => Event::EndUnderline,
-            Container::Section { .. } => Event::EndSection,
-            Container::Strike { .. } => Event::EndStrike,
-            Container::Headline { .. } => Event::EndHeadline,
-            Container::Italic { .. } => Event::EndItalic,
-            Container::Bold { .. } => Event::EndBold,
-            Container::CenterBlock { .. } => Event::EndCenterBlock,
-            Container::QuoteBlock { .. } => Event::EndQuoteBlock,
-            Container::SpecialBlock { .. } => Event::EndSpecialBlock,
-            Container::DynBlock { .. } => Event::EndDynBlock,
-            Container::List { is_ordered, .. } => Event::EndList { is_ordered },
-            Container::ListItem { .. } => Event::EndListItem,
+            Container::Bold { .. } => Event::BoldEnd,
+            Container::CtrBlock { .. } => Event::CtrBlockEnd,
+            Container::DynBlock { .. } => Event::DynBlockEnd,
+            Container::Headline { .. } => Event::HeadlineEnd,
+            Container::Italic { .. } => Event::ItalicEnd,
+            Container::List { ordered, .. } => Event::ListEnd { ordered },
+            Container::ListItem { .. } => Event::ListItemEnd,
+            Container::Paragraph { .. } => Event::ParagraphEnd,
+            Container::QteBlock { .. } => Event::QteBlockEnd,
+            Container::Section { .. } => Event::SectionEnd,
+            Container::SplBlock { .. } => Event::SplBlockEnd,
+            Container::Strike { .. } => Event::StrikeEnd,
+            Container::Underline { .. } => Event::UnderlineEnd,
         }
     }
 
@@ -335,15 +327,15 @@ impl<'a> Parser<'a> {
                 | Underline { end } => {
                     assert!(self.off <= end);
                 }
-                Paragraph { end, trailing } => {
-                    // assert!(self.off <= trailing);
+                Paragraph { cont_end, end } => {
                     assert!(self.off <= end);
+                    assert!(self.off <= cont_end);
                 }
-                CenterBlock { contents_end, end }
-                | QuoteBlock { contents_end, end }
-                | SpecialBlock { contents_end, end }
-                | DynBlock { contents_end, end } => {
-                    assert!(self.off <= contents_end);
+                CtrBlock { cont_end, end }
+                | QteBlock { cont_end, end }
+                | SplBlock { cont_end, end }
+                | DynBlock { cont_end, end } => {
+                    assert!(self.off <= cont_end);
                     assert!(self.off <= end);
                 }
             }
@@ -362,7 +354,7 @@ impl<'a> Iterator for Parser<'a> {
                 None
             } else {
                 let tail = &self.text[self.off..];
-                Some(self.start_section_or_headline(tail))
+                Some(self.start_sec_or_hdl(tail))
             }
         } else {
             let last = *self.stack.last_mut().unwrap();
@@ -373,37 +365,29 @@ impl<'a> Iterator for Parser<'a> {
                     if self.off >= end {
                         self.end()
                     } else if self.off == beg {
-                        self.start_section_or_headline(tail)
+                        self.start_sec_or_hdl(tail)
                     } else {
-                        self.start_headline(tail)
+                        self.start_hdl(tail)
                     }
                 }
-                Container::DynBlock {
-                    contents_end, end, ..
-                }
-                | Container::CenterBlock {
-                    contents_end, end, ..
-                }
-                | Container::QuoteBlock {
-                    contents_end, end, ..
-                }
-                | Container::SpecialBlock {
-                    contents_end, end, ..
-                } => {
-                    if self.off >= contents_end {
+                Container::DynBlock { cont_end, end, .. }
+                | Container::CtrBlock { cont_end, end, .. }
+                | Container::QteBlock { cont_end, end, .. }
+                | Container::SplBlock { cont_end, end, .. } => {
+                    if self.off >= cont_end {
                         self.off = end;
                         self.end()
                     } else {
-                        self.next_ele(contents_end)
+                        self.next_ele(cont_end)
                     }
                 }
                 Container::List {
-                    contents_end,
+                    cont_end,
                     end,
                     ident,
                     ..
                 } => {
-                    if self.off >= contents_end {
+                    if self.off >= cont_end {
                         self.off = end;
                         self.end()
                     } else {
@@ -425,12 +409,12 @@ impl<'a> Iterator for Parser<'a> {
                         self.next_ele(end)
                     }
                 }
-                Container::Paragraph { end, trailing } => {
-                    if self.off >= end {
-                        self.off = trailing;
+                Container::Paragraph { cont_end, end } => {
+                    if self.off >= cont_end {
+                        self.off = end;
                         self.end()
                     } else {
-                        self.next_obj(end)
+                        self.next_obj(cont_end)
                     }
                 }
                 Container::Bold { end }
@@ -452,21 +436,21 @@ impl<'a> Iterator for Parser<'a> {
 impl<'a> From<Object<'a>> for Event<'a> {
     fn from(obj: Object<'a>) -> Self {
         match obj {
-            Object::Bold { .. } => Event::StartBold,
+            Object::Bold { .. } => Event::BoldBeg,
             Object::Code(c) => Event::Code(c),
             Object::Cookie(c) => Event::Cookie(c),
             Object::FnRef(f) => Event::FnRef(f),
             Object::InlineCall(i) => Event::InlineCall(i),
             Object::InlineSrc(i) => Event::InlineSrc(i),
-            Object::Italic { .. } => Event::StartItalic,
+            Object::Italic { .. } => Event::ItalicBeg,
             Object::Link(l) => Event::Link(l),
             Object::Macros(m) => Event::Macros(m),
             Object::RadioTarget(r) => Event::RadioTarget(r),
             Object::Snippet(s) => Event::Snippet(s),
-            Object::Strike { .. } => Event::StartStrike,
+            Object::Strike { .. } => Event::StrikeBeg,
             Object::Target(t) => Event::Target(t),
             Object::Text(t) => Event::Text(t),
-            Object::Underline { .. } => Event::StartUnderline,
+            Object::Underline { .. } => Event::UnderlineBeg,
             Object::Verbatim(v) => Event::Verbatim(v),
         }
     }
@@ -476,20 +460,20 @@ impl<'a> From<Element<'a>> for Event<'a> {
     fn from(ele: Element<'a>) -> Self {
         match ele {
             Element::Comment(c) => Event::Comment(c),
-            Element::FnDef { label, contents } => Event::FnDef { label, contents },
+            Element::CommentBlock { args, cont } => Event::CommentBlock { args, cont },
+            Element::CtrBlock { .. } => Event::CtrBlockBeg,
+            Element::DynBlock { name, args, .. } => Event::DynBlockBeg { name, args },
+            Element::ExampleBlock { args, cont } => Event::ExampleBlock { args, cont },
+            Element::ExportBlock { args, cont } => Event::ExportBlock { args, cont },
+            Element::FnDef { label, cont } => Event::FnDef { label, cont },
             Element::Keyword { key, value } => Event::Keyword { key, value },
-            Element::Paragraph { .. } => Event::StartParagraph,
+            Element::List { ordered, .. } => Event::ListBeg { ordered },
+            Element::Paragraph { .. } => Event::ParagraphBeg,
+            Element::QteBlock { .. } => Event::QteBlockBeg,
             Element::Rule => Event::Rule,
-            Element::CenterBlock { .. } => Event::StartCenterBlock,
-            Element::QuoteBlock { .. } => Event::StartQuoteBlock,
-            Element::DynBlock { name, args, .. } => Event::StartDynBlock { name, args },
-            Element::SpecialBlock { name, args, .. } => Event::StartSpecialBlock { name, args },
-            Element::CommentBlock { args, contents } => Event::CommentBlock { args, contents },
-            Element::ExampleBlock { args, contents } => Event::ExampleBlock { args, contents },
-            Element::ExportBlock { args, contents } => Event::ExportBlock { args, contents },
-            Element::SrcBlock { args, contents } => Event::SrcBlock { args, contents },
-            Element::VerseBlock { args, contents } => Event::VerseBlock { args, contents },
-            Element::List { is_ordered, .. } => Event::StartList { is_ordered },
+            Element::SplBlock { name, args, .. } => Event::SplBlockBeg { name, args },
+            Element::SrcBlock { args, cont } => Event::SrcBlock { args, cont },
+            Element::VerseBlock { args, cont } => Event::VerseBlock { args, cont },
         }
     }
 }
@@ -499,40 +483,40 @@ fn parse() {
     use self::Event::*;
 
     let expected = vec![
-        StartHeadline(Headline::new(1, None, None, "Title 1", None)),
-        StartSection,
-        StartParagraph,
-        StartBold,
+        HeadlineBeg(Headline::new(1, None, None, "Title 1", None)),
+        SectionBeg,
+        ParagraphBeg,
+        BoldBeg,
         Text("Section 1"),
-        EndBold,
-        EndParagraph,
-        EndSection,
-        StartHeadline(Headline::new(2, None, None, "Title 2", None)),
-        StartSection,
-        StartParagraph,
-        StartUnderline,
+        BoldEnd,
+        ParagraphEnd,
+        SectionEnd,
+        HeadlineBeg(Headline::new(2, None, None, "Title 2", None)),
+        SectionBeg,
+        ParagraphBeg,
+        UnderlineBeg,
         Text("Section 2"),
-        EndUnderline,
-        EndParagraph,
-        EndSection,
-        EndHeadline,
-        EndHeadline,
-        StartHeadline(Headline::new(1, None, None, "Title 3", None)),
-        StartSection,
-        StartParagraph,
-        StartItalic,
+        UnderlineEnd,
+        ParagraphEnd,
+        SectionEnd,
+        HeadlineEnd,
+        HeadlineEnd,
+        HeadlineBeg(Headline::new(1, None, None, "Title 3", None)),
+        SectionBeg,
+        ParagraphBeg,
+        ItalicBeg,
         Text("Section 3"),
-        EndItalic,
-        EndParagraph,
-        EndSection,
-        EndHeadline,
-        StartHeadline(Headline::new(1, None, None, "Title 4", None)),
-        StartSection,
-        StartParagraph,
+        ItalicEnd,
+        ParagraphEnd,
+        SectionEnd,
+        HeadlineEnd,
+        HeadlineBeg(Headline::new(1, None, None, "Title 4", None)),
+        SectionBeg,
+        ParagraphBeg,
         Verbatim("Section 4"),
-        EndParagraph,
-        EndSection,
-        EndHeadline,
+        ParagraphEnd,
+        SectionEnd,
+        HeadlineEnd,
     ];
 
     assert_eq!(
