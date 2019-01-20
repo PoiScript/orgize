@@ -1,3 +1,6 @@
+use memchr::memchr_iter;
+use std::iter::once;
+
 pub struct List;
 
 macro_rules! ident {
@@ -73,8 +76,8 @@ impl List {
         (beg, pos)
     }
 
-    // return (ident, is_ordered, end)
-    pub fn parse(src: &str) -> Option<(usize, bool, usize)> {
+    // return (ident, is_ordered, contents_end, end)
+    pub fn parse(src: &str) -> Option<(usize, bool, usize, usize)> {
         let bytes = src.as_bytes();
         let starting_ident = ident!(src);
 
@@ -82,55 +85,46 @@ impl List {
             return None;
         }
 
+        let mut lines = lines!(src);
+        // skip the starting line
+        let mut pos = lines.next().unwrap();
         let is_ordered = Self::is_ordered(bytes[starting_ident]);
-        let mut pos = starting_ident;
-        while let Some(i) = src[pos..]
-            .find('\n')
-            .map(|i| i + pos + 1)
-            .filter(|&i| i != src.len())
-        {
-            let ident = ident!(src[i..]);
 
-            // less indented than its starting line
+        Some(loop {
+            let mut curr_line = match lines.next() {
+                Some(i) => i,
+                None => break (starting_ident, is_ordered, pos, pos),
+            };
+            // current line is empty
+            if src[pos..curr_line].trim().is_empty() {
+                let next_line = match lines.next() {
+                    Some(i) => i,
+                    None => break (starting_ident, is_ordered, pos, pos),
+                };
+
+                // next line is emtpy, too
+                if src[curr_line..next_line].trim().is_empty() {
+                    break (starting_ident, is_ordered, pos, next_line);
+                } else {
+                    // move to next line
+                    pos = curr_line;
+                    curr_line = next_line;
+                }
+            }
+
+            let ident = ident!(src[pos..curr_line]);
+
+            // less indented than the starting line
             if ident < starting_ident {
-                return Some((starting_ident, is_ordered, i - 1));
+                break (starting_ident, is_ordered, pos, pos);
             }
 
-            if ident > starting_ident {
-                pos = i;
-                continue;
-            }
-
-            if bytes[ident + i] == b'\n' && pos < src.len() {
-                let nextline_ident = ident!(src[ident + i + 1..]);
-
-                // check if it's two consecutive empty lines
-                if nextline_ident < starting_ident
-                    || (ident + i + 1 + nextline_ident < src.len()
-                        && bytes[ident + i + 1 + nextline_ident] == b'\n')
-                {
-                    return Some((starting_ident, is_ordered, ident + i + 1 + nextline_ident));
-                }
-
-                if nextline_ident == starting_ident {
-                    if Self::is_item(&src[i + nextline_ident + 1..]) {
-                        pos = i + nextline_ident + 1;
-                        continue;
-                    } else {
-                        return Some((starting_ident, is_ordered, ident + i + 1 + nextline_ident));
-                    }
-                }
-            }
-
-            if Self::is_item(&src[i + ident..]) {
-                pos = i;
-                continue;
+            if ident > starting_ident || Self::is_item(&src[pos + ident..]) {
+                pos = curr_line;
             } else {
-                return Some((starting_ident, is_ordered, i - 1));
+                break (starting_ident, is_ordered, pos, pos);
             }
-        }
-
-        Some((starting_ident, is_ordered, src.len()))
+        })
     }
 }
 
@@ -142,7 +136,7 @@ fn parse() {
 + item2
 + item3"
         ),
-        Some((0, false, 23))
+        Some((0, false, 23, 23))
     );
     assert_eq!(
         List::parse(
@@ -151,7 +145,7 @@ fn parse() {
 
 * item3"
         ),
-        Some((0, false, 24))
+        Some((0, false, 24, 24))
     );
     assert_eq!(
         List::parse(
@@ -161,7 +155,7 @@ fn parse() {
 
 - item1"
         ),
-        Some((0, false, 17))
+        Some((0, false, 16, 18))
     );
     assert_eq!(
         List::parse(
@@ -169,7 +163,7 @@ fn parse() {
   2. item1
 3. item2"
         ),
-        Some((0, true, 28))
+        Some((0, true, 28, 28))
     );
     assert_eq!(
         List::parse(
@@ -177,7 +171,7 @@ fn parse() {
  2) item1
   3) item2"
         ),
-        Some((2, true, 10))
+        Some((2, true, 11, 11))
     );
     assert_eq!(
         List::parse(
@@ -185,7 +179,7 @@ fn parse() {
     1) item1
   + item2"
         ),
-        Some((2, false, 32))
+        Some((2, false, 32, 32))
     );
     assert_eq!(
         List::parse(
@@ -194,6 +188,29 @@ fn parse() {
  + item2"
         ),
         None
+    );
+    assert_eq!(
+        List::parse(
+            r#" - Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+   - Nulla et dolor vitae elit placerat sagittis. Aliquam a lobortis massa,
+     aliquam efficitur arcu.
+
+   - Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+   - Phasellus auctor lacus a orci imperdiet, ut facilisis neque lobortis.
+
+   - Proin condimentum id orci vitae lobortis. Nunc sollicitudin risus neque,
+     dapibus malesuada sem faucibus vitae.
+
+ - Sed vitae dolor augue. Phasellus at rhoncus arcu. Suspendisse potenti.
+
+   - Nulla faucibus, metus ut porta hendrerit, urna lorem porta metus, in tempus
+     nibh orci sed sapien.
+
+   - Morbi tortor mi, dapibus vel faucibus a, iaculis sed turpis."#
+        ),
+        Some((1, false, 677, 677))
     );
 }
 

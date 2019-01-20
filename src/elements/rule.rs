@@ -1,10 +1,14 @@
+use memchr::memchr;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Rule;
 
 impl Rule {
     pub fn parse(src: &str) -> usize {
-        let end = src.find('\n').map(|i| i + 1).unwrap_or_else(|| src.len());
+        let end = memchr(b'\n', src.as_bytes())
+            .map(|i| i + 1)
+            .unwrap_or_else(|| src.len());
         let rules = &src[0..end].trim();
         if rules.len() >= 5 && rules.chars().all(|c| c == '-') {
             end

@@ -75,6 +75,7 @@ pub enum Element<'a> {
     List {
         ident: usize,
         is_ordered: bool,
+        contents_end: usize,
         end: usize,
     },
 }
@@ -135,14 +136,15 @@ impl<'a> Element<'a> {
                     || bytes[pos] == b'*'
                     || (bytes[pos] >= b'0' && bytes[pos] <= b'9')
                 {
-                    if let Some((ident, is_ordered, list_end)) = List::parse(&src[end..]) {
+                    if let Some((ident, is_ordered, contents_end, end)) = List::parse(&src[end..]) {
                         ret!(
                             Element::List {
                                 ident,
                                 is_ordered,
-                                end: list_end
+                                contents_end,
+                                end
                             },
-                            end
+                            0
                         );
                     }
                 }

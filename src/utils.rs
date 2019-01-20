@@ -112,10 +112,10 @@ macro_rules! starts_with {
 #[macro_export]
 macro_rules! skip_space {
     ($src:ident) => {
-        until!($src, |c| c != b' ').unwrap_or(0)
+        until!($src, |c| c != b' ' && c != b'\t').unwrap_or(0)
     };
     ($src:ident, $from:expr) => {
-        until!($src[$from..], |c| c != b' ').unwrap_or(0) + $from
+        until!($src[$from..], |c| c != b' ' && c != b'\t').unwrap_or(0) + $from
     };
 }
 
@@ -152,5 +152,14 @@ macro_rules! parse_succ {
                 $src.len()
             )),
         );
+    };
+}
+
+#[macro_export]
+macro_rules! lines {
+    ($src:ident) => {
+        memchr::memchr_iter(b'\n', $src.as_bytes())
+            .map(|i| i + 1)
+            .chain(std::iter::once($src.len()))
     };
 }

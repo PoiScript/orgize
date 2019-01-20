@@ -15,13 +15,7 @@ impl Block {
 
         let mut pos = 0;
         let end = format!(r"#+END_{}", &src[8..name]);
-        while let Some(line_end) = src[pos..].find('\n').map(|i| i + pos + 1).or_else(|| {
-            if pos < src.len() {
-                Some(src.len())
-            } else {
-                None
-            }
-        }) {
+        for line_end in lines!(src) {
             if src[pos..line_end].trim().eq_ignore_ascii_case(&end) {
                 return Some((
                     &src[8..name],

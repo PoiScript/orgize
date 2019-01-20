@@ -37,6 +37,7 @@ pub enum Container {
     List {
         ident: usize,
         is_ordered: bool,
+        contents_end: usize,
         end: usize,
     },
     ListItem {
@@ -246,10 +247,12 @@ impl<'a> Parser<'a> {
                 Element::List {
                     ident,
                     is_ordered,
+                    contents_end,
                     end,
                 } => self.stack.push(Container::List {
                     ident,
                     is_ordered,
+                    contents_end: contents_end + self.off,
                     end: end + self.off,
                 }),
                 _ => (),
@@ -333,7 +336,7 @@ impl<'a> Parser<'a> {
                     assert!(self.off <= end);
                 }
                 Paragraph { end, trailing } => {
-                    assert!(self.off <= trailing);
+                    // assert!(self.off <= trailing);
                     assert!(self.off <= end);
                 }
                 CenterBlock { contents_end, end }
@@ -352,8 +355,7 @@ impl<'a> Iterator for Parser<'a> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Event<'a>> {
-        //
-        self.check_off();
+        // self.check_off();
 
         if self.stack.is_empty() {
             if self.off >= self.text.len() {
@@ -395,8 +397,14 @@ impl<'a> Iterator for Parser<'a> {
                         self.next_ele(contents_end)
                     }
                 }
-                Container::List { end, ident, .. } => {
-                    if self.off >= end {
+                Container::List {
+                    contents_end,
+                    end,
+                    ident,
+                    ..
+                } => {
+                    if self.off >= contents_end {
+                        self.off = end;
                         self.end()
                     } else {
                         self.next_list_item(end, ident)
