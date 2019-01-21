@@ -9,7 +9,7 @@ impl Keyword {
             starts_with!(src, "#+");
         }
 
-        let key = until_while!(src, 2, b':', |c: u8| c.is_ascii_uppercase() || c == b'_')?;
+        let key = until_while!(src, 2, b':', |c: u8| c.is_ascii_alphabetic() || c == b'_')?;
 
         // includes the eol character
         let end = src.find('\n').map(|i| i + 1).unwrap_or_else(|| src.len());

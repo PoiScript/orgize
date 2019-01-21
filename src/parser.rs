@@ -249,8 +249,26 @@ impl<'a> Parser<'a> {
                 }),
                 _ => (),
             }
+
             self.off += off;
-            ele.into()
+
+            match ele {
+                Element::Comment(c) => Event::Comment(c),
+                Element::CommentBlock { args, cont } => Event::CommentBlock { args, cont },
+                Element::CtrBlock { .. } => Event::CtrBlockBeg,
+                Element::DynBlock { name, args, .. } => Event::DynBlockBeg { name, args },
+                Element::ExampleBlock { args, cont } => Event::ExampleBlock { args, cont },
+                Element::ExportBlock { args, cont } => Event::ExportBlock { args, cont },
+                Element::FnDef { label, cont } => Event::FnDef { label, cont },
+                Element::Keyword { key, value } => Event::Keyword { key, value },
+                Element::List { ordered, .. } => Event::ListBeg { ordered },
+                Element::Paragraph { .. } => Event::ParagraphBeg,
+                Element::QteBlock { .. } => Event::QteBlockBeg,
+                Element::Rule => Event::Rule,
+                Element::SplBlock { name, args, .. } => Event::SplBlockBeg { name, args },
+                Element::SrcBlock { args, cont } => Event::SrcBlock { args, cont },
+                Element::VerseBlock { args, cont } => Event::VerseBlock { args, cont },
+            }
         } else {
             self.off += off;
             self.end()
@@ -282,7 +300,24 @@ impl<'a> Parser<'a> {
 
         self.off += off;
 
-        obj.into()
+        match obj {
+            Object::Bold { .. } => Event::BoldBeg,
+            Object::Code(c) => Event::Code(c),
+            Object::Cookie(c) => Event::Cookie(c),
+            Object::FnRef(f) => Event::FnRef(f),
+            Object::InlineCall(i) => Event::InlineCall(i),
+            Object::InlineSrc(i) => Event::InlineSrc(i),
+            Object::Italic { .. } => Event::ItalicBeg,
+            Object::Link(l) => Event::Link(l),
+            Object::Macros(m) => Event::Macros(m),
+            Object::RadioTarget(r) => Event::RadioTarget(r),
+            Object::Snippet(s) => Event::Snippet(s),
+            Object::Strike { .. } => Event::StrikeBeg,
+            Object::Target(t) => Event::Target(t),
+            Object::Text(t) => Event::Text(t),
+            Object::Underline { .. } => Event::UnderlineBeg,
+            Object::Verbatim(v) => Event::Verbatim(v),
+        }
     }
 
     fn next_list_item(&mut self, end: usize, ident: usize) -> Event<'a> {
@@ -325,18 +360,18 @@ impl<'a> Parser<'a> {
                 | Strike { end }
                 | Bold { end }
                 | Underline { end } => {
-                    assert!(self.off <= end);
+                    debug_assert!(self.off <= end);
                 }
                 Paragraph { cont_end, end } => {
-                    assert!(self.off <= end);
-                    assert!(self.off <= cont_end);
+                    debug_assert!(self.off <= end);
+                    debug_assert!(self.off <= cont_end);
                 }
                 CtrBlock { cont_end, end }
                 | QteBlock { cont_end, end }
                 | SplBlock { cont_end, end }
                 | DynBlock { cont_end, end } => {
-                    assert!(self.off <= cont_end);
-                    assert!(self.off <= end);
+                    debug_assert!(self.off <= cont_end);
+                    debug_assert!(self.off <= end);
                 }
             }
         }
@@ -391,7 +426,7 @@ impl<'a> Iterator for Parser<'a> {
                         self.off = end;
                         self.end()
                     } else {
-                        self.next_list_item(end, ident)
+                        self.next_list_item(cont_end, ident)
                     }
                 }
                 Container::ListItem { end } => {
@@ -399,7 +434,7 @@ impl<'a> Iterator for Parser<'a> {
                         self.end()
                     } else {
                         // TODO: handle nested list
-                        self.next_obj(end)
+                        self.next_ele(end)
                     }
                 }
                 Container::Section { end } => {
@@ -429,51 +464,6 @@ impl<'a> Iterator for Parser<'a> {
                     }
                 }
             })
-        }
-    }
-}
-
-impl<'a> From<Object<'a>> for Event<'a> {
-    fn from(obj: Object<'a>) -> Self {
-        match obj {
-            Object::Bold { .. } => Event::BoldBeg,
-            Object::Code(c) => Event::Code(c),
-            Object::Cookie(c) => Event::Cookie(c),
-            Object::FnRef(f) => Event::FnRef(f),
-            Object::InlineCall(i) => Event::InlineCall(i),
-            Object::InlineSrc(i) => Event::InlineSrc(i),
-            Object::Italic { .. } => Event::ItalicBeg,
-            Object::Link(l) => Event::Link(l),
-            Object::Macros(m) => Event::Macros(m),
-            Object::RadioTarget(r) => Event::RadioTarget(r),
-            Object::Snippet(s) => Event::Snippet(s),
-            Object::Strike { .. } => Event::StrikeBeg,
-            Object::Target(t) => Event::Target(t),
-            Object::Text(t) => Event::Text(t),
-            Object::Underline { .. } => Event::UnderlineBeg,
-            Object::Verbatim(v) => Event::Verbatim(v),
-        }
-    }
-}
-
-impl<'a> From<Element<'a>> for Event<'a> {
-    fn from(ele: Element<'a>) -> Self {
-        match ele {
-            Element::Comment(c) => Event::Comment(c),
-            Element::CommentBlock { args, cont } => Event::CommentBlock { args, cont },
-            Element::CtrBlock { .. } => Event::CtrBlockBeg,
-            Element::DynBlock { name, args, .. } => Event::DynBlockBeg { name, args },
-            Element::ExampleBlock { args, cont } => Event::ExampleBlock { args, cont },
-            Element::ExportBlock { args, cont } => Event::ExportBlock { args, cont },
-            Element::FnDef { label, cont } => Event::FnDef { label, cont },
-            Element::Keyword { key, value } => Event::Keyword { key, value },
-            Element::List { ordered, .. } => Event::ListBeg { ordered },
-            Element::Paragraph { .. } => Event::ParagraphBeg,
-            Element::QteBlock { .. } => Event::QteBlockBeg,
-            Element::Rule => Event::Rule,
-            Element::SplBlock { name, args, .. } => Event::SplBlockBeg { name, args },
-            Element::SrcBlock { args, cont } => Event::SrcBlock { args, cont },
-            Element::VerseBlock { args, cont } => Event::VerseBlock { args, cont },
         }
     }
 }

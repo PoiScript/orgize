@@ -134,16 +134,25 @@ impl<'a> Element<'a> {
                     || bytes[pos] == b'*'
                     || (bytes[pos] >= b'0' && bytes[pos] <= b'9')
                 {
-                    if let Some((ident, ordered, cont_end, end)) = List::parse(&src[end..]) {
-                        ret!(
-                            Element::List {
-                                ident,
-                                ordered,
-                                cont_end,
-                                end
-                            },
-                            0
-                        );
+                    if let Some((ident, ordered, cont_end, list_end)) = List::parse(&src[end..]) {
+                        let list = Element::List {
+                            ident,
+                            ordered,
+                            cont_end,
+                            end: list_end,
+                        };
+                        return if pos == start {
+                            (1, Some(list), None)
+                        } else {
+                            (
+                                start,
+                                Some(Element::Paragraph {
+                                    cont_end: end,
+                                    end: end,
+                                }),
+                                Some((list, 1)),
+                            )
+                        };
                     }
                 }
 
@@ -173,42 +182,13 @@ impl<'a> Element<'a> {
                     if let Some((name, args, contents_beg, cont_end, end)) =
                         Block::parse(&src[pos..])
                     {
+                        let cont = &src[pos + contents_beg + 1..pos + cont_end - 1];
                         match name.to_uppercase().as_str() {
-                            "COMMENT" => ret!(
-                                Element::CommentBlock {
-                                    args,
-                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
-                                },
-                                pos + end
-                            ),
-                            "EXAMPLE" => ret!(
-                                Element::ExampleBlock {
-                                    args,
-                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
-                                },
-                                pos + end
-                            ),
-                            "EXPORT" => ret!(
-                                Element::ExportBlock {
-                                    args,
-                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
-                                },
-                                pos + end
-                            ),
-                            "SRC" => ret!(
-                                Element::SrcBlock {
-                                    args,
-                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
-                                },
-                                pos + end
-                            ),
-                            "VERSE" => ret!(
-                                Element::VerseBlock {
-                                    args,
-                                    cont: &src[pos + contents_beg + 1..pos + cont_end - 1],
-                                },
-                                pos + end
-                            ),
+                            "COMMENT" => ret!(Element::CommentBlock { args, cont }, pos + end),
+                            "EXAMPLE" => ret!(Element::ExampleBlock { args, cont }, pos + end),
+                            "EXPORT" => ret!(Element::ExportBlock { args, cont }, pos + end),
+                            "SRC" => ret!(Element::SrcBlock { args, cont }, pos + end),
+                            "VERSE" => ret!(Element::VerseBlock { args, cont }, pos + end),
                             "CENTER" => ret!(
                                 Element::CtrBlock {
                                     args,

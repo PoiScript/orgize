@@ -1,6 +1,3 @@
-use memchr::memchr_iter;
-use std::iter::once;
-
 pub struct List;
 
 macro_rules! ident {
@@ -56,23 +53,16 @@ impl List {
     // TODO: handle nested list
     pub fn parse_item(src: &str, ident: usize) -> (usize, usize) {
         let beg = src[ident..].find(' ').map(|i| ident + i + 1).unwrap();
-        let mut pos = match src.find('\n') {
-            Some(i) => i + 1,
-            None => return (beg, src.len()),
-        };
-        while let Some(line_end) = src[pos..].find('\n').map(|i| i + pos + 1).or_else(|| {
-            if pos < src.len() {
-                Some(src.len())
-            } else {
-                None
-            }
-        }) {
-            if ident!(src[pos..]) == ident {
+        let mut lines = lines!(src);
+        // skip first line
+        let mut pos = lines.next().unwrap();
+        for line_end in lines {
+            let line = &src[pos..line_end];
+            if !line.trim().is_empty() && ident!(line) == ident {
                 break;
             }
             pos = line_end;
         }
-
         (beg, pos)
     }
 
@@ -191,26 +181,26 @@ fn parse() {
     );
     assert_eq!(
         List::parse(
-            r#" - Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+            r#"- Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 
-   - Nulla et dolor vitae elit placerat sagittis. Aliquam a lobortis massa,
-     aliquam efficitur arcu.
+  - Nulla et dolor vitae elit placerat sagittis. Aliquam a lobortis massa,
+    aliquam efficitur arcu.
 
-   - Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+  - Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 
-   - Phasellus auctor lacus a orci imperdiet, ut facilisis neque lobortis.
+  - Phasellus auctor lacus a orci imperdiet, ut facilisis neque lobortis.
 
-   - Proin condimentum id orci vitae lobortis. Nunc sollicitudin risus neque,
-     dapibus malesuada sem faucibus vitae.
+  - Proin condimentum id orci vitae lobortis. Nunc sollicitudin risus neque,
+    dapibus malesuada sem faucibus vitae.
 
- - Sed vitae dolor augue. Phasellus at rhoncus arcu. Suspendisse potenti.
+- Sed vitae dolor augue. Phasellus at rhoncus arcu. Suspendisse potenti.
 
-   - Nulla faucibus, metus ut porta hendrerit, urna lorem porta metus, in tempus
-     nibh orci sed sapien.
+  - Nulla faucibus, metus ut porta hendrerit, urna lorem porta metus, in tempus
+    nibh orci sed sapien.
 
-   - Morbi tortor mi, dapibus vel faucibus a, iaculis sed turpis."#
+  - Morbi tortor mi, dapibus vel faucibus a, iaculis sed turpis."#
         ),
-        Some((1, false, 677, 677))
+        Some((0, false, 666, 666))
     );
 }
 
@@ -232,7 +222,7 @@ fn is_item() {
 #[test]
 fn parse_item() {
     assert_eq!(List::parse_item("+ Item1\n+ Item2", 0), (2, 8));
-    assert_eq!(List::parse_item("+ Item1\n\n+ Item2", 0), (2, 8));
+    assert_eq!(List::parse_item("+ Item1\n\n+ Item2", 0), (2, 9));
     assert_eq!(
         List::parse_item(
             r"+ item1
@@ -270,5 +260,29 @@ fn parse_item() {
             0
         ),
         (3, 119)
+    );
+    assert_eq!(
+        List::parse_item(
+            r#"- Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+  - Nulla et dolor vitae elit placerat sagittis. Aliquam a lobortis massa,
+    aliquam efficitur arcu.
+
+  - Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+  - Phasellus auctor lacus a orci imperdiet, ut facilisis neque lobortis.
+
+  - Proin condimentum id orci vitae lobortis. Nunc sollicitudin risus neque,
+    dapibus malesuada sem faucibus vitae.
+
+- Sed vitae dolor augue. Phasellus at rhoncus arcu. Suspendisse potenti.
+
+  - Nulla faucibus, metus ut porta hendrerit, urna lorem porta metus, in tempus
+    nibh orci sed sapien.
+
+  - Morbi tortor mi, dapibus vel faucibus a, iaculis sed turpis."#,
+            0
+        ),
+        (2, 421)
     );
 }
