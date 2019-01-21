@@ -50,7 +50,6 @@ impl List {
     }
 
     // returns (contents_begin, contents_end)
-    // TODO: handle nested list
     pub fn parse_item(src: &str, ident: usize) -> (usize, usize) {
         let beg = src[ident..].find(' ').map(|i| ident + i + 1).unwrap();
         let mut lines = lines!(src);

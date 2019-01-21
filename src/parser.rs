@@ -433,7 +433,6 @@ impl<'a> Iterator for Parser<'a> {
                     if self.off >= end {
                         self.end()
                     } else {
-                        // TODO: handle nested list
                         self.next_ele(end)
                     }
                 }

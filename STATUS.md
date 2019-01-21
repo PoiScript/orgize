@@ -9,7 +9,9 @@
 - [ ] Dynamic Blocks
 - [x] Footnote Definitions
 - [ ] Inlinetasks
-- [ ] Plain Lists and Items
+- [x] Plain Lists and Items
+  - [x] Nested List
+  - [ ] Nested List Indentation
 - [ ] Property Drawers
 - [ ] Tables
 
