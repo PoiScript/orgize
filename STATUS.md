@@ -21,7 +21,7 @@
 - [x] Blocks
 - [ ] Clock, Diary Sexp and Planning
 - [x] Comments
-- [ ] Fixed Width Areas
+- [x] Fixed Width Areas
 - [x] Horizontal Rules
 - [x] Keywords
 - [ ] LaTeX Environments

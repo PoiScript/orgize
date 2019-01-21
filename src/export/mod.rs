@@ -35,6 +35,7 @@ pub trait Handler<W: Write> {
     fn handle_call(&mut self, w: &mut W) -> Result<()>;
     fn handle_clock(&mut self, w: &mut W) -> Result<()>;
     fn handle_comment(&mut self, w: &mut W, cont: &str) -> Result<()>;
+    fn handle_fixed_width(&mut self, w: &mut W, cont: &str) -> Result<()>;
     fn handle_table_start(&mut self, w: &mut W) -> Result<()>;
     fn handle_table_end(&mut self, w: &mut W) -> Result<()>;
     fn handle_table_cell(&mut self, w: &mut W) -> Result<()>;
@@ -118,6 +119,7 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
                 Call => h.handle_call(w)?,
                 Clock => h.handle_clock(w)?,
                 Comment(c) => h.handle_comment(w, c)?,
+                FixedWidth(f) => h.handle_fixed_width(w, f)?,
                 TableStart => h.handle_table_start(w)?,
                 TableEnd => h.handle_table_end(w)?,
                 TableCell => h.handle_table_cell(w)?,

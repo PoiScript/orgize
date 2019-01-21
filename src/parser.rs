@@ -122,6 +122,7 @@ pub enum Event<'a> {
     Clock,
 
     Comment(&'a str),
+    FixedWidth(&'a str),
 
     TableStart,
     TableEnd,
@@ -259,6 +260,7 @@ impl<'a> Parser<'a> {
                 Element::DynBlock { name, args, .. } => Event::DynBlockBeg { name, args },
                 Element::ExampleBlock { args, cont } => Event::ExampleBlock { args, cont },
                 Element::ExportBlock { args, cont } => Event::ExportBlock { args, cont },
+                Element::FixedWidth(f) => Event::FixedWidth(f),
                 Element::FnDef { label, cont } => Event::FnDef { label, cont },
                 Element::Keyword { key, value } => Event::Keyword { key, value },
                 Element::List { ordered, .. } => Event::ListBeg { ordered },

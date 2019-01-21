@@ -90,6 +90,9 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_comment(&mut self, w: &mut W, cont: &str) -> Result<()> {
         Ok(())
     }
+    fn handle_fixed_width(&mut self, w: &mut W, cont: &str) -> Result<()> {
+        write!(w, "<pre>{}</pre>", cont)
+    }
     fn handle_table_start(&mut self, w: &mut W) -> Result<()> {
         Ok(())
     }

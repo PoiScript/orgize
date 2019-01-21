@@ -70,6 +70,7 @@ pub enum Element<'a> {
     },
     Rule,
     Comment(&'a str),
+    FixedWidth(&'a str),
     List {
         ident: usize,
         ordered: bool,
@@ -176,6 +177,14 @@ impl<'a> Element<'a> {
                     if off != 0 {
                         ret!(Element::Rule, off);
                     }
+                }
+
+                if bytes[pos] == b':' && bytes.get(pos + 1).map(|&b| b == b' ').unwrap_or(false) {
+                    let eol = src[pos..]
+                        .find('\n')
+                        .map(|i| i + pos + 1)
+                        .unwrap_or_else(|| src.len());
+                    ret!(Element::FixedWidth(&src[pos + 1..eol]), eol);
                 }
 
                 if bytes[pos] == b'#' && bytes.get(pos + 1).filter(|&&b| b == b'+').is_some() {
