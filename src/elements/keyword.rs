@@ -12,7 +12,9 @@ impl Keyword {
         let key = until_while!(src, 2, b':', |c: u8| c.is_ascii_alphabetic() || c == b'_')?;
 
         // includes the eol character
-        let end = src.find('\n').map(|i| i + 1).unwrap_or_else(|| src.len());
+        let end = memchr::memchr(b'\n', src.as_bytes())
+            .map(|i| i + 1)
+            .unwrap_or_else(|| src.len());
 
         Some((&src[2..key], &src[key + 1..end].trim(), end))
     }

@@ -51,7 +51,9 @@ impl List {
 
     // returns (contents_begin, contents_end)
     pub fn parse_item(src: &str, ident: usize) -> (usize, usize) {
-        let beg = src[ident..].find(' ').map(|i| ident + i + 1).unwrap();
+        let beg = memchr::memchr(b' ', &src.as_bytes()[ident..])
+            .map(|i| i + ident + 1)
+            .unwrap();
         let mut lines = lines!(src);
         // skip first line
         let mut pos = lines.next().unwrap();

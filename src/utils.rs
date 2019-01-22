@@ -13,11 +13,10 @@ macro_rules! expect {
 #[macro_export]
 macro_rules! eol {
     ($src:expr) => {
-        $src.find('\n').unwrap_or_else(|| $src.len())
+        memchr::memchr(b'\n', $src.as_bytes()).unwrap_or_else(|| $src.len())
     };
     ($src:expr, $from:expr) => {
-        $src[$from..]
-            .find('\n')
+        memchr::memchr(b'\n', $src.as_bytes()[$from..])
             .map(|i| i + $from)
             .unwrap_or_else(|| $src.len())
     };

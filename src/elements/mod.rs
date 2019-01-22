@@ -179,12 +179,12 @@ impl<'a> Element<'a> {
                     }
                 }
 
+                // TODO: multiple lines fixed width area
                 if bytes[pos] == b':' && bytes.get(pos + 1).map(|&b| b == b' ').unwrap_or(false) {
-                    let eol = src[pos..]
-                        .find('\n')
-                        .map(|i| i + pos + 1)
-                        .unwrap_or_else(|| src.len());
-                    ret!(Element::FixedWidth(&src[pos + 1..eol]), eol);
+                    let eol = memchr::memchr(b'\n', &src.as_bytes()[pos..])
+                        .map(|i| i + 1)
+                        .unwrap_or_else(|| src.len() - pos);
+                    ret!(Element::FixedWidth(&src[pos + 1..pos + eol]), eol);
                 }
 
                 if bytes[pos] == b'#' && bytes.get(pos + 1).filter(|&&b| b == b'+').is_some() {
@@ -246,12 +246,12 @@ impl<'a> Element<'a> {
                 }
 
                 // Comment
+                // TODO: multiple lines comment
                 if bytes[pos] == b'#' && bytes.get(pos + 1).map(|&b| b == b' ').unwrap_or(false) {
-                    let eol = src[pos..]
-                        .find('\n')
-                        .map(|i| i + pos + 1)
-                        .unwrap_or_else(|| src.len());
-                    ret!(Element::Comment(&src[pos + 1..eol]), eol);
+                    let eol = memchr::memchr(b'\n', &src.as_bytes()[pos..])
+                        .map(|i| i + 1)
+                        .unwrap_or_else(|| src.len() - pos);
+                    ret!(Element::Comment(&src[pos + 1..pos + eol]), eol);
                 }
             }
 

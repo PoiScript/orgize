@@ -12,7 +12,6 @@ pub enum Container {
     Section {
         end: usize,
     },
-
     Paragraph {
         cont_end: usize,
         end: usize,
@@ -33,7 +32,6 @@ pub enum Container {
         cont_end: usize,
         end: usize,
     },
-
     List {
         ident: usize,
         ordered: bool,
@@ -43,7 +41,6 @@ pub enum Container {
     ListItem {
         end: usize,
     },
-
     Italic {
         end: usize,
     },
@@ -182,20 +179,20 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn start_sec_or_hdl(&mut self, tail: &'a str) -> Event<'a> {
-        let end = Headline::find_level(tail, std::usize::MAX);
+    fn next_sec_or_hdl(&mut self) -> Event<'a> {
+        let end = Headline::find_level(&self.text[self.off..], std::usize::MAX);
         if end != 0 {
             self.stack.push(Container::Section {
                 end: self.off + end,
             });
             Event::SectionBeg
         } else {
-            self.start_hdl(tail)
+            self.next_hdl()
         }
     }
 
-    fn start_hdl(&mut self, tail: &'a str) -> Event<'a> {
-        let (hdl, off, end) = Headline::parse(tail);
+    fn next_hdl(&mut self) -> Event<'a> {
+        let (hdl, off, end) = Headline::parse(&self.text[self.off..]);
         self.stack.push(Container::Headline {
             beg: self.off + off,
             end: self.off + end,
@@ -214,6 +211,8 @@ impl<'a> Parser<'a> {
                 self.ele_buf = next_2;
                 (ele, off)
             });
+
+        debug_assert!(self.off + off <= end);
 
         if let Some(ele) = ele {
             match ele {
@@ -283,6 +282,8 @@ impl<'a> Parser<'a> {
             self.obj_buf = next_2;
             (obj, off)
         });
+
+        debug_assert!(self.off + off <= end);
 
         match obj {
             Object::Underline { end } => self.stack.push(Container::Underline {
@@ -390,21 +391,19 @@ impl<'a> Iterator for Parser<'a> {
             if self.off >= self.text.len() {
                 None
             } else {
-                let tail = &self.text[self.off..];
-                Some(self.start_sec_or_hdl(tail))
+                Some(self.next_sec_or_hdl())
             }
         } else {
             let last = *self.stack.last_mut().unwrap();
 
             Some(match last {
                 Container::Headline { beg, end } => {
-                    let tail = &self.text[self.off..];
                     if self.off >= end {
                         self.end()
                     } else if self.off == beg {
-                        self.start_sec_or_hdl(tail)
+                        self.next_sec_or_hdl()
                     } else {
-                        self.start_hdl(tail)
+                        self.next_hdl()
                     }
                 }
                 Container::DynBlock { cont_end, end, .. }

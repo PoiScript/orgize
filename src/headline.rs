@@ -48,13 +48,14 @@ impl<'a> Headline<'a> {
     fn parse_tags(src: &'a str) -> (Option<&'a str>, usize) {
         if let Some(last) = src.split_whitespace().last() {
             if last.len() > 2 && last.starts_with(':') && last.ends_with(':') {
-                (Some(last), src.rfind(':').unwrap() - last.len())
-            } else {
-                (None, src.len())
+                return (
+                    Some(last),
+                    memchr::memrchr(b':', src.as_bytes()).unwrap() - last.len(),
+                );
             }
-        } else {
-            (None, src.len())
         }
+
+        (None, src.len())
     }
 
     pub fn parse(src: &'a str) -> (Headline<'a>, usize, usize) {
@@ -72,23 +73,17 @@ impl<'a> Headline<'a> {
 
         let mut title_start = skip_space!(src, level);
 
-        let keyword = match Headline::parse_keyword(&src[title_start..eol]) {
-            Some((k, l)) => {
-                title_start += l;
-                Some(k)
-            }
-            None => None,
-        };
+        let keyword = Headline::parse_keyword(&src[title_start..eol]).map(|(k, l)| {
+            title_start += l;
+            k
+        });
 
         title_start = skip_space!(src, title_start);
 
-        let priority = match Headline::parse_priority(&src[title_start..eol]) {
-            Some(p) => {
-                title_start += 4;
-                Some(p)
-            }
-            None => None,
-        };
+        let priority = Headline::parse_priority(&src[title_start..eol]).map(|p| {
+            title_start += 4;
+            p
+        });
 
         title_start = skip_space!(src, title_start);
 

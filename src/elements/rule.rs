@@ -1,12 +1,10 @@
-use memchr::memchr;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Rule;
 
 impl Rule {
     pub fn parse(src: &str) -> usize {
-        let end = memchr(b'\n', src.as_bytes())
+        let end = memchr::memchr(b'\n', src.as_bytes())
             .map(|i| i + 1)
             .unwrap_or_else(|| src.len());
         let rules = &src[0..end].trim();
