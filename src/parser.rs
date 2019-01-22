@@ -112,9 +112,9 @@ pub enum Event<'a> {
     ListItemBeg,
     ListItemEnd,
 
-    AffKeywords,
-
-    Call,
+    Call {
+        value: &'a str,
+    },
 
     Clock,
 
@@ -131,7 +131,7 @@ pub enum Event<'a> {
         cont: &'a str,
     },
     Keyword {
-        key: &'a str,
+        key: Key<'a>,
         value: &'a str,
     },
     Rule,
@@ -253,6 +253,7 @@ impl<'a> Parser<'a> {
             self.off += off;
 
             match ele {
+                Element::Call { value } => Event::Call { value },
                 Element::Comment(c) => Event::Comment(c),
                 Element::CommentBlock { args, cont } => Event::CommentBlock { args, cont },
                 Element::CtrBlock { .. } => Event::CtrBlockBeg,

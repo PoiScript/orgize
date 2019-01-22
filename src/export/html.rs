@@ -1,5 +1,6 @@
 #![allow(unused_variables)]
 
+use elements::Key;
 use export::Handler;
 use headline::Headline;
 use objects::{Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target};
@@ -78,10 +79,7 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_list_end_item(&mut self, w: &mut W) -> Result<()> {
         write!(w, "</li>")
     }
-    fn handle_aff_keywords(&mut self, w: &mut W) -> Result<()> {
-        Ok(())
-    }
-    fn handle_call(&mut self, w: &mut W) -> Result<()> {
+    fn handle_call(&mut self, w: &mut W, value: &str) -> Result<()> {
         Ok(())
     }
     fn handle_clock(&mut self, w: &mut W) -> Result<()> {
@@ -108,7 +106,7 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_fn_def(&mut self, w: &mut W, label: &str, cont: &str) -> Result<()> {
         Ok(())
     }
-    fn handle_keyword(&mut self, w: &mut W, key: &str, value: &str) -> Result<()> {
+    fn handle_keyword(&mut self, w: &mut W, key: Key<'_>, value: &str) -> Result<()> {
         Ok(())
     }
     fn handle_rule(&mut self, w: &mut W) -> Result<()> {

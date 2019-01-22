@@ -2,6 +2,7 @@ mod html;
 
 pub use self::html::HtmlHandler;
 
+use elements::Key;
 use headline::Headline;
 use objects::{Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target};
 use parser::Parser;
@@ -31,8 +32,7 @@ pub trait Handler<W: Write> {
     fn handle_list_end(&mut self, w: &mut W, ordered: bool) -> Result<()>;
     fn handle_list_beg_item(&mut self, w: &mut W) -> Result<()>;
     fn handle_list_end_item(&mut self, w: &mut W) -> Result<()>;
-    fn handle_aff_keywords(&mut self, w: &mut W) -> Result<()>;
-    fn handle_call(&mut self, w: &mut W) -> Result<()>;
+    fn handle_call(&mut self, w: &mut W, value: &str) -> Result<()>;
     fn handle_clock(&mut self, w: &mut W) -> Result<()>;
     fn handle_comment(&mut self, w: &mut W, cont: &str) -> Result<()>;
     fn handle_fixed_width(&mut self, w: &mut W, cont: &str) -> Result<()>;
@@ -41,7 +41,7 @@ pub trait Handler<W: Write> {
     fn handle_table_cell(&mut self, w: &mut W) -> Result<()>;
     fn handle_latex_env(&mut self, w: &mut W) -> Result<()>;
     fn handle_fn_def(&mut self, w: &mut W, label: &str, cont: &str) -> Result<()>;
-    fn handle_keyword(&mut self, w: &mut W, key: &str, value: &str) -> Result<()>;
+    fn handle_keyword(&mut self, w: &mut W, key: Key<'_>, value: &str) -> Result<()>;
     fn handle_rule(&mut self, w: &mut W) -> Result<()>;
     fn handle_cookie(&mut self, w: &mut W, cookie: Cookie) -> Result<()>;
     fn handle_fn_ref(&mut self, w: &mut W, fn_ref: FnRef) -> Result<()>;
@@ -115,8 +115,7 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
                 ListEnd { ordered } => h.handle_list_end(w, ordered)?,
                 ListItemBeg => h.handle_list_beg_item(w)?,
                 ListItemEnd => h.handle_list_end_item(w)?,
-                AffKeywords => h.handle_aff_keywords(w)?,
-                Call => h.handle_call(w)?,
+                Call { value } => h.handle_call(w, value)?,
                 Clock => h.handle_clock(w)?,
                 Comment(c) => h.handle_comment(w, c)?,
                 FixedWidth(f) => h.handle_fixed_width(w, f)?,

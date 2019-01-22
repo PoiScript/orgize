@@ -8,7 +8,7 @@ pub mod rule;
 pub use self::block::Block;
 pub use self::dyn_block::DynBlock;
 pub use self::fn_def::FnDef;
-pub use self::keyword::Keyword;
+pub use self::keyword::{Key, Keyword};
 pub use self::list::List;
 pub use self::rule::Rule;
 
@@ -19,7 +19,10 @@ pub enum Element<'a> {
         end: usize,
     },
     Keyword {
-        key: &'a str,
+        key: Key<'a>,
+        value: &'a str,
+    },
+    Call {
         value: &'a str,
     },
     FnDef {
@@ -187,7 +190,7 @@ impl<'a> Element<'a> {
                     ret!(Element::FixedWidth(&src[pos + 1..pos + eol]), eol);
                 }
 
-                if bytes[pos] == b'#' && bytes.get(pos + 1).filter(|&&b| b == b'+').is_some() {
+                if bytes[pos] == b'#' && bytes.get(pos + 1).map(|&b| b == b'+').unwrap_or(false) {
                     if let Some((name, args, contents_beg, cont_end, end)) =
                         Block::parse(&src[pos..])
                     {
@@ -241,7 +244,14 @@ impl<'a> Element<'a> {
                     }
 
                     if let Some((key, value, off)) = Keyword::parse(&src[pos..]) {
-                        ret!(Element::Keyword { key, value }, off)
+                        ret!(
+                            if let Key::Call = key {
+                                Element::Call { value }
+                            } else {
+                                Element::Keyword { key, value }
+                            },
+                            off
+                        )
                     }
                 }
 

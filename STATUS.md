@@ -4,9 +4,9 @@
 - [ ] Affiliated Keywords
 
 ## Greater Elements
-- [ ] Greater Blocks
+- [x] Greater Blocks
 - [ ] Drawers and Property Drawers
-- [ ] Dynamic Blocks
+- [x] Dynamic Blocks
 - [x] Footnote Definitions
 - [ ] Inlinetasks
 - [x] Plain Lists and Items
@@ -17,8 +17,10 @@
 
 ## Elements
 
-- [ ] Babel Call
+- [x] Babel Call
 - [x] Blocks
+  - [ ] Org mode Source Blocks Escape
+  - [ ] Line Numbers
 - [ ] Clock, Diary Sexp and Planning
 - [x] Comments
 - [x] Fixed Width Areas
@@ -44,3 +46,14 @@
 - [ ] Table Cells
 - [x] Timestamps
 - [x] Text Markup
+
+## Export
+
+- [x] HTML
+- [ ] Org
+- [ ] JSON
+- [ ] LaTeX
+
+## Extra
+
+- [ ] Syntax Highlighting

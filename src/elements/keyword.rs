@@ -1,139 +1,135 @@
+pub struct Keyword;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
-pub struct Keyword;
+pub enum Key<'a> {
+    // Affiliated Keywords
+    // Only "CAPTION" and "RESULTS" keywords can have an optional value.
+    Caption { option: Option<&'a str> },
+    Header,
+    Name,
+    Plot,
+    Results { option: Option<&'a str> },
+    Attr { backend: &'a str },
+
+    // Keywords
+    Author,
+    Date,
+    Title,
+    Custom(&'a str),
+
+    // Babel Call
+    Call,
+}
 
 impl Keyword {
     // return (key, value, offset)
-    pub fn parse(src: &str) -> Option<(&str, &str, usize)> {
+    pub fn parse(src: &str) -> Option<(Key<'_>, &str, usize)> {
         if cfg!(test) {
             starts_with!(src, "#+");
         }
 
-        let key = until_while!(src, 2, b':', |c: u8| c.is_ascii_alphabetic() || c == b'_')?;
+        let key_end = until_while!(src, 2, |c| c == b':' || c == b'[', |c: u8| c
+            .is_ascii_alphabetic()
+            || c == b'_')?;
+
+        let option = if src.as_bytes()[key_end] == b'[' {
+            let option = until_while!(src, key_end, b']', |c: u8| c != b'\n')?;
+            expect!(src, option + 1, b':')?;
+            option + 1
+        } else {
+            key_end
+        };
 
         // includes the eol character
         let end = memchr::memchr(b'\n', src.as_bytes())
             .map(|i| i + 1)
             .unwrap_or_else(|| src.len());
 
-        Some((&src[2..key], &src[key + 1..end].trim(), end))
-    }
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
-pub struct AffKeyword<'a> {
-    pub key: AffKeywordKey<'a>,
-    pub option: Option<&'a str>,
-    pub value: &'a str,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
-pub enum AffKeywordKey<'a> {
-    Caption,
-    Header,
-    Name,
-    Plot,
-    Results,
-    AttrBackend(&'a str),
-}
-
-// impl<'a> AffKeyword<'a> {
-//     pub fn parse(src: &'a str) -> Option<AffKeyword<'a>> {
-//         if src.len() < 3 && !src.starts_with("#+") {
-//             return None;
-//         }
-
-//         let end = src.nextline();
-//         let colon = src[2..end].until(b':');
-//         let key_index = src[2..end]
-//             .as_bytes()
-//             .iter()
-//             .position(|&c| !(c.is_ascii_alphanumeric() || c == b'-' || c == b'_'));
-//         // .unwrap_or(2);
-
-//         // let key = match parse_key(&src[2..key_index]) {
-
-//         // }
-
-//         // if key.is_none() {
-//         //     return None;
-//         // }
-
-//         if let Some(key_index) = key {
-//             // if src.as_bytes()[key_index] = b':'
-//             parse_key(&src[2..key_index])
-//                 .filter(|_| src.as_bytes()[colon + 1] == b' ')
-//                 .map(|key| {
-//                     if src.as_bytes()[key_index + 1] == b'[' && src.as_bytes()[colon - 1] == b']' {
-//                         AffKeyword {
-//                             key,
-//                             value: &s[colon + 2..end],
-//                             option: Some(&s[key_index + 2..colon - 1]),
-//                         }
-//                     } else {
-//                         AffKeyword {
-//                             key,
-//                             value: &s[colon + 2..end],
-//                             option: None,
-//                         }
-//                     }
-//                 })
-//         } else {
-//             None
-//         }
-//     }
-// }
-
-fn parse_key<'a>(key: &'a str) -> Option<AffKeywordKey<'a>> {
-    match key {
-        "CAPTION" => Some(AffKeywordKey::Caption),
-        "HEADER" => Some(AffKeywordKey::Header),
-        "NAME" => Some(AffKeywordKey::Name),
-        "PLOT" => Some(AffKeywordKey::Plot),
-        "RESULTS" => Some(AffKeywordKey::Results),
-        k => {
-            if k.starts_with("ATTR_")
-                && k[5..]
-                    .as_bytes()
-                    .iter()
-                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-            {
-                Some(AffKeywordKey::AttrBackend(&k[5..]))
-            } else {
-                None
-            }
-        }
+        Some((
+            match &src[2..key_end] {
+                key if key.eq_ignore_ascii_case("CAPTION") => Key::Caption {
+                    option: if key_end == option {
+                        None
+                    } else {
+                        Some(&src[key_end + 1..option - 1])
+                    },
+                },
+                key if key.eq_ignore_ascii_case("HEADER") => Key::Header,
+                key if key.eq_ignore_ascii_case("NAME") => Key::Name,
+                key if key.eq_ignore_ascii_case("PLOT") => Key::Plot,
+                key if key.eq_ignore_ascii_case("RESULTS") => Key::Results {
+                    option: if key_end == option {
+                        None
+                    } else {
+                        Some(&src[key_end + 1..option - 1])
+                    },
+                },
+                key if key.eq_ignore_ascii_case("AUTHOR") => Key::Author,
+                key if key.eq_ignore_ascii_case("DATE") => Key::Date,
+                key if key.eq_ignore_ascii_case("TITLE") => Key::Title,
+                key if key.eq_ignore_ascii_case("CALL") => Key::Call,
+                key if key.starts_with("ATTR_") => Key::Attr {
+                    backend: &src["#+ATTR_".len()..key_end],
+                },
+                key => Key::Custom(key),
+            },
+            &src[option + 1..end].trim(),
+            end,
+        ))
     }
 }
 
 #[test]
 fn parse() {
     assert_eq!(
-        Keyword::parse("#+KEY:").unwrap(),
-        ("KEY", "", "#+KEY:".len())
+        Keyword::parse("#+KEY:"),
+        Some((Key::Custom("KEY"), "", "#+KEY:".len()))
     );
     assert_eq!(
-        Keyword::parse("#+KEY: VALUE").unwrap(),
-        ("KEY", "VALUE", "#+KEY: VALUE".len())
+        Keyword::parse("#+KEY: VALUE"),
+        Some((Key::Custom("KEY"), "VALUE", "#+KEY: VALUE".len()))
     );
     assert_eq!(
-        Keyword::parse("#+K_E_Y: VALUE").unwrap(),
-        ("K_E_Y", "VALUE", "#+K_E_Y: VALUE".len())
+        Keyword::parse("#+K_E_Y: VALUE"),
+        Some((Key::Custom("K_E_Y"), "VALUE", "#+K_E_Y: VALUE".len()))
     );
     assert_eq!(
-        Keyword::parse("#+KEY:VALUE\n").unwrap(),
-        ("KEY", "VALUE", "#+KEY:VALUE\n".len())
+        Keyword::parse("#+KEY:VALUE\n"),
+        Some((Key::Custom("KEY"), "VALUE", "#+KEY:VALUE\n".len()))
     );
     assert!(Keyword::parse("#+KE Y: VALUE").is_none());
     assert!(Keyword::parse("#+ KEY: VALUE").is_none());
     assert!(Keyword::parse("# +KEY: VALUE").is_none());
     assert!(Keyword::parse(" #+KEY: VALUE").is_none());
-}
 
-// #[test]
-// fn parse_affiliated_keyword() {
-//     assert_eq!(AffKeyword::parse("#+KEY: VALUE"), None);
-//     assert_eq!(AffKeyword::parse("#+CAPTION: VALUE"), None);
-// }
+    assert_eq!(
+        Keyword::parse("#+RESULTS:"),
+        Some((Key::Results { option: None }, "", "#+RESULTS:".len()))
+    );
+
+    assert_eq!(
+        Keyword::parse("#+ATTR_LATEX: :width 5cm"),
+        Some((
+            Key::Attr { backend: "LATEX" },
+            ":width 5cm",
+            "#+ATTR_LATEX: :width 5cm".len()
+        ))
+    );
+
+    assert_eq!(
+        Keyword::parse("#+CALL: double(n=4)"),
+        Some((Key::Call, "double(n=4)", "#+CALL: double(n=4)".len()))
+    );
+
+    assert_eq!(
+        Keyword::parse("#+CAPTION[Short caption]: Longer caption."),
+        Some((
+            Key::Caption {
+                option: Some("Short caption")
+            },
+            "Longer caption.",
+            "#+CAPTION[Short caption]: Longer caption.".len()
+        ))
+    );
+}
