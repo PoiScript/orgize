@@ -47,111 +47,128 @@ impl<'a> Object<'a> {
     pub fn next_2(src: &'a str) -> (Object<'a>, usize, Option<(Object<'a>, usize)>) {
         let bytes = src.as_bytes();
 
-        if src.len() < 2 {
+        if src.len() <= 2 {
             return (Object::Text(src), src.len(), None);
         }
 
-        // TODO: refactor with src[..].find(..)
-        for pos in 0..src.len() - 2 {
-            macro_rules! ret {
-                ($obj:expr, $off:expr) => {
-                    return if pos == 0 {
+        let chars = ascii_chars!('@', ' ', '"', '(', '\n', '{', '<', '[');
+
+        let mut pos = 0;
+        loop {
+            macro_rules! brk {
+                ($obj:expr, $off:expr, $pos:expr) => {
+                    break if pos == 0 {
                         ($obj, $off, None)
                     } else {
-                        (Object::Text(&src[0..pos]), pos, Some(($obj, $off)))
+                        (Object::Text(&src[0..$pos]), $pos, Some(($obj, $off)))
                     };
                 };
             }
 
-            let first = bytes[pos];
-            let second = bytes[pos + 1];
-            let third = bytes[pos + 2];
+            let mut pre = pos;
 
-            if first == b'@' && second == b'@' {
-                if let Some((snippet, off)) = Snippet::parse(&src[pos..]) {
-                    ret!(Object::Snippet(snippet), off);
-                }
-            }
-
-            if first == b'[' {
-                if second == b'f' && third == b'n' {
-                    if let Some((fn_ref, off)) = FnRef::parse(&src[pos..]) {
-                        ret!(Object::FnRef(fn_ref), off);
+            match (bytes[pos], bytes[pos + 1], bytes[pos + 2]) {
+                (b'@', b'@', _) => {
+                    if let Some((snippet, off)) = Snippet::parse(&src[pos..]) {
+                        brk!(Object::Snippet(snippet), off, pos);
                     }
-                } else if second == b'[' {
-                    if let Some((link, off)) = Link::parse(&src[pos..]) {
-                        ret!(Object::Link(link), off);
-                    }
-                } else {
-                    if let Some((cookie, off)) = Cookie::parse(&src[pos..]) {
-                        ret!(Object::Cookie(cookie), off);
-                    }
-                    // TODO: Timestamp
                 }
-            }
-
-            if first == b'{' && second == b'{' && third == b'{' {
-                if let Some((macros, off)) = Macros::parse(&src[pos..]) {
-                    ret!(Object::Macros(macros), off);
+                (b'{', b'{', b'{') => {
+                    if let Some((macros, off)) = Macros::parse(&src[pos..]) {
+                        brk!(Object::Macros(macros), off, pos);
+                    }
                 }
-            }
-
-            if first == b'<' && second == b'<' {
-                if third == b'<' {
+                (b'<', b'<', b'<') => {
                     if let Some((target, off)) = RadioTarget::parse(&src[pos..]) {
-                        ret!(Object::RadioTarget(target), off);
-                    }
-                } else if third != b'<' && third != b'\n' {
-                    if let Some((target, off)) = Target::parse(&src[pos..]) {
-                        ret!(Object::Target(target), off);
+                        brk!(Object::RadioTarget(target), off, pos);
                     }
                 }
-            }
-
-            if pos == 0
-                || bytes[pos - 1] == b' '
-                || bytes[pos - 1] == b'"'
-                || bytes[pos - 1] == b'('
-                || bytes[pos - 1] == b','
-                || bytes[pos - 1] == b'\n'
-                || bytes[pos - 1] == b'{'
-            {
-                if (first == b'*'
-                    || first == b'+'
-                    || first == b'/'
-                    || first == b'='
-                    || first == b'_'
-                    || first == b'~')
-                    && !second.is_ascii_whitespace()
-                {
-                    if let Some(end) = Emphasis::parse(&src[pos..], first) {
-                        match first {
-                            b'*' => ret!(Object::Bold { end }, 1),
-                            b'+' => ret!(Object::Strike { end }, 1),
-                            b'/' => ret!(Object::Italic { end }, 1),
-                            b'_' => ret!(Object::Underline { end }, 1),
-                            b'~' => ret!(Object::Code(&src[pos + 1..pos + end]), end + 1),
-                            b'=' => ret!(Object::Verbatim(&src[pos + 1..pos + end]), end + 1),
-                            _ => unreachable!(),
+                (b'<', b'<', third) => {
+                    if third != b'\n' {
+                        if let Some((target, off)) = Target::parse(&src[pos..]) {
+                            brk!(Object::Target(target), off, pos);
                         }
                     }
                 }
-
-                if first == b'c' && second == b'a' && third == b'l' {
-                    if let Some((call, off)) = InlineCall::parse(&src[pos..]) {
-                        ret!(Object::InlineCall(call), off);
+                (b'[', b'f', b'n') => {
+                    if let Some((fn_ref, off)) = FnRef::parse(&src[pos..]) {
+                        brk!(Object::FnRef(fn_ref), off, pos);
                     }
                 }
-
-                if first == b's' && second == b'r' && third == b'c' {
-                    if let Some((src, off)) = InlineSrc::parse(&src[pos..]) {
-                        ret!(Object::InlineSrc(src), off);
+                (b'[', b'[', _) => {
+                    if let Some((link, off)) = Link::parse(&src[pos..]) {
+                        brk!(Object::Link(link), off, pos);
                     }
                 }
+                (b'[', _, _) => {
+                    if let Some((cookie, off)) = Cookie::parse(&src[pos..]) {
+                        brk!(Object::Cookie(cookie), off, pos);
+                    }
+                    // TODO: Timestamp
+                }
+                (b'{', _, _)
+                | (b' ', _, _)
+                | (b'"', _, _)
+                | (b',', _, _)
+                | (b'(', _, _)
+                | (b'\n', _, _) => pre += 1,
+                _ => (),
+            }
+
+            match bytes[pre] {
+                b'*' => {
+                    if let Some(end) = Emphasis::parse(&src[pre..], b'*') {
+                        brk!(Object::Bold { end }, 1, pre);
+                    }
+                }
+                b'+' => {
+                    if let Some(end) = Emphasis::parse(&src[pre..], b'+') {
+                        brk!(Object::Strike { end }, 1, pre);
+                    }
+                }
+                b'/' => {
+                    if let Some(end) = Emphasis::parse(&src[pre..], b'/') {
+                        brk!(Object::Italic { end }, 1, pre);
+                    }
+                }
+                b'_' => {
+                    if let Some(end) = Emphasis::parse(&src[pre..], b'_') {
+                        brk!(Object::Underline { end }, 1, pre);
+                    }
+                }
+                b'=' => {
+                    if let Some(end) = Emphasis::parse(&src[pre..], b'=') {
+                        brk!(Object::Verbatim(&src[pre + 1..pre + end]), end + 1, pre);
+                    }
+                }
+                b'~' => {
+                    if let Some(end) = Emphasis::parse(&src[pre..], b'~') {
+                        brk!(Object::Code(&src[pre + 1..pre + end]), end + 1, pre);
+                    }
+                }
+                b'c' => {
+                    if let Some((call, off)) = InlineCall::parse(&src[pre..]) {
+                        brk!(Object::InlineCall(call), off, pre);
+                    }
+                }
+                b's' => {
+                    if let Some((src, off)) = InlineSrc::parse(&src[pre..]) {
+                        brk!(Object::InlineSrc(src), off, pre);
+                    }
+                }
+                _ => (),
+            }
+
+            if let Some(off) = chars
+                .find(&src[pos + 1..])
+                .map(|i| i + pos + 1)
+                .filter(|&i| i < src.len() - 2)
+            {
+                pos = off;
+            } else {
+                break (Object::Text(src), src.len(), None);
             }
         }
-
-        (Object::Text(src), src.len(), None)
     }
 }
 

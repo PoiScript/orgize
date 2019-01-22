@@ -350,44 +350,12 @@ impl<'a> Parser<'a> {
             Container::Underline { .. } => Event::UnderlineEnd,
         }
     }
-
-    fn check_off(&self) {
-        use self::Container::*;
-
-        if let Some(container) = self.stack.last() {
-            match *container {
-                Headline { end, .. }
-                | Section { end }
-                | List { end, .. }
-                | ListItem { end }
-                | Italic { end }
-                | Strike { end }
-                | Bold { end }
-                | Underline { end } => {
-                    debug_assert!(self.off <= end);
-                }
-                Paragraph { cont_end, end } => {
-                    debug_assert!(self.off <= end);
-                    debug_assert!(self.off <= cont_end);
-                }
-                CtrBlock { cont_end, end }
-                | QteBlock { cont_end, end }
-                | SplBlock { cont_end, end }
-                | DynBlock { cont_end, end } => {
-                    debug_assert!(self.off <= cont_end);
-                    debug_assert!(self.off <= end);
-                }
-            }
-        }
-    }
 }
 
 impl<'a> Iterator for Parser<'a> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Event<'a>> {
-        // self.check_off();
-
         if self.stack.is_empty() {
             if self.off >= self.text.len() {
                 None

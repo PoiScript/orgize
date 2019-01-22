@@ -97,7 +97,7 @@ impl<'a> Element<'a> {
             // Unlike other element, footnote definition must starts at column 0
             if bytes[pos] == b'[' {
                 if let Some((label, cont, off)) = FnDef::parse(&src[pos..]) {
-                    return if pos == start {
+                    break if pos == start {
                         (off + 1, Some(Element::FnDef { label, cont }), None)
                     } else {
                         (
@@ -116,9 +116,9 @@ impl<'a> Element<'a> {
             pos = skip_space!(src, pos);
 
             if pos <= src.len() {
-                macro_rules! ret {
+                macro_rules! brk {
                     ($ele:expr, $off:expr) => {
-                        return if pos == start {
+                        break if pos == start {
                             ($off, Some($ele), None)
                         } else {
                             (
@@ -145,7 +145,7 @@ impl<'a> Element<'a> {
                             cont_end,
                             end: list_end,
                         };
-                        return if pos == start {
+                        break if pos == start {
                             (1, Some(list), None)
                         } else {
                             (
@@ -161,7 +161,7 @@ impl<'a> Element<'a> {
                 }
 
                 if bytes[pos] == b'\n' {
-                    return (
+                    break (
                         start,
                         Some(Element::Paragraph {
                             cont_end: end,
@@ -178,73 +178,76 @@ impl<'a> Element<'a> {
                 if bytes[pos] == b'-' {
                     let off = Rule::parse(&src[pos..]);
                     if off != 0 {
-                        ret!(Element::Rule, off);
+                        brk!(Element::Rule, off);
                     }
                 }
 
                 // TODO: multiple lines fixed width area
-                if bytes[pos] == b':' && bytes.get(pos + 1).map(|&b| b == b' ').unwrap_or(false) {
+                if bytes[pos] == b':'
+                    && bytes
+                        .get(pos + 1)
+                        .map(|&b| b == b' ' || b == b'\n')
+                        .unwrap_or(false)
+                {
                     let eol = memchr::memchr(b'\n', &src.as_bytes()[pos..])
                         .map(|i| i + 1)
                         .unwrap_or_else(|| src.len() - pos);
-                    ret!(Element::FixedWidth(&src[pos + 1..pos + eol]), eol);
+                    brk!(Element::FixedWidth(&src[pos + 1..pos + eol]), eol);
                 }
 
                 if bytes[pos] == b'#' && bytes.get(pos + 1).map(|&b| b == b'+').unwrap_or(false) {
-                    if let Some((name, args, contents_beg, cont_end, end)) =
-                        Block::parse(&src[pos..])
-                    {
-                        let cont = &src[pos + contents_beg + 1..pos + cont_end - 1];
+                    if let Some((name, args, cont_beg, cont_end, end)) = Block::parse(&src[pos..]) {
+                        let cont = &src[pos + cont_beg + 1..pos + cont_end - 1];
                         match name.to_uppercase().as_str() {
-                            "COMMENT" => ret!(Element::CommentBlock { args, cont }, pos + end),
-                            "EXAMPLE" => ret!(Element::ExampleBlock { args, cont }, pos + end),
-                            "EXPORT" => ret!(Element::ExportBlock { args, cont }, pos + end),
-                            "SRC" => ret!(Element::SrcBlock { args, cont }, pos + end),
-                            "VERSE" => ret!(Element::VerseBlock { args, cont }, pos + end),
-                            "CENTER" => ret!(
+                            "COMMENT" => brk!(Element::CommentBlock { args, cont }, end),
+                            "EXAMPLE" => brk!(Element::ExampleBlock { args, cont }, end),
+                            "EXPORT" => brk!(Element::ExportBlock { args, cont }, end),
+                            "SRC" => brk!(Element::SrcBlock { args, cont }, end),
+                            "VERSE" => brk!(Element::VerseBlock { args, cont }, end),
+                            "CENTER" => brk!(
                                 Element::CtrBlock {
                                     args,
                                     cont_end,
                                     end,
                                 },
-                                pos + contents_beg
+                                cont_beg
                             ),
-                            "QUOTE" => ret!(
+                            "QUOTE" => brk!(
                                 Element::QteBlock {
                                     args,
                                     cont_end,
                                     end,
                                 },
-                                pos + contents_beg
+                                cont_beg
                             ),
-                            _ => ret!(
+                            _ => brk!(
                                 Element::SplBlock {
                                     name,
                                     args,
                                     cont_end,
-                                    end,
+                                    end
                                 },
-                                pos + contents_beg
+                                cont_beg
                             ),
                         };
                     }
 
-                    if let Some((name, args, contents_beg, cont_end, end)) =
+                    if let Some((name, args, cont_beg, cont_end, end)) =
                         DynBlock::parse(&src[pos..])
                     {
-                        ret!(
+                        brk!(
                             Element::DynBlock {
                                 name,
                                 args,
                                 cont_end,
                                 end,
                             },
-                            pos + contents_beg
+                            cont_beg
                         )
                     }
 
                     if let Some((key, value, off)) = Keyword::parse(&src[pos..]) {
-                        ret!(
+                        brk!(
                             if let Key::Call = key {
                                 Element::Call { value }
                             } else {
@@ -261,15 +264,15 @@ impl<'a> Element<'a> {
                     let eol = memchr::memchr(b'\n', &src.as_bytes()[pos..])
                         .map(|i| i + 1)
                         .unwrap_or_else(|| src.len() - pos);
-                    ret!(Element::Comment(&src[pos + 1..pos + eol]), eol);
+                    brk!(Element::Comment(&src[pos + 1..pos + eol]), eol);
                 }
             }
 
-            if let Some(off) = &src[pos..].find('\n') {
+            if let Some(off) = memchr::memchr(b'\n', &src.as_bytes()[pos..]) {
                 pos += off + 1;
                 // last char
                 if pos == src.len() {
-                    return (
+                    break (
                         start,
                         Some(Element::Paragraph {
                             cont_end: pos - 1,
@@ -279,7 +282,7 @@ impl<'a> Element<'a> {
                     );
                 }
             } else {
-                return (
+                break (
                     start,
                     Some(Element::Paragraph {
                         cont_end: src.len(),
