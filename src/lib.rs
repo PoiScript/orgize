@@ -8,6 +8,7 @@ mod utils;
 mod elements;
 mod export;
 mod headline;
+mod lines;
 mod objects;
 mod parser;
 

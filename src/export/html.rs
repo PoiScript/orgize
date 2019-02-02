@@ -73,7 +73,7 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_list_end(&mut self, w: &mut W, ordered: bool) -> Result<()> {
         write!(w, "{}", if ordered { "</ol>" } else { "</ul>" })
     }
-    fn handle_list_beg_item(&mut self, w: &mut W) -> Result<()> {
+    fn handle_list_beg_item(&mut self, w: &mut W, bullet: &str) -> Result<()> {
         write!(w, "<li>")
     }
     fn handle_list_end_item(&mut self, w: &mut W) -> Result<()> {

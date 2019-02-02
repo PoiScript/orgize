@@ -30,7 +30,7 @@ pub trait Handler<W: Write> {
     fn handle_dyn_block_end(&mut self, w: &mut W) -> Result<()>;
     fn handle_list_beg(&mut self, w: &mut W, ordered: bool) -> Result<()>;
     fn handle_list_end(&mut self, w: &mut W, ordered: bool) -> Result<()>;
-    fn handle_list_beg_item(&mut self, w: &mut W) -> Result<()>;
+    fn handle_list_beg_item(&mut self, w: &mut W, bullet: &str) -> Result<()>;
     fn handle_list_end_item(&mut self, w: &mut W) -> Result<()>;
     fn handle_call(&mut self, w: &mut W, value: &str) -> Result<()>;
     fn handle_clock(&mut self, w: &mut W) -> Result<()>;
@@ -113,7 +113,7 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
                 DynBlockEnd => h.handle_dyn_block_end(w)?,
                 ListBeg { ordered } => h.handle_list_beg(w, ordered)?,
                 ListEnd { ordered } => h.handle_list_end(w, ordered)?,
-                ListItemBeg => h.handle_list_beg_item(w)?,
+                ListItemBeg { bullet } => h.handle_list_beg_item(w, bullet)?,
                 ListItemEnd => h.handle_list_end_item(w)?,
                 Call { value } => h.handle_call(w, value)?,
                 Clock => h.handle_clock(w)?,

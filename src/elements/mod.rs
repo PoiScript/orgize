@@ -12,7 +12,11 @@ pub use self::keyword::{Key, Keyword};
 pub use self::list::List;
 pub use self::rule::Rule;
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
+use memchr::memchr;
+use memchr::memchr_iter;
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub enum Element<'a> {
     Paragraph {
         cont_end: usize,
@@ -77,217 +81,195 @@ pub enum Element<'a> {
     List {
         ident: usize,
         ordered: bool,
-        cont_end: usize,
-        end: usize,
     },
 }
 
 impl<'a> Element<'a> {
-    pub fn next_2(src: &'a str) -> (usize, Option<Element<'a>>, Option<(Element<'a>, usize)>) {
-        let bytes = src.as_bytes();
-
-        let mut pos = skip_empty_line!(src, 0);
+    // return (element, off, next element, next offset)
+    // the end of first element is relative to the offset
+    // next offset is relative to the end of the first element
+    pub fn next_2(src: &'a str) -> (Option<Element<'a>>, usize, Option<(Element<'a>, usize)>) {
+        // skip empty lines
+        let mut pos = match src.chars().position(|c| c != '\n') {
+            Some(pos) => pos,
+            None => return (None, src.len(), None),
+        };
         let start = pos;
-
-        if start == src.len() {
-            return (start, None, None);
-        }
+        let bytes = src.as_bytes();
+        let mut line_ends = memchr_iter(b'\n', &bytes[start..]).map(|i| i + start);
 
         loop {
-            // Unlike other element, footnote definition must starts at column 0
-            if bytes[pos] == b'[' {
-                if let Some((label, cont, off)) = FnDef::parse(&src[pos..]) {
-                    break if pos == start {
-                        (off + 1, Some(Element::FnDef { label, cont }), None)
+            let line_beg = pos;
+
+            macro_rules! brk {
+                ($ele:expr, $off:expr) => {
+                    break if line_beg == 0 || pos == start {
+                        (Some($ele), start + $off, None)
                     } else {
                         (
-                            start,
                             Some(Element::Paragraph {
-                                cont_end: pos - 1,
-                                end: pos,
+                                cont_end: line_beg - start - 1,
+                                end: line_beg - start,
                             }),
-                            Some((Element::FnDef { label, cont }, off + 1)),
+                            start,
+                            Some(($ele, $off)),
                         )
                     };
+                };
+            }
+
+            // Unlike other element, footnote definition must starts at column 0
+            if bytes[pos..].starts_with(b"[fn:") {
+                if let Some((label, cont, off)) = FnDef::parse(&src[pos..]) {
+                    brk!(Element::FnDef { label, cont }, off + 1);
                 }
             }
 
-            let end = pos;
+            // FIXME:
+            if bytes[pos] == b'\n' {
+                break (
+                    Some(Element::Paragraph {
+                        cont_end: pos - start - 1,
+                        end: pos - start + 1,
+                    }),
+                    start,
+                    None,
+                );
+            }
+
             pos = skip_space!(src, pos);
 
-            if pos <= src.len() {
-                macro_rules! brk {
-                    ($ele:expr, $off:expr) => {
-                        break if pos == start {
-                            ($off, Some($ele), None)
-                        } else {
-                            (
-                                start,
-                                Some(Element::Paragraph {
-                                    cont_end: end,
-                                    end: pos - 1,
-                                }),
-                                Some(($ele, $off)),
-                            )
-                        };
-                    };
-                }
-
-                if bytes[pos] == b'+'
-                    || bytes[pos] == b'-'
-                    || bytes[pos] == b'*'
-                    || (bytes[pos] >= b'0' && bytes[pos] <= b'9')
-                {
-                    if let Some((ident, ordered, cont_end, list_end)) = List::parse(&src[end..]) {
-                        let list = Element::List {
-                            ident,
-                            ordered,
-                            cont_end,
-                            end: list_end,
-                        };
-                        break if pos == start {
-                            (1, Some(list), None)
-                        } else {
-                            (
-                                start,
-                                Some(Element::Paragraph {
-                                    cont_end: end,
-                                    end: end,
-                                }),
-                                Some((list, 1)),
-                            )
-                        };
-                    }
-                }
-
-                if bytes[pos] == b'\n' {
-                    break (
-                        start,
+            let (is_item, ordered) = List::is_item(&src[pos..]);
+            if is_item {
+                let list = Element::List {
+                    ident: pos - line_beg,
+                    ordered,
+                };
+                break if line_beg == start {
+                    (Some(list), start, None)
+                } else {
+                    (
                         Some(Element::Paragraph {
-                            cont_end: end,
-                            end: pos,
+                            cont_end: line_beg - start - 1,
+                            end: line_beg - start,
                         }),
-                        None,
-                    );
+                        start,
+                        Some((list, 1)),
+                    )
+                };
+            }
+
+            // TODO: LaTeX environment
+            if bytes[pos..].starts_with(b"\\begin{") {}
+
+            // Rule
+            if bytes[pos] == b'-' {
+                let off = Rule::parse(&src[pos..]);
+                if off != 0 {
+                    brk!(Element::Rule, off);
                 }
+            }
 
-                // TODO: LaTeX environment
-                if bytes[pos] == b'\\' {}
+            // TODO: multiple lines fixed width area
+            if bytes[pos..].starts_with(b": ") || bytes[pos..].starts_with(b":\n") {
+                let eol = memchr(b'\n', &bytes[pos..])
+                    .map(|i| i + 1)
+                    .unwrap_or_else(|| src.len() - pos);
+                brk!(Element::FixedWidth(&src[pos + 1..pos + eol].trim()), eol);
+            }
 
-                // Rule
-                if bytes[pos] == b'-' {
-                    let off = Rule::parse(&src[pos..]);
-                    if off != 0 {
-                        brk!(Element::Rule, off);
-                    }
-                }
-
-                // TODO: multiple lines fixed width area
-                if bytes[pos] == b':'
-                    && bytes
-                        .get(pos + 1)
-                        .map(|&b| b == b' ' || b == b'\n')
-                        .unwrap_or(false)
-                {
-                    let eol = memchr::memchr(b'\n', &src.as_bytes()[pos..])
-                        .map(|i| i + 1)
-                        .unwrap_or_else(|| src.len() - pos);
-                    brk!(Element::FixedWidth(&src[pos + 1..pos + eol]), eol);
-                }
-
-                if bytes[pos] == b'#' && bytes.get(pos + 1).map(|&b| b == b'+').unwrap_or(false) {
-                    if let Some((name, args, cont_beg, cont_end, end)) = Block::parse(&src[pos..]) {
-                        let cont = &src[pos + cont_beg + 1..pos + cont_end - 1];
-                        match name.to_uppercase().as_str() {
-                            "COMMENT" => brk!(Element::CommentBlock { args, cont }, end),
-                            "EXAMPLE" => brk!(Element::ExampleBlock { args, cont }, end),
-                            "EXPORT" => brk!(Element::ExportBlock { args, cont }, end),
-                            "SRC" => brk!(Element::SrcBlock { args, cont }, end),
-                            "VERSE" => brk!(Element::VerseBlock { args, cont }, end),
-                            "CENTER" => brk!(
-                                Element::CtrBlock {
-                                    args,
-                                    cont_end,
-                                    end,
-                                },
-                                cont_beg
-                            ),
-                            "QUOTE" => brk!(
-                                Element::QteBlock {
-                                    args,
-                                    cont_end,
-                                    end,
-                                },
-                                cont_beg
-                            ),
-                            _ => brk!(
-                                Element::SplBlock {
-                                    name,
-                                    args,
-                                    cont_end,
-                                    end
-                                },
-                                cont_beg
-                            ),
-                        };
-                    }
-
-                    if let Some((name, args, cont_beg, cont_end, end)) =
-                        DynBlock::parse(&src[pos..])
-                    {
-                        brk!(
-                            Element::DynBlock {
-                                name,
+            if bytes[pos..].starts_with(b"#+") {
+                if let Some((name, args, cont_beg, cont_end, end)) = Block::parse(&src[pos..]) {
+                    let cont = &src[pos + cont_beg + 1..pos + cont_end - 1];
+                    match name.to_uppercase().as_str() {
+                        "COMMENT" => brk!(Element::CommentBlock { args, cont }, end),
+                        "EXAMPLE" => brk!(Element::ExampleBlock { args, cont }, end),
+                        "EXPORT" => brk!(Element::ExportBlock { args, cont }, end),
+                        "SRC" => brk!(Element::SrcBlock { args, cont }, end),
+                        "VERSE" => brk!(Element::VerseBlock { args, cont }, end),
+                        "CENTER" => brk!(
+                            Element::CtrBlock {
                                 args,
                                 cont_end,
                                 end,
                             },
                             cont_beg
-                        )
-                    }
-
-                    if let Some((key, value, off)) = Keyword::parse(&src[pos..]) {
-                        brk!(
-                            if let Key::Call = key {
-                                Element::Call { value }
-                            } else {
-                                Element::Keyword { key, value }
+                        ),
+                        "QUOTE" => brk!(
+                            Element::QteBlock {
+                                args,
+                                cont_end,
+                                end,
                             },
-                            off
-                        )
-                    }
+                            cont_beg
+                        ),
+                        _ => brk!(
+                            Element::SplBlock {
+                                name,
+                                args,
+                                cont_end,
+                                end
+                            },
+                            cont_beg
+                        ),
+                    };
                 }
 
-                // Comment
-                // TODO: multiple lines comment
-                if bytes[pos] == b'#' && bytes.get(pos + 1).map(|&b| b == b' ').unwrap_or(false) {
-                    let eol = memchr::memchr(b'\n', &src.as_bytes()[pos..])
-                        .map(|i| i + 1)
-                        .unwrap_or_else(|| src.len() - pos);
-                    brk!(Element::Comment(&src[pos + 1..pos + eol]), eol);
+                if let Some((name, args, cont_beg, cont_end, end)) = DynBlock::parse(&src[pos..]) {
+                    brk!(
+                        Element::DynBlock {
+                            name,
+                            args,
+                            cont_end,
+                            end,
+                        },
+                        cont_beg
+                    )
+                }
+
+                if let Some((key, value, off)) = Keyword::parse(&src[pos..]) {
+                    brk!(
+                        if let Key::Call = key {
+                            Element::Call { value }
+                        } else {
+                            Element::Keyword { key, value }
+                        },
+                        off
+                    )
                 }
             }
 
-            if let Some(off) = memchr::memchr(b'\n', &src.as_bytes()[pos..]) {
-                pos += off + 1;
-                // last char
-                if pos == src.len() {
+            // Comment
+            // TODO: multiple lines comment
+            if bytes[pos..].starts_with(b"# ") || bytes[pos..].starts_with(b"#\n") {
+                let eol = memchr(b'\n', &bytes[pos..])
+                    .map(|i| i + 1)
+                    .unwrap_or_else(|| src.len() - pos);
+                brk!(Element::Comment(&src[pos + 1..pos + eol].trim()), eol);
+            }
+
+            // move to the beginning of the next line
+            if let Some(off) = line_ends.next() {
+                pos = off + 1;
+
+                // the last character
+                if pos >= src.len() {
                     break (
-                        start,
                         Some(Element::Paragraph {
-                            cont_end: pos - 1,
-                            end: pos,
+                            cont_end: src.len() - start - 1,
+                            end: src.len() - start,
                         }),
+                        start,
                         None,
                     );
                 }
             } else {
                 break (
-                    start,
                     Some(Element::Paragraph {
-                        cont_end: src.len(),
-                        end: src.len(),
+                        cont_end: src.len() - start,
+                        end: src.len() - start,
                     }),
+                    start,
                     None,
                 );
             }
@@ -297,6 +279,102 @@ impl<'a> Element<'a> {
 
 #[test]
 fn next_2() {
+    use self::Element::*;
+
+    assert_eq!(Element::next_2("\n\n\n"), (None, 3, None));
+
+    let len = "Lorem ipsum dolor sit amet.".len();
+    assert_eq!(
+        Element::next_2("\nLorem ipsum dolor sit amet.\n\n\n"),
+        (
+            Some(Paragraph {
+                cont_end: len,
+                end: len + 2,
+            }),
+            1,
+            None
+        )
+    );
+    assert_eq!(
+        Element::next_2("\n\nLorem ipsum dolor sit amet.\n\n"),
+        (
+            Some(Paragraph {
+                cont_end: len,
+                end: len + 2,
+            }),
+            2,
+            None
+        )
+    );
+    assert_eq!(
+        Element::next_2("\nLorem ipsum dolor sit amet.\n"),
+        (
+            Some(Paragraph {
+                cont_end: len,
+                end: len + 1,
+            }),
+            1,
+            None
+        )
+    );
+    assert_eq!(
+        Element::next_2("\n\n\nLorem ipsum dolor sit amet."),
+        (
+            Some(Paragraph {
+                cont_end: len,
+                end: len,
+            }),
+            3,
+            None
+        )
+    );
+
+    assert_eq!(
+        Element::next_2("\n\n\n: Lorem ipsum dolor sit amet.\n"),
+        (
+            Some(FixedWidth("Lorem ipsum dolor sit amet.")),
+            "\n\n\n: Lorem ipsum dolor sit amet.\n".len(),
+            None
+        )
+    );
+    assert_eq!(
+        Element::next_2("\n\n\n: Lorem ipsum dolor sit amet."),
+        (
+            Some(FixedWidth("Lorem ipsum dolor sit amet.")),
+            "\n\n\n: Lorem ipsum dolor sit amet.".len(),
+            None
+        )
+    );
+
+    assert_eq!(
+        Element::next_2("\n\nLorem ipsum dolor sit amet.\n: Lorem ipsum dolor sit amet.\n"),
+        (
+            Some(Paragraph {
+                cont_end: len,
+                end: len + 1,
+            }),
+            2,
+            Some((FixedWidth("Lorem ipsum dolor sit amet."), 30))
+        )
+    );
+
+    assert_eq!(
+        Element::next_2("\n\nLorem ipsum dolor sit amet.\n+ Lorem ipsum dolor sit amet.\n"),
+        (
+            Some(Paragraph {
+                cont_end: len,
+                end: len + 1,
+            }),
+            2,
+            Some((
+                List {
+                    ident: 0,
+                    ordered: false,
+                },
+                1
+            ))
+        )
+    );
+
     // TODO: more tests
-    assert_eq!(Element::next_2("\n\n\n\n"), (4, None, None));
 }

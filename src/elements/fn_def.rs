@@ -9,7 +9,9 @@ fn valid_label(ch: u8) -> bool {
 
 impl FnDef {
     pub fn parse(src: &str) -> Option<(&str, &str, usize)> {
-        starts_with!(src, "[fn:");
+        if cfg!(test) {
+            starts_with!(src, "[fn:");
+        }
 
         let label = until_while!(src, 4, b']', valid_label)?;
 

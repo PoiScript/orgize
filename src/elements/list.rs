@@ -1,289 +1,157 @@
-pub struct List;
+use lines::Lines;
 
-macro_rules! ident {
-    ($src:expr) => {
-        $src.as_bytes()
-            .iter()
-            .position(|&c| c != b' ' && c != b'\t')
-            .unwrap_or(0)
-    };
-}
+pub struct List;
 
 impl List {
     #[inline]
-    fn is_item(src: &str) -> bool {
-        if src.len() < 2 {
-            return false;
+    pub fn is_item(src: &str) -> (bool, bool) {
+        if src.is_empty() {
+            return (false, false);
         }
-
         let bytes = src.as_bytes();
-        let i = match bytes[0] {
-            b'*' | b'-' | b'+' => 1,
+        let (i, ordered) = match bytes[0] {
+            b'*' | b'-' | b'+' => (1, false),
             b'0'...b'9' => {
                 let i = bytes
                     .iter()
                     .position(|&c| !c.is_ascii_digit())
                     .unwrap_or_else(|| src.len());
-                if i >= src.len() - 1 {
-                    return false;
-                }
                 let c = bytes[i];
                 if !(c == b'.' || c == b')') {
-                    return false;
+                    return (false, false);
                 }
-                i + 1
+                (i + 1, true)
             }
-            _ => return false,
+            _ => return (false, false),
         };
 
-        // bullet is follwed by a space or line ending
-        bytes[i] == b' ' || bytes[i] == b'\n'
-    }
-
-    #[inline]
-    pub fn is_ordered(byte: u8) -> bool {
-        match byte {
-            b'*' | b'-' | b'+' => false,
-            b'0'...b'9' => true,
-            _ => unreachable!(),
+        if i < src.len() {
+            // bullet is follwed by a space or line ending
+            (bytes[i] == b' ' || bytes[i] == b'\n', ordered)
+        } else {
+            (false, false)
         }
     }
 
-    // returns (contents_begin, contents_end)
-    pub fn parse_item(src: &str, ident: usize) -> (usize, usize) {
-        let beg = memchr::memchr(b' ', &src.as_bytes()[ident..])
-            .map(|i| i + ident + 1)
-            .unwrap();
-        let mut lines = lines!(src);
-        // skip first line
-        let mut pos = lines.next().unwrap();
-        for line_end in lines {
-            let line = &src[pos..line_end];
-            if !line.trim().is_empty() && ident!(line) == ident {
-                break;
+    // returns (bullets, contents begin, contents end, end, has more)
+    pub fn parse(src: &str, ident: usize) -> (&str, usize, usize, usize, bool) {
+        debug_assert!(Self::is_item(&src[ident..]).0);
+        debug_assert!(
+            src[..ident].chars().all(|c| c == ' ' || c == '\t'),
+            "{:?} doesn't starts with indentation {}",
+            src,
+            ident
+        );
+
+        let mut lines = Lines::new(src);
+        let (mut pre_cont_end, mut pre_end, first_line) = lines.next().unwrap();
+        let beg = match memchr::memchr(b' ', &first_line.as_bytes()[ident..]) {
+            Some(i) => i + ident + 1,
+            None => {
+                let len = first_line.len();
+                return (
+                    &first_line,
+                    len,
+                    len,
+                    len,
+                    Self::is_item(lines.next().unwrap().2).0,
+                );
             }
-            pos = line_end;
-        }
-        (beg, pos)
-    }
+        };
+        let bullet = &src[0..beg];
 
-    // return (ident, is_ordered, contents_end, end)
-    pub fn parse(src: &str) -> Option<(usize, bool, usize, usize)> {
-        let bytes = src.as_bytes();
-        let starting_ident = ident!(src);
-
-        if !Self::is_item(&src[starting_ident..]) {
-            return None;
-        }
-
-        let mut lines = lines!(src);
-        // skip the starting line
-        let mut pos = lines.next().unwrap();
-        let is_ordered = Self::is_ordered(bytes[starting_ident]);
-
-        Some(loop {
-            let mut curr_line = match lines.next() {
-                Some(i) => i,
-                None => break (starting_ident, is_ordered, pos, pos),
-            };
-            // current line is empty
-            if src[pos..curr_line].trim().is_empty() {
-                let next_line = match lines.next() {
-                    Some(i) => i,
-                    None => break (starting_ident, is_ordered, pos, pos),
-                };
-
-                // next line is emtpy, too
-                if src[curr_line..next_line].trim().is_empty() {
-                    break (starting_ident, is_ordered, pos, next_line);
+        while let Some((mut cont_end, mut end, mut line)) = lines.next() {
+            // this line is emtpy
+            if line.is_empty() {
+                if let Some((next_cont_end, next_end, next_line)) = lines.next() {
+                    // next line is emtpy, too
+                    if next_line.is_empty() {
+                        return (bullet, beg, pre_cont_end, next_end, false);
+                    } else {
+                        // move to next line
+                        pre_end = end;
+                        cont_end = next_cont_end;
+                        end = next_end;
+                        line = next_line;
+                    }
                 } else {
-                    // move to next line
-                    pos = curr_line;
-                    curr_line = next_line;
+                    return (bullet, beg, pre_cont_end, end, false);
                 }
             }
 
-            let ident = ident!(src[pos..curr_line]);
+            let line_ident = Self::ident(line);
 
-            // less indented than the starting line
-            if ident < starting_ident {
-                break (starting_ident, is_ordered, pos, pos);
+            if line_ident < ident {
+                return (bullet, beg, pre_cont_end, pre_end, false);
+            } else if line_ident == ident {
+                return (
+                    bullet,
+                    beg,
+                    pre_cont_end,
+                    pre_end,
+                    Self::is_item(&line[ident..]).0,
+                );
             }
 
-            if ident > starting_ident || Self::is_item(&src[pos + ident..]) {
-                pos = curr_line;
-            } else {
-                break (starting_ident, is_ordered, pos, pos);
-            }
-        })
+            pre_end = end;
+            pre_cont_end = cont_end;
+        }
+
+        (bullet, beg, src.len(), src.len(), false)
     }
+
+    fn ident(src: &str) -> usize {
+        src.as_bytes()
+            .iter()
+            .position(|&c| c != b' ' && c != b'\t')
+            .unwrap_or(0)
+    }
+}
+
+#[test]
+fn is_item() {
+    assert_eq!(List::is_item("+ item"), (true, false));
+    assert_eq!(List::is_item("- item"), (true, false));
+    assert_eq!(List::is_item("10. item"), (true, true));
+    assert_eq!(List::is_item("10) item"), (true, true));
+    assert_eq!(List::is_item("1. item"), (true, true));
+    assert_eq!(List::is_item("1) item"), (true, true));
+    assert_eq!(List::is_item("10. "), (true, true));
+    assert_eq!(List::is_item("10.\n"), (true, true));
+    assert_eq!(List::is_item("10."), (false, false));
+    assert_eq!(List::is_item("+"), (false, false));
+    assert_eq!(List::is_item("-item"), (false, false));
+    assert_eq!(List::is_item("+item"), (false, false));
 }
 
 #[test]
 fn parse() {
     assert_eq!(
-        List::parse(
-            r"+ item1
-+ item2
-+ item3"
-        ),
-        Some((0, false, 23, 23))
+        List::parse("+ item1\n+ item2\n+ item3", 0),
+        ("+ ", 2, 7, 8, true)
     );
     assert_eq!(
-        List::parse(
-            r"* item1
-* item2
-
-* item3"
-        ),
-        Some((0, false, 24, 24))
+        List::parse("* item1\n\n* item2\n* item3", 0),
+        ("* ", 2, 7, 9, true)
     );
     assert_eq!(
-        List::parse(
-            r"- item1
-- item2
-
-
-- item1"
-        ),
-        Some((0, false, 16, 18))
+        List::parse("- item1\n\n\n- item2\n- item3", 0),
+        ("- ", 2, 7, 10, false)
     );
     assert_eq!(
-        List::parse(
-            r"1. item1
-  2. item1
-3. item2"
-        ),
-        Some((0, true, 28, 28))
+        List::parse("1. item1\n\n\n\n2. item2\n3. item3", 0),
+        ("1. ", 3, 8, 11, false)
     );
     assert_eq!(
-        List::parse(
-            r"  1) item1
- 2) item1
-  3) item2"
-        ),
-        Some((2, true, 11, 11))
+        List::parse("  + item1\n    + item2\n+ item3", 2),
+        ("  + ", 4, 21, 22, false)
     );
     assert_eq!(
-        List::parse(
-            r"  + item1
-    1) item1
-  + item2"
-        ),
-        Some((2, false, 32, 32))
+        List::parse("  + item1\n  + item2\n  + item3", 2),
+        ("  + ", 4, 9, 10, true)
     );
-    assert_eq!(
-        List::parse(
-            r" item1
- + item1
- + item2"
-        ),
-        None
-    );
-    assert_eq!(
-        List::parse(
-            r#"- Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-
-  - Nulla et dolor vitae elit placerat sagittis. Aliquam a lobortis massa,
-    aliquam efficitur arcu.
-
-  - Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-
-  - Phasellus auctor lacus a orci imperdiet, ut facilisis neque lobortis.
-
-  - Proin condimentum id orci vitae lobortis. Nunc sollicitudin risus neque,
-    dapibus malesuada sem faucibus vitae.
-
-- Sed vitae dolor augue. Phasellus at rhoncus arcu. Suspendisse potenti.
-
-  - Nulla faucibus, metus ut porta hendrerit, urna lorem porta metus, in tempus
-    nibh orci sed sapien.
-
-  - Morbi tortor mi, dapibus vel faucibus a, iaculis sed turpis."#
-        ),
-        Some((0, false, 666, 666))
-    );
-}
-
-#[test]
-fn is_item() {
-    assert!(List::is_item("+ item"));
-    assert!(List::is_item("- item"));
-    assert!(List::is_item("10. item"));
-    assert!(List::is_item("10) item"));
-    assert!(List::is_item("1. item"));
-    assert!(List::is_item("1) item"));
-    assert!(List::is_item("10. "));
-    assert!(List::is_item("10.\n"));
-    assert!(!List::is_item("10."));
-    assert!(!List::is_item("-item"));
-    assert!(!List::is_item("+item"));
-}
-
-#[test]
-fn parse_item() {
-    assert_eq!(List::parse_item("+ Item1\n+ Item2", 0), (2, 8));
-    assert_eq!(List::parse_item("+ Item1\n\n+ Item2", 0), (2, 9));
-    assert_eq!(
-        List::parse_item(
-            r"+ item1
- + item1
- + item2",
-            0
-        ),
-        (2, 25)
-    );
-    assert_eq!(
-        List::parse_item(
-            r"  1. item1
-  + item2",
-            2
-        ),
-        (5, 11)
-    );
-    assert_eq!(
-        List::parse_item(
-            r"+ It
-  em1
-+ Item2",
-            0
-        ),
-        (2, 11)
-    );
-    assert_eq!(
-        List::parse_item(
-            r#"1) Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec sit amet
-   ullamcorper ante, nec pellentesque nisi.
-2) Sed pulvinar ut arcu id aliquam.Curabitur quis justo eu magna maximus sodales.
-   Curabitur nisl nisi, ornare in enim id, sagittis facilisis magna.
-3) Curabitur venenatis molestie eros sit amet congue. Nunc at molestie leo, vitae
-   malesuada nisi."#,
-            0
-        ),
-        (3, 119)
-    );
-    assert_eq!(
-        List::parse_item(
-            r#"- Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-
-  - Nulla et dolor vitae elit placerat sagittis. Aliquam a lobortis massa,
-    aliquam efficitur arcu.
-
-  - Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-
-  - Phasellus auctor lacus a orci imperdiet, ut facilisis neque lobortis.
-
-  - Proin condimentum id orci vitae lobortis. Nunc sollicitudin risus neque,
-    dapibus malesuada sem faucibus vitae.
-
-- Sed vitae dolor augue. Phasellus at rhoncus arcu. Suspendisse potenti.
-
-  - Nulla faucibus, metus ut porta hendrerit, urna lorem porta metus, in tempus
-    nibh orci sed sapien.
-
-  - Morbi tortor mi, dapibus vel faucibus a, iaculis sed turpis."#,
-            0
-        ),
-        (2, 421)
-    );
+    assert_eq!(List::parse("+\n", 0), ("+", 1, 1, 1, false));
+    assert_eq!(List::parse("+\n+ item2\n+ item3", 0), ("+", 1, 1, 1, true));
+    assert_eq!(List::parse("1) item1", 0), ("1) ", 3, 8, 8, false));
+    assert_eq!(List::parse("1) item1\n", 0), ("1) ", 3, 8, 9, false));
 }

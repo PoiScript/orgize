@@ -51,13 +51,13 @@ impl<'a> Object<'a> {
             return (Object::Text(src), src.len(), None);
         }
 
-        let chars = ascii_chars!('@', ' ', '"', '(', '\n', '{', '<', '[');
+        let bs = bytes!(b'@', b' ', b'"', b'(', b'\n', b'{', b'<', b'[');
 
         let mut pos = 0;
         loop {
             macro_rules! brk {
                 ($obj:expr, $off:expr, $pos:expr) => {
-                    break if pos == 0 {
+                    break if $pos == 0 {
                         ($obj, $off, None)
                     } else {
                         (Object::Text(&src[0..$pos]), $pos, Some(($obj, $off)))
@@ -159,8 +159,8 @@ impl<'a> Object<'a> {
                 _ => (),
             }
 
-            if let Some(off) = chars
-                .find(&src[pos + 1..])
+            if let Some(off) = bs
+                .find(&bytes[pos + 1..])
                 .map(|i| i + pos + 1)
                 .filter(|&i| i < src.len() - 2)
             {
