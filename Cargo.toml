@@ -7,6 +7,9 @@ repository = "https://github.com/PoiScript/orgize"
 license = "MIT"
 keywords = ["orgmode","emacs","parser"]
 
+[badges]
+travis-ci = { repository = "PoiScript/orgize" }
+
 [dependencies]
 jetscii = "0.4.3"
 memchr = "2"
