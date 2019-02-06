@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["PoiScript <poiscript@gmail.com>"]
 description = "A Rust library for parsing orgmode files."
 repository = "https://github.com/PoiScript/orgize"
+readme = "README.md"
 license = "MIT"
 keywords = ["orgmode","emacs","parser"]
 
