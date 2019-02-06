@@ -5,7 +5,6 @@ pub struct Lines<'a> {
     src: &'a str,
     iter: Chain<Memchr<'a>, Once<usize>>,
     start: usize,
-    pre_cont_end: usize,
 }
 
 impl<'a> Lines<'a> {
@@ -14,7 +13,6 @@ impl<'a> Lines<'a> {
             src,
             iter: memchr_iter(b'\n', &src.as_bytes()).chain(once(src.len())),
             start: 0,
-            pre_cont_end: 0,
         }
     }
 }

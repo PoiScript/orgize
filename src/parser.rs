@@ -5,19 +5,58 @@ use objects::*;
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Copy, Clone, Debug)]
 pub enum Container {
-    Headline { beg: usize, end: usize },
-    Section { end: usize },
-    Paragraph { cont_end: usize, end: usize },
-    CtrBlock { cont_end: usize, end: usize },
-    QteBlock { cont_end: usize, end: usize },
-    SplBlock { cont_end: usize, end: usize },
-    DynBlock { cont_end: usize, end: usize },
-    List { ident: usize, ordered: bool },
-    ListItem { cont_end: usize, end: usize },
-    Italic { end: usize },
-    Strike { end: usize },
-    Bold { end: usize },
-    Underline { end: usize },
+    Headline {
+        beg: usize,
+        end: usize,
+    },
+    Section {
+        end: usize,
+    },
+    Paragraph {
+        cont_end: usize,
+        end: usize,
+    },
+    CtrBlock {
+        cont_end: usize,
+        end: usize,
+    },
+    QteBlock {
+        cont_end: usize,
+        end: usize,
+    },
+    SplBlock {
+        cont_end: usize,
+        end: usize,
+    },
+    DynBlock {
+        cont_end: usize,
+        end: usize,
+    },
+    List {
+        ident: usize,
+        ordered: bool,
+        end: usize,
+    },
+    ListItem {
+        cont_end: usize,
+        end: usize,
+    },
+    Italic {
+        cont_end: usize,
+        end: usize,
+    },
+    Strike {
+        cont_end: usize,
+        end: usize,
+    },
+    Bold {
+        cont_end: usize,
+        end: usize,
+    },
+    Underline {
+        cont_end: usize,
+        end: usize,
+    },
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -148,6 +187,14 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn offset(&self) -> usize {
+        self.off
+    }
+
+    pub fn stack_depth(&self) -> usize {
+        self.stack.len()
+    }
+
     fn next_sec_or_hdl(&mut self) -> Event<'a> {
         let end = Headline::find_level(&self.text[self.off..], std::usize::MAX);
         debug_assert!(end <= self.text.len());
@@ -173,7 +220,8 @@ impl<'a> Parser<'a> {
         Event::HeadlineBeg(hdl)
     }
 
-    fn next_ele(&mut self, text: &'a str) -> Event<'a> {
+    fn next_ele(&mut self, end: usize) -> Event<'a> {
+        let text = &self.text[self.off..end];
         let (ele, off) = self
             .ele_buf
             .take()
@@ -188,8 +236,8 @@ impl<'a> Parser<'a> {
 
         self.off += off;
 
-        match ele {
-            Some(Element::Paragraph { cont_end, end }) => {
+        ele.map(|x| match x {
+            Element::Paragraph { cont_end, end } => {
                 debug_assert!(cont_end <= text.len() && end <= text.len());
                 self.stack.push(Container::Paragraph {
                     cont_end: cont_end + self.off,
@@ -197,7 +245,7 @@ impl<'a> Parser<'a> {
                 });
                 Event::ParagraphBeg
             }
-            Some(Element::QteBlock { end, cont_end, .. }) => {
+            Element::QteBlock { end, cont_end, .. } => {
                 debug_assert!(cont_end <= text.len() && end <= text.len());
                 self.stack.push(Container::QteBlock {
                     cont_end: cont_end + self.off,
@@ -205,7 +253,7 @@ impl<'a> Parser<'a> {
                 });
                 Event::QteBlockBeg
             }
-            Some(Element::CtrBlock { end, cont_end, .. }) => {
+            Element::CtrBlock { end, cont_end, .. } => {
                 debug_assert!(cont_end <= text.len() && end <= text.len());
                 self.stack.push(Container::CtrBlock {
                     cont_end: cont_end + self.off,
@@ -213,12 +261,12 @@ impl<'a> Parser<'a> {
                 });
                 Event::CtrBlockBeg
             }
-            Some(Element::SplBlock {
+            Element::SplBlock {
                 name,
                 args,
                 end,
                 cont_end,
-            }) => {
+            } => {
                 debug_assert!(cont_end <= text.len() && end <= text.len());
                 self.stack.push(Container::SplBlock {
                     cont_end: cont_end + self.off,
@@ -226,12 +274,12 @@ impl<'a> Parser<'a> {
                 });
                 Event::SplBlockBeg { name, args }
             }
-            Some(Element::DynBlock {
+            Element::DynBlock {
                 name,
                 args,
                 cont_end,
                 end,
-            }) => {
+            } => {
                 debug_assert!(cont_end <= text.len() && end <= text.len());
                 self.stack.push(Container::DynBlock {
                     cont_end: cont_end + self.off,
@@ -239,27 +287,32 @@ impl<'a> Parser<'a> {
                 });
                 Event::DynBlockBeg { name, args }
             }
-            Some(Element::List { ident, ordered }) => {
-                self.stack.push(Container::List { ident, ordered });
+            Element::List { ident, ordered } => {
+                self.stack.push(Container::List {
+                    ident,
+                    ordered,
+                    end,
+                });
                 self.has_more_item = true;
                 Event::ListBeg { ordered }
             }
-            Some(Element::Call { value }) => Event::Call { value },
-            Some(Element::Comment(c)) => Event::Comment(c),
-            Some(Element::CommentBlock { args, cont }) => Event::CommentBlock { args, cont },
-            Some(Element::ExampleBlock { args, cont }) => Event::ExampleBlock { args, cont },
-            Some(Element::ExportBlock { args, cont }) => Event::ExportBlock { args, cont },
-            Some(Element::FixedWidth(f)) => Event::FixedWidth(f),
-            Some(Element::FnDef { label, cont }) => Event::FnDef { label, cont },
-            Some(Element::Keyword { key, value }) => Event::Keyword { key, value },
-            Some(Element::Rule) => Event::Rule,
-            Some(Element::SrcBlock { args, cont }) => Event::SrcBlock { args, cont },
-            Some(Element::VerseBlock { args, cont }) => Event::VerseBlock { args, cont },
-            None => self.end(),
-        }
+            Element::Call { value } => Event::Call { value },
+            Element::Comment(c) => Event::Comment(c),
+            Element::CommentBlock { args, cont } => Event::CommentBlock { args, cont },
+            Element::ExampleBlock { args, cont } => Event::ExampleBlock { args, cont },
+            Element::ExportBlock { args, cont } => Event::ExportBlock { args, cont },
+            Element::FixedWidth(f) => Event::FixedWidth(f),
+            Element::FnDef { label, cont } => Event::FnDef { label, cont },
+            Element::Keyword { key, value } => Event::Keyword { key, value },
+            Element::Rule => Event::Rule,
+            Element::SrcBlock { args, cont } => Event::SrcBlock { args, cont },
+            Element::VerseBlock { args, cont } => Event::VerseBlock { args, cont },
+        })
+        .unwrap_or_else(|| self.end())
     }
 
-    fn next_obj(&mut self, text: &'a str) -> Event<'a> {
+    fn next_obj(&mut self, end: usize) -> Event<'a> {
+        let text = &self.text[self.off..end];
         let (obj, off) = self.obj_buf.take().unwrap_or_else(|| {
             let (obj, off, next_obj) = Object::next_2(text);
             self.obj_buf = next_obj;
@@ -272,25 +325,29 @@ impl<'a> Parser<'a> {
             Object::Underline { end } => {
                 debug_assert!(end <= text.len());
                 self.stack.push(Container::Underline {
-                    end: self.off + end,
+                    cont_end: self.off + end,
+                    end: self.off + end + 1,
                 });
             }
             Object::Strike { end } => {
                 debug_assert!(end <= text.len());
                 self.stack.push(Container::Strike {
-                    end: self.off + end,
+                    cont_end: self.off + end,
+                    end: self.off + end + 1,
                 });
             }
             Object::Italic { end } => {
                 debug_assert!(end <= text.len());
                 self.stack.push(Container::Italic {
-                    end: self.off + end,
+                    cont_end: self.off + end,
+                    end: self.off + end + 1,
                 });
             }
             Object::Bold { end } => {
                 debug_assert!(end <= text.len());
                 self.stack.push(Container::Bold {
-                    end: self.off + end,
+                    cont_end: self.off + end,
+                    end: self.off + end + 1,
                 });
             }
             _ => (),
@@ -318,14 +375,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn next_list_item(&mut self, ident: usize) -> Event<'a> {
-        let (bullet, cont_beg, cont_end, end, has_more) =
-            List::parse(&self.text[self.off..], ident);
+    fn next_list_item(&mut self, ident: usize, end: usize) -> Event<'a> {
+        let (bullet, off, cont_end, end, has_more) = List::parse(&self.text[self.off..end], ident);
         self.stack.push(Container::ListItem {
             cont_end: self.off + cont_end,
             end: self.off + end,
         });
-        self.off += cont_beg;
+        self.off += off;
         self.has_more_item = has_more;
         Event::ListItemBeg { bullet }
     }
@@ -353,16 +409,10 @@ impl<'a> Iterator for Parser<'a> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Event<'a>> {
-        if self.stack.is_empty() {
-            if self.off >= self.text.len() {
-                None
-            } else {
-                Some(self.next_sec_or_hdl())
-            }
-        } else {
-            let last = *self.stack.last_mut().unwrap();
-
-            Some(match last {
+        self.stack
+            .last()
+            .cloned()
+            .map(|x| match x {
                 Container::Headline { beg, end } => {
                     if self.off >= end {
                         self.end()
@@ -377,52 +427,51 @@ impl<'a> Iterator for Parser<'a> {
                 | Container::QteBlock { cont_end, end, .. }
                 | Container::SplBlock { cont_end, end, .. }
                 | Container::ListItem { cont_end, end } => {
-                    let text = &self.text[self.off..cont_end];
+                    debug_assert!(self.off <= cont_end);
                     if self.off >= cont_end {
                         self.off = end;
                         self.end()
                     } else {
-                        self.next_ele(text)
+                        self.next_ele(cont_end)
                     }
                 }
-                Container::List { ident, .. } => {
+                Container::List { ident, end, .. } => {
+                    debug_assert!(self.off <= end);
                     if self.has_more_item {
-                        self.next_list_item(ident)
+                        self.next_list_item(ident, end)
                     } else {
                         self.end()
                     }
                 }
                 Container::Section { end } => {
-                    let text = &self.text[self.off..end];
+                    debug_assert!(self.off <= end);
                     if self.off >= end {
                         self.end()
                     } else {
-                        self.next_ele(text)
+                        self.next_ele(end)
                     }
                 }
-                Container::Paragraph { cont_end, end } => {
-                    let text = &self.text[self.off..cont_end];
+                Container::Paragraph { cont_end, end }
+                | Container::Bold { cont_end, end }
+                | Container::Underline { cont_end, end }
+                | Container::Italic { cont_end, end }
+                | Container::Strike { cont_end, end } => {
+                    debug_assert!(self.off <= end);
                     if self.off >= cont_end {
                         self.off = end;
                         self.end()
                     } else {
-                        self.next_obj(text)
-                    }
-                }
-                Container::Bold { end }
-                | Container::Underline { end }
-                | Container::Italic { end }
-                | Container::Strike { end } => {
-                    let text = &self.text[self.off..end];
-                    if self.off >= end {
-                        self.off += 1;
-                        self.end()
-                    } else {
-                        self.next_obj(text)
+                        self.next_obj(cont_end)
                     }
                 }
             })
-        }
+            .or_else(|| {
+                if self.off >= self.text.len() {
+                    None
+                } else {
+                    Some(self.next_sec_or_hdl())
+                }
+            })
     }
 }
 

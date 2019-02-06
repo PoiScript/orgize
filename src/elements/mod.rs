@@ -125,7 +125,6 @@ impl<'a> Element<'a> {
                 }
             }
 
-            // FIXME:
             if bytes[pos] == b'\n' {
                 break (
                     Some(Element::Paragraph {
@@ -154,7 +153,7 @@ impl<'a> Element<'a> {
                             end: line_beg - start,
                         }),
                         start,
-                        Some((list, 1)),
+                        Some((list, 0)),
                     )
                 };
             }
@@ -180,7 +179,7 @@ impl<'a> Element<'a> {
 
             if bytes[pos..].starts_with(b"#+") {
                 if let Some((name, args, cont_beg, cont_end, end)) = Block::parse(&src[pos..]) {
-                    let cont = &src[pos + cont_beg + 1..pos + cont_end - 1];
+                    let cont = &src[pos + cont_beg..pos + cont_end];
                     match name.to_uppercase().as_str() {
                         "COMMENT" => brk!(Element::CommentBlock { args, cont }, end),
                         "EXAMPLE" => brk!(Element::ExampleBlock { args, cont }, end),
@@ -190,16 +189,16 @@ impl<'a> Element<'a> {
                         "CENTER" => brk!(
                             Element::CtrBlock {
                                 args,
-                                cont_end,
-                                end,
+                                cont_end: cont_end - cont_beg,
+                                end: end - cont_beg,
                             },
                             cont_beg
                         ),
                         "QUOTE" => brk!(
                             Element::QteBlock {
                                 args,
-                                cont_end,
-                                end,
+                                cont_end: cont_end - cont_beg,
+                                end: end - cont_beg,
                             },
                             cont_beg
                         ),
@@ -207,8 +206,8 @@ impl<'a> Element<'a> {
                             Element::SplBlock {
                                 name,
                                 args,
-                                cont_end,
-                                end
+                                cont_end: cont_end - cont_beg,
+                                end: end - cont_beg,
                             },
                             cont_beg
                         ),
@@ -371,10 +370,28 @@ fn next_2() {
                     ident: 0,
                     ordered: false,
                 },
-                1
+                0
             ))
         )
     );
 
+    assert_eq!(
+        Element::next_2("\n\nLorem ipsum dolor sit amet.\n#+BEGIN_QUOTE\nLorem ipsum dolor sit amet.\n#+END_QUOTE\n"),
+        (
+            Some(Paragraph {
+                cont_end: len,
+                end: len + 1,
+            }),
+            2,
+            Some((
+                QteBlock {
+                    args: None,
+                    cont_end: len + 1,
+                    end: len + 1 + "#+END_QUOTE\n".len()
+                },
+                "#+BEGIN_QUOTE\n".len()
+            ))
+        )
+   );
     // TODO: more tests
 }

@@ -1,3 +1,5 @@
+use lines::Lines;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Block;
@@ -9,27 +11,25 @@ impl Block {
             return None;
         }
 
-        let args = eol!(src);
         let name = until_while!(src, 8, |c| c == b' ' || c == b'\n', |c: u8| c
             .is_ascii_alphabetic())?;
+        let mut lines = Lines::new(src);
+        let (pre_cont_end, cont_beg, _) = lines.next()?;
+        let args = if pre_cont_end == name {
+            None
+        } else {
+            Some(&src[name..pre_cont_end])
+        };
+        let name = &src[8..name];
+        let end_line = format!(r"#+END_{}", name);
+        let mut pre_end = cont_beg;
 
-        let mut pos = 0;
-        let end = format!(r"#+END_{}", &src[8..name]);
-        for line_end in lines!(src) {
-            if src[pos..line_end].trim().eq_ignore_ascii_case(&end) {
-                return Some((
-                    &src[8..name],
-                    if name == args {
-                        None
-                    } else {
-                        Some(&src[name..args])
-                    },
-                    args,
-                    pos,
-                    line_end,
-                ));
+        while let Some((_, end, line)) = lines.next() {
+            if line.trim().eq_ignore_ascii_case(&end_line) {
+                return Some((name, args, cont_beg, pre_end, end));
+            } else {
+                pre_end = end;
             }
-            pos = line_end;
         }
 
         None
@@ -40,7 +40,7 @@ impl Block {
 fn parse() {
     assert_eq!(
         Block::parse("#+BEGIN_SRC\n#+END_SRC"),
-        Some(("SRC", None, 11, 12, 21))
+        Some(("SRC", None, 12, 12, 21))
     );
     assert_eq!(
         Block::parse(
@@ -52,7 +52,7 @@ fn main() {
 #+END_SRC
 "#
         ),
-        Some(("SRC", Some(" rust"), 16, 104, 114))
+        Some(("SRC", Some(" rust"), 17, 104, 114))
     );
     // TODO: more testing
 }
