@@ -1,7 +1,11 @@
 [package]
-name = "org"
+name = "orgize"
 version = "0.1.0"
 authors = ["PoiScript <poiscript@gmail.com>"]
+description = "A Rust library for parsing orgmode files."
+repository = "https://github.com/PoiScript/orgize"
+license = "MIT"
+keywords = ["orgmode","emacs","parser"]
 
 [dependencies]
 jetscii = "0.4.3"

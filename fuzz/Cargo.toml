@@ -1,5 +1,5 @@
 [package]
-name = "org-fuzz"
+name = "orgize-fuzz"
 version = "0.0.1"
 authors = ["Automatically generated"]
 publish = false
@@ -7,7 +7,7 @@ publish = false
 [package.metadata]
 cargo-fuzz = true
 
-[dependencies.org]
+[dependencies.orgize]
 path = ".."
 [dependencies.libfuzzer-sys]
 git = "https://github.com/rust-fuzz/libfuzzer-sys.git"

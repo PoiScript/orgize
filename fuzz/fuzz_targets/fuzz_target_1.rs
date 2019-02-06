@@ -1,9 +1,9 @@
 #![no_main]
 #[macro_use]
 extern crate libfuzzer_sys;
-extern crate org;
+extern crate orgize;
 
-use org::Parser;
+use orgize::Parser;
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 fuzz_target!(|data: &[u8]| {

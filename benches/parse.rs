@@ -1,9 +1,9 @@
 #![feature(test)]
 
-extern crate org;
+extern crate orgize;
 extern crate test;
 
-use org::Parser;
+use orgize::Parser;
 use test::Bencher;
 
 #[bench]
