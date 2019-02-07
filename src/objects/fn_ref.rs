@@ -1,3 +1,5 @@
+use memchr::{memchr2, memchr2_iter};
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct FnRef<'a> {
@@ -5,26 +7,32 @@ pub struct FnRef<'a> {
     definition: Option<&'a str>,
 }
 
-fn valid_label(ch: u8) -> bool {
-    ch.is_ascii_alphanumeric() || ch == b'-' || ch == b'_'
+fn valid_label(ch: &u8) -> bool {
+    ch.is_ascii_alphanumeric() || *ch == b'-' || *ch == b'_'
 }
 
 impl<'a> FnRef<'a> {
     pub fn parse(src: &'a str) -> Option<(FnRef<'a>, usize)> {
-        starts_with!(src, "[fn:");
+        debug_assert!(src.starts_with("[fn:"));
 
-        let label = until_while!(src, 4, |c| c == b']' || c == b':', valid_label)?;
+        let bytes = src.as_bytes();
+        let label = memchr2(b']', b':', &bytes[4..])
+            .map(|i| i + 4)
+            .filter(|&i| bytes[4..i].iter().all(valid_label))?;
 
-        if src.as_bytes()[label] == b':' {
+        if bytes[label] == b':' {
             let mut pairs = 1;
-            let def = until!(src[label..], |c| {
-                if c == b'[' {
-                    pairs += 1;
-                } else if c == b']' {
-                    pairs -= 1;
-                }
-                c == b']' && pairs == 0
-            })? + label;
+            let def = memchr2_iter(b'[', b']', &bytes[label..])
+                .map(|i| i + label)
+                .filter(|&i| {
+                    if bytes[i] == b'[' {
+                        pairs += 1;
+                    } else {
+                        pairs -= 1;
+                    }
+                    pairs == 0
+                })
+                .next()?;
 
             Some((
                 FnRef {

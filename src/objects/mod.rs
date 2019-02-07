@@ -1,8 +1,6 @@
 mod cookie;
 mod emphasis;
-mod entity;
 mod fn_ref;
-mod fragment;
 mod inline_call;
 mod inline_src;
 mod link;
@@ -67,51 +65,47 @@ impl<'a> Object<'a> {
 
             let mut pre = pos;
 
-            match (bytes[pos], bytes[pos + 1], bytes[pos + 2]) {
-                (b'@', b'@', _) => {
+            match bytes[pos] {
+                b'@' if bytes[pos + 1] == b'@' => {
                     if let Some((snippet, off)) = Snippet::parse(&src[pos..]) {
                         brk!(Object::Snippet(snippet), off, pos);
                     }
                 }
-                (b'{', b'{', b'{') => {
+                b'{' if bytes[pos + 1] == b'{' && bytes[pos + 2] == b'{' => {
                     if let Some((macros, off)) = Macros::parse(&src[pos..]) {
                         brk!(Object::Macros(macros), off, pos);
                     }
                 }
-                (b'<', b'<', b'<') => {
-                    if let Some((target, off)) = RadioTarget::parse(&src[pos..]) {
-                        brk!(Object::RadioTarget(target), off, pos);
-                    }
-                }
-                (b'<', b'<', third) => {
-                    if third != b'\n' {
+                b'<' if bytes[pos + 1] == b'<' => {
+                    if bytes[pos + 2] == b'<' {
+                        if let Some((target, off)) = RadioTarget::parse(&src[pos..]) {
+                            brk!(Object::RadioTarget(target), off, pos);
+                        }
+                    } else if bytes[pos + 2] != b'\n' {
                         if let Some((target, off)) = Target::parse(&src[pos..]) {
                             brk!(Object::Target(target), off, pos);
                         }
                     }
                 }
-                (b'[', b'f', b'n') => {
-                    if let Some((fn_ref, off)) = FnRef::parse(&src[pos..]) {
-                        brk!(Object::FnRef(fn_ref), off, pos);
+                b'[' => {
+                    if bytes[pos + 1..].starts_with(b"fn:") {
+                        if let Some((fn_ref, off)) = FnRef::parse(&src[pos..]) {
+                            brk!(Object::FnRef(fn_ref), off, pos);
+                        }
                     }
-                }
-                (b'[', b'[', _) => {
-                    if let Some((link, off)) = Link::parse(&src[pos..]) {
-                        brk!(Object::Link(link), off, pos);
+
+                    if bytes[pos + 1] == b'[' {
+                        if let Some((link, off)) = Link::parse(&src[pos..]) {
+                            brk!(Object::Link(link), off, pos);
+                        }
                     }
-                }
-                (b'[', _, _) => {
+
                     if let Some((cookie, off)) = Cookie::parse(&src[pos..]) {
                         brk!(Object::Cookie(cookie), off, pos);
                     }
                     // TODO: Timestamp
                 }
-                (b'{', _, _)
-                | (b' ', _, _)
-                | (b'"', _, _)
-                | (b',', _, _)
-                | (b'(', _, _)
-                | (b'\n', _, _) => pre += 1,
+                b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => pre += 1,
                 _ => (),
             }
 
@@ -146,12 +140,12 @@ impl<'a> Object<'a> {
                         brk!(Object::Code(&src[pre + 1..pre + end]), end + 1, pre);
                     }
                 }
-                b'c' => {
+                b'c' if src[pre..].starts_with("call_") => {
                     if let Some((call, off)) = InlineCall::parse(&src[pre..]) {
                         brk!(Object::InlineCall(call), off, pre);
                     }
                 }
-                b's' => {
+                b's' if src[pre..].starts_with("src_") => {
                     if let Some((src, off)) = InlineSrc::parse(&src[pre..]) {
                         brk!(Object::InlineSrc(src), off, pre);
                     }

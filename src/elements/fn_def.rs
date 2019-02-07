@@ -1,23 +1,19 @@
+use memchr::memchr;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct FnDef;
 
-#[inline]
-fn valid_label(ch: u8) -> bool {
-    ch.is_ascii_alphanumeric() || ch == b'-' || ch == b'_'
-}
-
 impl FnDef {
     pub fn parse(src: &str) -> Option<(&str, &str, usize)> {
-        if cfg!(test) {
-            starts_with!(src, "[fn:");
-        }
+        debug_assert!(src.starts_with("[fn:"));
 
-        let label = until_while!(src, 4, b']', valid_label)?;
-
-        if label == 4 {
-            return None;
-        }
+        let label = memchr(b']', src.as_bytes()).filter(|&i| {
+            i != 4
+                && src.as_bytes()[4..i]
+                    .iter()
+                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+        })?;
 
         let end = eol!(src);
 

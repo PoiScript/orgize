@@ -1,3 +1,6 @@
+use lines::Lines;
+use memchr::memchr2;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct DynBlock;
@@ -5,17 +8,26 @@ pub struct DynBlock;
 impl DynBlock {
     // return (name, parameters, contents-begin, contents-end, end)
     pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
-        if src.len() < 17 || !src[0..9].eq_ignore_ascii_case("#+BEGIN: ") {
+        debug_assert!(src.starts_with("#+"));
+
+        if !src[2..9].eq_ignore_ascii_case("BEGIN: ") {
             return None;
         }
 
+        let bytes = src.as_bytes();
         let args = eol!(src);
-        let name = until_while!(src, 9, |c| c == b' ' || c == b'\n', |c: u8| c
-            .is_ascii_alphabetic())?;
+        let name = memchr2(b' ', b'\n', &bytes[9..])
+            .map(|i| i + 9)
+            .filter(|&i| {
+                src.as_bytes()[9..i]
+                    .iter()
+                    .all(|&c| c.is_ascii_alphabetic())
+            })?;
+        let mut lines = Lines::new(src);
+        let (mut pre_cont_end, _, _) = lines.next()?;
 
-        let mut pos = 0;
-        for line_end in lines!(src) {
-            if src[pos..line_end].trim().eq_ignore_ascii_case("#+END:") {
+        while let Some((cont_end, end, line)) = lines.next() {
+            if line.trim().eq_ignore_ascii_case("#+END:") {
                 return Some((
                     &src[8..name].trim(),
                     if name == args {
@@ -24,11 +36,11 @@ impl DynBlock {
                         Some(&src[name..args].trim())
                     },
                     args,
-                    pos,
-                    line_end,
+                    pre_cont_end,
+                    end,
                 ));
             }
-            pos = line_end;
+            pre_cont_end = cont_end;
         }
 
         None
@@ -45,6 +57,6 @@ CONTENTS
 #+END:
 "
         ),
-        Some(("clocktable", Some(":scope file"), 31, 41, 48))
+        Some(("clocktable", Some(":scope file"), 31, 40, 48))
     )
 }

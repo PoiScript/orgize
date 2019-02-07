@@ -414,6 +414,8 @@ impl<'a> Iterator for Parser<'a> {
             .cloned()
             .map(|x| match x {
                 Container::Headline { beg, end } => {
+                    debug_assert!(self.off >= beg);
+                    debug_assert!(self.off <= end);
                     if self.off >= end {
                         self.end()
                     } else if self.off == beg {

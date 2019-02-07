@@ -1,3 +1,5 @@
+use memchr::{memchr, memchr2};
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct InlineSrc<'a> {
@@ -8,18 +10,18 @@ pub struct InlineSrc<'a> {
 
 impl<'a> InlineSrc<'a> {
     pub fn parse(src: &'a str) -> Option<(InlineSrc, usize)> {
-        starts_with!(src, "src_");
+        debug_assert!(src.starts_with("src_"));
 
-        let lang = until_while!(src, 4, |c| c == b'[' || c == b'{', |c: u8| !c
-            .is_ascii_whitespace())?;
+        let bytes = src.as_bytes();
+        let lang = memchr2(b'[', b'{', bytes)
+            .filter(|&i| i != 4 && bytes[4..i].iter().all(|c| !c.is_ascii_whitespace()))?;
 
-        if lang == 4 {
-            return None;
-        }
-
-        if src.as_bytes()[lang] == b'[' {
-            let option = until_while!(src, lang, b']', |c| c != b'\n')?;
-            let body = until_while!(src, option, b'}', |c| c != b'\n')?;
+        if bytes[lang] == b'[' {
+            let option =
+                memchr(b']', bytes).filter(|&i| bytes[lang..i].iter().all(|c| *c != b'\n'))?;
+            let body = memchr(b'}', &bytes[option..])
+                .map(|i| i + option)
+                .filter(|&i| bytes[option..i].iter().all(|c| *c != b'\n'))?;
 
             Some((
                 InlineSrc {
@@ -30,7 +32,8 @@ impl<'a> InlineSrc<'a> {
                 body + 1,
             ))
         } else {
-            let body = until_while!(src, lang, b'}', |c| c != b'\n')?;
+            let body =
+                memchr(b'}', bytes).filter(|&i| bytes[lang..i].iter().all(|c| *c != b'\n'))?;
 
             Some((
                 InlineSrc {

@@ -15,7 +15,7 @@ impl List {
                 let i = bytes
                     .iter()
                     .position(|&c| !c.is_ascii_digit())
-                    .unwrap_or_else(|| src.len());
+                    .unwrap_or_else(|| src.len() - 1);
                 let c = bytes[i];
                 if !(c == b'.' || c == b')') {
                     return (false, false);

@@ -1,3 +1,5 @@
+use memchr::{memchr, memchr2};
+
 pub struct Keyword;
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -25,16 +27,18 @@ pub enum Key<'a> {
 impl Keyword {
     // return (key, value, offset)
     pub fn parse(src: &str) -> Option<(Key<'_>, &str, usize)> {
-        if cfg!(test) {
-            starts_with!(src, "#+");
-        }
+        debug_assert!(src.starts_with("#+"));
 
-        let key_end = until_while!(src, 2, |c| c == b':' || c == b'[', |c: u8| c
-            .is_ascii_alphabetic()
-            || c == b'_')?;
+        let bytes = src.as_bytes();
+        let key_end = memchr2(b':', b'[', bytes).filter(|&i| {
+            bytes[2..i]
+                .iter()
+                .all(|&c| c.is_ascii_alphabetic() || c == b'_')
+        })?;
 
-        let option = if src.as_bytes()[key_end] == b'[' {
-            let option = until_while!(src, key_end, b']', |c: u8| c != b'\n')?;
+        let option = if bytes[key_end] == b'[' {
+            let option =
+                memchr(b']', bytes).filter(|&i| bytes[key_end..i].iter().all(|&c| c != b'\n'))?;
             expect!(src, option + 1, b':')?;
             option + 1
         } else {
@@ -100,8 +104,6 @@ fn parse() {
     );
     assert!(Keyword::parse("#+KE Y: VALUE").is_none());
     assert!(Keyword::parse("#+ KEY: VALUE").is_none());
-    assert!(Keyword::parse("# +KEY: VALUE").is_none());
-    assert!(Keyword::parse(" #+KEY: VALUE").is_none());
 
     assert_eq!(
         Keyword::parse("#+RESULTS:"),

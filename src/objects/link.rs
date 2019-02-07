@@ -1,3 +1,5 @@
+use memchr::memchr;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Link<'a> {
@@ -7,13 +9,16 @@ pub struct Link<'a> {
 
 impl<'a> Link<'a> {
     pub fn parse(src: &'a str) -> Option<(Link<'a>, usize)> {
-        if cfg!(test) {
-            starts_with!(src, "[[");
-        }
+        debug_assert!(src.starts_with("[["));
 
-        let path = until_while!(src, 2, b']', |c| c != b'<' && c != b'>' && c != b'\n')?;
+        let bytes = src.as_bytes();
+        let path = memchr(b']', bytes).filter(|&i| {
+            bytes[2..i]
+                .iter()
+                .all(|&c| c != b'<' && c != b'>' && c != b'\n')
+        })?;
 
-        if cond_eq!(src, path + 1, b']') {
+        if *bytes.get(path + 1)? == b']' {
             Some((
                 Link {
                     path: &src[2..path],
@@ -21,8 +26,10 @@ impl<'a> Link<'a> {
                 },
                 path + 2,
             ))
-        } else if src.as_bytes()[path + 1] == b'[' {
-            let desc = until_while!(src, path + 2, b']', |c| c != b'[')?;
+        } else if bytes[path + 1] == b'[' {
+            let desc = memchr(b']', &bytes[path + 2..])
+                .map(|i| i + path + 2)
+                .filter(|&i| bytes[path + 2..i].iter().all(|&c| c != b'['))?;
             expect!(src, desc + 1, b']')?;
 
             Some((
@@ -61,5 +68,4 @@ fn parse() {
         )
     );
     assert!(Link::parse("[[#id][desc]").is_none());
-    assert!(Link::parse("[#id][desc]]").is_none());
 }

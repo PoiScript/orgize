@@ -1,4 +1,5 @@
 use lines::Lines;
+use memchr::memchr2;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
@@ -7,12 +8,14 @@ pub struct Block;
 impl Block {
     // return (name, args, contents-begin, contents-end, end)
     pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
-        if src.len() < 17 || !src[0..8].eq_ignore_ascii_case("#+BEGIN_") {
+        debug_assert!(src.starts_with("#+"));
+
+        if !src[2..8].eq_ignore_ascii_case("BEGIN_") {
             return None;
         }
 
-        let name = until_while!(src, 8, |c| c == b' ' || c == b'\n', |c: u8| c
-            .is_ascii_alphabetic())?;
+        let name = memchr2(b' ', b'\n', src.as_bytes())
+            .filter(|&i| src.as_bytes()[8..i].iter().all(|c| c.is_ascii_alphabetic()))?;
         let mut lines = Lines::new(src);
         let (pre_cont_end, cont_beg, _) = lines.next()?;
         let args = if pre_cont_end == name {

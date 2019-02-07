@@ -1,3 +1,5 @@
+use memchr::{memchr, memchr2};
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Cookie<'a> {
@@ -6,22 +8,25 @@ pub struct Cookie<'a> {
 
 impl<'a> Cookie<'a> {
     pub fn parse(src: &'a str) -> Option<(Cookie<'a>, usize)> {
-        if cfg!(test) {
-            starts_with!(src, '[');
-        }
+        debug_assert!(src.starts_with("["));
 
-        let num1 = until_while!(src, 1, |c| c == b'%' || c == b'/', |c: u8| c
-            .is_ascii_digit())?;
+        let num1 = memchr2(b'%', b'/', src.as_bytes())
+            .filter(|&i| src.as_bytes()[1..i].iter().all(|c| c.is_ascii_digit()))?;
 
         if src.as_bytes()[num1] == b'%' && *src.as_bytes().get(num1 + 1)? == b']' {
             Some((
                 Cookie {
-                    value: &src[0..num1 + 2],
+                    value: &src[0..=num1 + 1],
                 },
                 num1 + 2,
             ))
         } else {
-            let num2 = until_while!(src, num1 + 1, b']', |c: u8| c.is_ascii_digit())?;
+            let num2 = memchr(b']', src.as_bytes()).filter(|&i| {
+                src.as_bytes()[num1 + 1..i]
+                    .iter()
+                    .all(|c| c.is_ascii_digit())
+            })?;
+
             Some((
                 Cookie {
                     value: &src[0..=num2],

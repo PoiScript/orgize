@@ -1,4 +1,5 @@
 use jetscii::Substring;
+use memchr::memchr;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
@@ -9,15 +10,14 @@ pub struct Snippet<'a> {
 
 impl<'a> Snippet<'a> {
     pub fn parse(src: &'a str) -> Option<(Snippet<'a>, usize)> {
-        if cfg!(test) {
-            starts_with!(src, "@@");
-        }
+        debug_assert!(src.starts_with("@@"));
 
-        let name = until_while!(src, 2, b':', |c: u8| c.is_ascii_alphanumeric() || c == b'-')?;
-
-        if name == 2 {
-            return None;
-        }
+        let name = memchr(b':', src.as_bytes()).filter(|&i| {
+            i != 2
+                && src.as_bytes()[2..i]
+                    .iter()
+                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-')
+        })?;
 
         let end = Substring::new("@@")
             .find(&src[name + 1..])
@@ -66,7 +66,6 @@ fn parse() {
         )
     );
     assert!(Snippet::parse("@@html:<b>@").is_none());
-    assert!(Snippet::parse("@html:<b>@@").is_none());
     assert!(Snippet::parse("@@html<b>@@").is_none());
     assert!(Snippet::parse("@@:<b>@@").is_none());
 }

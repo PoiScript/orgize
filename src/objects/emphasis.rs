@@ -1,3 +1,5 @@
+use memchr::memchr;
+
 pub struct Emphasis;
 
 impl Emphasis {
@@ -5,13 +7,10 @@ impl Emphasis {
     pub fn parse(src: &str, marker: u8) -> Option<usize> {
         expect!(src, 1, |c: u8| !c.is_ascii_whitespace())?;
 
-        let mut lines = 0;
-        let end = until_while!(src, 1, marker, |c| {
-            if c == b'\n' {
-                lines += 1;
-            }
-            lines < 2
-        })?;
+        let bytes = src.as_bytes();
+        let end = memchr(marker, &bytes[1..])
+            .map(|i| i + 1)
+            .filter(|&i| bytes[1..i].iter().filter(|&&c| c == b'\n').count() < 2)?;
 
         expect!(src, end - 1, |c: u8| !c.is_ascii_whitespace())?;
 
