@@ -12,5 +12,7 @@ mod lines;
 mod objects;
 mod parser;
 
+pub use elements::*;
 pub use export::{HtmlHandler, Render};
-pub use parser::Parser;
+pub use objects::*;
+pub use parser::{Event, Parser};
