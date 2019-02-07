@@ -2,10 +2,12 @@ mod html;
 
 pub use self::html::HtmlHandler;
 
-use elements::Key;
-use headline::Headline;
-use objects::{Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target};
-use parser::Parser;
+use crate::elements::Key;
+use crate::headline::Headline;
+use crate::objects::{
+    Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target,
+};
+use crate::parser::Parser;
 use std::io::{Result, Write};
 
 pub trait Handler<W: Write> {
@@ -85,7 +87,7 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
     }
 
     pub fn render(&mut self) -> Result<()> {
-        use parser::Event::*;
+        use crate::parser::Event::*;
 
         let w = &mut self.writer;
         let h = &mut self.handler;

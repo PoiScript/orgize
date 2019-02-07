@@ -1,9 +1,11 @@
 #![allow(unused_variables)]
 
-use elements::Key;
-use export::Handler;
-use headline::Headline;
-use objects::{Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target};
+use crate::elements::Key;
+use crate::export::Handler;
+use crate::headline::Headline;
+use crate::objects::{
+    Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target,
+};
 use std::io::{Result, Write};
 
 pub struct HtmlHandler;

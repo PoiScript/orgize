@@ -1,4 +1,4 @@
-use lines::Lines;
+use crate::lines::Lines;
 use memchr::memchr2;
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -26,7 +26,7 @@ impl DynBlock {
         let mut lines = Lines::new(src);
         let (mut pre_cont_end, _, _) = lines.next()?;
 
-        while let Some((cont_end, end, line)) = lines.next() {
+        for (cont_end, end, line) in lines {
             if line.trim().eq_ignore_ascii_case("#+END:") {
                 return Some((
                     &src[8..name].trim(),

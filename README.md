@@ -44,7 +44,7 @@ _Section 2_
 Alternatively, you can use the built-in render.
 
 ```rust
-use orgize::{HtmlHandler, Render};
+use orgize::export::{HtmlHandler, Render};
 use std::io::Cursor;
 
 fn main() {

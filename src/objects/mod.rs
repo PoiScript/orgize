@@ -17,6 +17,7 @@ pub use self::link::Link;
 pub use self::macros::Macros;
 pub use self::snippet::Snippet;
 pub use self::target::{RadioTarget, Target};
+use jetscii::bytes;
 
 #[cfg_attr(test, derive(PartialEq, Debug))]
 pub enum Object<'a> {

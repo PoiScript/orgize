@@ -1,4 +1,4 @@
-use lines::Lines;
+use crate::lines::Lines;
 
 pub struct List;
 

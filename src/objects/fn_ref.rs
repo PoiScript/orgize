@@ -7,10 +7,6 @@ pub struct FnRef<'a> {
     definition: Option<&'a str>,
 }
 
-fn valid_label(ch: &u8) -> bool {
-    ch.is_ascii_alphanumeric() || *ch == b'-' || *ch == b'_'
-}
-
 impl<'a> FnRef<'a> {
     pub fn parse(src: &'a str) -> Option<(FnRef<'a>, usize)> {
         debug_assert!(src.starts_with("[fn:"));
@@ -18,21 +14,24 @@ impl<'a> FnRef<'a> {
         let bytes = src.as_bytes();
         let label = memchr2(b']', b':', &bytes[4..])
             .map(|i| i + 4)
-            .filter(|&i| bytes[4..i].iter().all(valid_label))?;
+            .filter(|&i| {
+                bytes[4..i]
+                    .iter()
+                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+            })?;
 
         if bytes[label] == b':' {
             let mut pairs = 1;
             let def = memchr2_iter(b'[', b']', &bytes[label..])
                 .map(|i| i + label)
-                .filter(|&i| {
+                .find(|&i| {
                     if bytes[i] == b'[' {
                         pairs += 1;
                     } else {
                         pairs -= 1;
                     }
                     pairs == 0
-                })
-                .next()?;
+                })?;
 
             Some((
                 FnRef {

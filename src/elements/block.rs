@@ -1,4 +1,4 @@
-use lines::Lines;
+use crate::lines::Lines;
 use memchr::memchr2;
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -27,7 +27,7 @@ impl Block {
         let end_line = format!(r"#+END_{}", name);
         let mut pre_end = cont_beg;
 
-        while let Some((_, end, line)) = lines.next() {
+        for (_, end, line) in lines {
             if line.trim().eq_ignore_ascii_case(&end_line) {
                 return Some((name, args, cont_beg, pre_end, end));
             } else {

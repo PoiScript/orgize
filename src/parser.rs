@@ -1,6 +1,6 @@
-use elements::*;
-use headline::*;
-use objects::*;
+use crate::elements::*;
+use crate::headline::*;
+use crate::objects::*;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Copy, Clone, Debug)]

@@ -8,7 +8,7 @@ pub struct Cookie<'a> {
 
 impl<'a> Cookie<'a> {
     pub fn parse(src: &'a str) -> Option<(Cookie<'a>, usize)> {
-        debug_assert!(src.starts_with("["));
+        debug_assert!(src.starts_with('['));
 
         let num1 = memchr2(b'%', b'/', src.as_bytes())
             .filter(|&i| src.as_bytes()[1..i].iter().all(|c| c.is_ascii_digit()))?;
