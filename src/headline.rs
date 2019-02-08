@@ -1,10 +1,17 @@
+//! Headline
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Headline<'a> {
+    /// headline level, number of stars
     pub level: usize,
+    /// priority cookie
     pub priority: Option<char>,
+    /// headline tags, including the sparated colons
     pub tags: Option<&'a str>,
+    /// headline title
     pub title: &'a str,
+    /// headline keyword
     pub keyword: Option<&'a str>,
 }
 
@@ -58,6 +65,20 @@ impl<'a> Headline<'a> {
         (None, src.len())
     }
 
+    /// parsing the input string and returning the parsed headline
+    /// and the content-begin and the end of headline container.
+    ///
+    /// ```rust
+    /// use orgize::headline::Headline;
+    ///
+    /// let (hdl, _, _) = Headline::parse("* DONE [#A] COMMENT Title :tag:a2%:");
+    ///
+    /// assert_eq!(hdl.level, 1);
+    /// assert_eq!(hdl.priority, Some('A'));
+    /// assert_eq!(hdl.tags, Some(":tag:a2%:"));
+    /// assert_eq!(hdl.title, "COMMENT Title");
+    /// assert_eq!(hdl.keyword, Some("DONE"));
+    /// ```
     pub fn parse(src: &'a str) -> (Headline<'a>, usize, usize) {
         let mut level = 0;
         loop {
@@ -69,7 +90,11 @@ impl<'a> Headline<'a> {
         }
 
         let eol = eol!(src);
-        let end = Headline::find_level(&src[eol..], level) + eol;
+        let end = if eol == src.len() {
+            eol
+        } else {
+            Headline::find_level(&src[eol..], level) + eol
+        };
 
         let mut title_start = skip_space!(src, level);
 
@@ -89,74 +114,56 @@ impl<'a> Headline<'a> {
 
         let (tags, title_off) = Headline::parse_tags(&src[title_start..eol]);
 
-        // println!("{:?} {:?} {:?}", keyword, priority, tags);
-        // println!("{:?} {}", title_start, title_off);
-
         (
-            Headline::new(
+            Headline {
                 level,
                 keyword,
                 priority,
-                &src[title_start..title_start + title_off],
+                title: &src[title_start..title_start + title_off],
                 tags,
-            ),
+            },
             eol,
             end,
         )
     }
 
-    // TODO: optimize
     pub fn find_level(src: &str, level: usize) -> usize {
-        let mut pos = 0;
-        loop {
-            if pos >= src.len() {
-                return src.len();
-            }
+        use jetscii::ByteSubstring;
+        use memchr::memchr2;
 
-            if src.as_bytes()[pos] == b'*' && (pos == 0 || src.as_bytes()[pos - 1] == b'\n') {
-                let pos_ = pos;
-                loop {
-                    if pos >= src.len() {
-                        return src.len();
-                    }
-                    if src.as_bytes()[pos] == b'*' {
-                        pos += 1;
-                    } else if src.as_bytes()[pos] == b' ' && pos - pos_ <= level {
-                        return pos_;
-                    } else {
-                        break;
-                    }
+        let bytes = src.as_bytes();
+        if bytes[0] == b'*' {
+            if let Some(stars) = memchr2(b'\n', b' ', bytes) {
+                if stars > 0 && stars <= level && bytes[0..stars].iter().all(|&c| c == b'*') {
+                    return 0;
                 }
             }
-
-            pos += 1
         }
+
+        let mut pos = 0;
+        while let Some(off) = ByteSubstring::new(b"\n*").find(&bytes[pos..]) {
+            pos += off + 1;
+            if let Some(stars) = memchr2(b'\n', b' ', &bytes[pos..]) {
+                if stars > 0 && stars <= level && bytes[pos..pos + stars].iter().all(|&c| c == b'*')
+                {
+                    return pos;
+                }
+            }
+        }
+
+        src.len()
     }
 
+    /// checks if this headline is "commented"
     pub fn is_commented(&self) -> bool {
         self.title.starts_with("COMMENT ")
     }
 
+    /// checks if this headline is "archived"
     pub fn is_archived(&self) -> bool {
         self.tags
             .map(|tags| tags[1..].split_terminator(':').any(|t| t == "ARCHIVE"))
             .unwrap_or(false)
-    }
-
-    pub fn new(
-        level: usize,
-        keyword: Option<&'a str>,
-        priority: Option<char>,
-        title: &'a str,
-        tags: Option<&'a str>,
-    ) -> Headline<'a> {
-        Headline {
-            level,
-            keyword,
-            priority,
-            title,
-            tags,
-        }
     }
 }
 
@@ -164,13 +171,13 @@ impl<'a> Headline<'a> {
 fn parse() {
     assert_eq!(
         Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%:").0,
-        Headline::new(
-            4,
-            Some("TODO"),
-            Some('A'),
-            "COMMENT Title",
-            Some(":tag:a2%:"),
-        ),
+        Headline {
+            level: 4,
+            priority: Some('A'),
+            keyword: Some("TODO"),
+            title: "COMMENT Title",
+            tags: Some(":tag:a2%:"),
+        },
     );
     assert_eq!(
         Headline::parse("**** ToDO [#A] COMMENT Title :tag:a2%:").0,
@@ -261,4 +268,18 @@ fn is_archived() {
     assert!(!Headline::parse("* Title :ARCHIVED:").0.is_archived());
     assert!(!Headline::parse("* Title :ARCHIVES:").0.is_archived());
     assert!(!Headline::parse("* Title :archive:").0.is_archived());
+}
+
+#[test]
+fn find_level() {
+    assert_eq!(
+        Headline::find_level(
+            r#"
+** Title
+* Title
+** Title"#,
+            1
+        ),
+        10
+    );
 }

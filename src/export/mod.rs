@@ -4,9 +4,7 @@ pub use self::html::HtmlHandler;
 
 use crate::elements::Key;
 use crate::headline::Headline;
-use crate::objects::{
-    Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target,
-};
+use crate::objects::Cookie;
 use crate::parser::Parser;
 use std::io::{Result, Write};
 
@@ -46,14 +44,27 @@ pub trait Handler<W: Write> {
     fn handle_keyword(&mut self, w: &mut W, key: Key<'_>, value: &str) -> Result<()>;
     fn handle_rule(&mut self, w: &mut W) -> Result<()>;
     fn handle_cookie(&mut self, w: &mut W, cookie: Cookie) -> Result<()>;
-    fn handle_fn_ref(&mut self, w: &mut W, fn_ref: FnRef) -> Result<()>;
-    fn handle_inline_call(&mut self, w: &mut W, inline_call: InlineCall) -> Result<()>;
-    fn handle_inline_src(&mut self, w: &mut W, inline_src: InlineSrc) -> Result<()>;
-    fn handle_link(&mut self, w: &mut W, link: Link) -> Result<()>;
-    fn handle_macros(&mut self, w: &mut W, macros: Macros) -> Result<()>;
-    fn handle_radio_target(&mut self, w: &mut W, target: RadioTarget) -> Result<()>;
-    fn handle_snippet(&mut self, w: &mut W, snippet: Snippet) -> Result<()>;
-    fn handle_target(&mut self, w: &mut W, target: Target) -> Result<()>;
+    fn handle_fn_ref(&mut self, w: &mut W, label: Option<&str>, def: Option<&str>) -> Result<()>;
+    fn handle_inline_call(
+        &mut self,
+        w: &mut W,
+        name: &str,
+        args: &str,
+        inside_header: Option<&str>,
+        end_header: Option<&str>,
+    ) -> Result<()>;
+    fn handle_inline_src(
+        &mut self,
+        w: &mut W,
+        lang: &str,
+        option: Option<&str>,
+        body: &str,
+    ) -> Result<()>;
+    fn handle_link(&mut self, w: &mut W, path: &str, desc: Option<&str>) -> Result<()>;
+    fn handle_macros(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()>;
+    fn handle_radio_target(&mut self, w: &mut W, target: &str) -> Result<()>;
+    fn handle_snippet(&mut self, w: &mut W, name: &str, value: &str) -> Result<()>;
+    fn handle_target(&mut self, w: &mut W, target: &str) -> Result<()>;
     fn handle_bold_beg(&mut self, w: &mut W) -> Result<()>;
     fn handle_bold_end(&mut self, w: &mut W) -> Result<()>;
     fn handle_italic_beg(&mut self, w: &mut W) -> Result<()>;
@@ -129,14 +140,19 @@ impl<'a, W: Write, H: Handler<W>> Render<'a, W, H> {
                 Keyword { key, value } => h.handle_keyword(w, key, value)?,
                 Rule => h.handle_rule(w)?,
                 Cookie(cookie) => h.handle_cookie(w, cookie)?,
-                FnRef(fnref) => h.handle_fn_ref(w, fnref)?,
-                InlineCall(inlinecall) => h.handle_inline_call(w, inlinecall)?,
-                InlineSrc(inlinesrc) => h.handle_inline_src(w, inlinesrc)?,
-                Link(link) => h.handle_link(w, link)?,
-                Macros(macros) => h.handle_macros(w, macros)?,
-                RadioTarget(radiotarget) => h.handle_radio_target(w, radiotarget)?,
-                Snippet(snippet) => h.handle_snippet(w, snippet)?,
-                Target(target) => h.handle_target(w, target)?,
+                FnRef { label, def } => h.handle_fn_ref(w, label, def)?,
+                InlineSrc { lang, option, body } => h.handle_inline_src(w, lang, option, body)?,
+                InlineCall {
+                    name,
+                    args,
+                    inside_header,
+                    end_header,
+                } => h.handle_inline_call(w, name, args, inside_header, end_header)?,
+                Link { path, desc } => h.handle_link(w, path, desc)?,
+                Macros { name, args } => h.handle_macros(w, name, args)?,
+                RadioTarget { target } => h.handle_radio_target(w, target)?,
+                Snippet { name, value } => h.handle_snippet(w, name, value)?,
+                Target { target } => h.handle_target(w, target)?,
                 BoldBeg => h.handle_bold_beg(w)?,
                 BoldEnd => h.handle_bold_end(w)?,
                 ItalicBeg => h.handle_italic_beg(w)?,

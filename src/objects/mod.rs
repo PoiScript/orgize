@@ -5,37 +5,63 @@ mod inline_call;
 mod inline_src;
 mod link;
 mod macros;
+mod radio_target;
 mod snippet;
 mod target;
 
 pub use self::cookie::Cookie;
-pub use self::emphasis::Emphasis;
-pub use self::fn_ref::FnRef;
-pub use self::inline_call::InlineCall;
-pub use self::inline_src::InlineSrc;
-pub use self::link::Link;
-pub use self::macros::Macros;
-pub use self::snippet::Snippet;
-pub use self::target::{RadioTarget, Target};
 use jetscii::bytes;
 
 #[cfg_attr(test, derive(PartialEq, Debug))]
 pub enum Object<'a> {
     Cookie(Cookie<'a>),
-    FnRef(FnRef<'a>),
-    InlineCall(InlineCall<'a>),
-    InlineSrc(InlineSrc<'a>),
-    Link(Link<'a>),
-    Macros(Macros<'a>),
-    RadioTarget(RadioTarget<'a>),
-    Snippet(Snippet<'a>),
-    Target(Target<'a>),
+    FnRef {
+        label: Option<&'a str>,
+        def: Option<&'a str>,
+    },
+    InlineCall {
+        name: &'a str,
+        args: &'a str,
+        inside_header: Option<&'a str>,
+        end_header: Option<&'a str>,
+    },
+    InlineSrc {
+        lang: &'a str,
+        option: Option<&'a str>,
+        body: &'a str,
+    },
+    Link {
+        path: &'a str,
+        desc: Option<&'a str>,
+    },
+    Macros {
+        name: &'a str,
+        args: Option<&'a str>,
+    },
+    RadioTarget {
+        target: &'a str,
+    },
+    Snippet {
+        name: &'a str,
+        value: &'a str,
+    },
+    Target {
+        target: &'a str,
+    },
 
     // `end` indicates the position of the second marker
-    Bold { end: usize },
-    Italic { end: usize },
-    Strike { end: usize },
-    Underline { end: usize },
+    Bold {
+        end: usize,
+    },
+    Italic {
+        end: usize,
+    },
+    Strike {
+        end: usize,
+    },
+    Underline {
+        end: usize,
+    },
 
     Verbatim(&'a str),
     Code(&'a str),
@@ -68,40 +94,40 @@ impl<'a> Object<'a> {
 
             match bytes[pos] {
                 b'@' if bytes[pos + 1] == b'@' => {
-                    if let Some((snippet, off)) = Snippet::parse(&src[pos..]) {
-                        brk!(Object::Snippet(snippet), off, pos);
+                    if let Some((name, value, off)) = snippet::parse(&src[pos..]) {
+                        brk!(Object::Snippet { name, value }, off, pos);
                     }
                 }
                 b'{' if bytes[pos + 1] == b'{' && bytes[pos + 2] == b'{' => {
-                    if let Some((macros, off)) = Macros::parse(&src[pos..]) {
-                        brk!(Object::Macros(macros), off, pos);
+                    if let Some((name, args, off)) = macros::parse(&src[pos..]) {
+                        brk!(Object::Macros { name, args }, off, pos);
                     }
                 }
                 b'<' if bytes[pos + 1] == b'<' => {
                     if bytes[pos + 2] == b'<' {
-                        if let Some((target, off)) = RadioTarget::parse(&src[pos..]) {
-                            brk!(Object::RadioTarget(target), off, pos);
+                        if let Some((target, off)) = radio_target::parse(&src[pos..]) {
+                            brk!(Object::RadioTarget { target }, off, pos);
                         }
                     } else if bytes[pos + 2] != b'\n' {
-                        if let Some((target, off)) = Target::parse(&src[pos..]) {
-                            brk!(Object::Target(target), off, pos);
+                        if let Some((target, off)) = target::parse(&src[pos..]) {
+                            brk!(Object::Target { target }, off, pos);
                         }
                     }
                 }
                 b'[' => {
                     if bytes[pos + 1..].starts_with(b"fn:") {
-                        if let Some((fn_ref, off)) = FnRef::parse(&src[pos..]) {
-                            brk!(Object::FnRef(fn_ref), off, pos);
+                        if let Some((label, def, off)) = fn_ref::parse(&src[pos..]) {
+                            brk!(Object::FnRef { label, def }, off, pos);
                         }
                     }
 
                     if bytes[pos + 1] == b'[' {
-                        if let Some((link, off)) = Link::parse(&src[pos..]) {
-                            brk!(Object::Link(link), off, pos);
+                        if let Some((path, desc, off)) = link::parse(&src[pos..]) {
+                            brk!(Object::Link { path, desc }, off, pos);
                         }
                     }
 
-                    if let Some((cookie, off)) = Cookie::parse(&src[pos..]) {
+                    if let Some((cookie, off)) = cookie::parse(&src[pos..]) {
                         brk!(Object::Cookie(cookie), off, pos);
                     }
                     // TODO: Timestamp
@@ -112,43 +138,54 @@ impl<'a> Object<'a> {
 
             match bytes[pre] {
                 b'*' => {
-                    if let Some(end) = Emphasis::parse(&src[pre..], b'*') {
+                    if let Some(end) = emphasis::parse(&src[pre..], b'*') {
                         brk!(Object::Bold { end }, 1, pre);
                     }
                 }
                 b'+' => {
-                    if let Some(end) = Emphasis::parse(&src[pre..], b'+') {
+                    if let Some(end) = emphasis::parse(&src[pre..], b'+') {
                         brk!(Object::Strike { end }, 1, pre);
                     }
                 }
                 b'/' => {
-                    if let Some(end) = Emphasis::parse(&src[pre..], b'/') {
+                    if let Some(end) = emphasis::parse(&src[pre..], b'/') {
                         brk!(Object::Italic { end }, 1, pre);
                     }
                 }
                 b'_' => {
-                    if let Some(end) = Emphasis::parse(&src[pre..], b'_') {
+                    if let Some(end) = emphasis::parse(&src[pre..], b'_') {
                         brk!(Object::Underline { end }, 1, pre);
                     }
                 }
                 b'=' => {
-                    if let Some(end) = Emphasis::parse(&src[pre..], b'=') {
+                    if let Some(end) = emphasis::parse(&src[pre..], b'=') {
                         brk!(Object::Verbatim(&src[pre + 1..pre + end]), end + 1, pre);
                     }
                 }
                 b'~' => {
-                    if let Some(end) = Emphasis::parse(&src[pre..], b'~') {
+                    if let Some(end) = emphasis::parse(&src[pre..], b'~') {
                         brk!(Object::Code(&src[pre + 1..pre + end]), end + 1, pre);
                     }
                 }
                 b'c' if src[pre..].starts_with("call_") => {
-                    if let Some((call, off)) = InlineCall::parse(&src[pre..]) {
-                        brk!(Object::InlineCall(call), off, pre);
+                    if let Some((name, args, inside_header, end_header, off)) =
+                        inline_call::parse(&src[pre..])
+                    {
+                        brk!(
+                            Object::InlineCall {
+                                name,
+                                args,
+                                inside_header,
+                                end_header,
+                            },
+                            off,
+                            pre
+                        );
                     }
                 }
                 b's' if src[pre..].starts_with("src_") => {
-                    if let Some((src, off)) = InlineSrc::parse(&src[pre..]) {
-                        brk!(Object::InlineSrc(src), off, pre);
+                    if let Some((lang, option, body, off)) = inline_src::parse(&src[pre..]) {
+                        brk!(Object::InlineSrc { lang, option, body }, off, pre);
                     }
                 }
                 _ => (),

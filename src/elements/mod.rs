@@ -5,12 +5,7 @@ pub mod keyword;
 pub mod list;
 pub mod rule;
 
-pub use self::block::Block;
-pub use self::dyn_block::DynBlock;
-pub use self::fn_def::FnDef;
-pub use self::keyword::{Key, Keyword};
-pub use self::list::List;
-pub use self::rule::Rule;
+pub use self::keyword::Key;
 
 use memchr::memchr;
 use memchr::memchr_iter;
@@ -118,9 +113,9 @@ impl<'a> Element<'a> {
                 };
             }
 
-            // Unlike other element, footnote definition must starts at column 0
+            // Unlike other element, footnote def must starts at column 0
             if bytes[pos..].starts_with(b"[fn:") {
-                if let Some((label, cont, off)) = FnDef::parse(&src[pos..]) {
+                if let Some((label, cont, off)) = fn_def::parse(&src[pos..]) {
                     brk!(Element::FnDef { label, cont }, off + 1);
                 }
             }
@@ -138,7 +133,7 @@ impl<'a> Element<'a> {
 
             pos = skip_space!(src, pos);
 
-            let (is_item, ordered) = List::is_item(&src[pos..]);
+            let (is_item, ordered) = list::is_item(&src[pos..]);
             if is_item {
                 let list = Element::List {
                     ident: pos - line_beg,
@@ -163,7 +158,7 @@ impl<'a> Element<'a> {
 
             // Rule
             if bytes[pos] == b'-' {
-                let off = Rule::parse(&src[pos..]);
+                let off = rule::parse(&src[pos..]);
                 if off != 0 {
                     brk!(Element::Rule, off);
                 }
@@ -178,7 +173,7 @@ impl<'a> Element<'a> {
             }
 
             if bytes[pos..].starts_with(b"#+") {
-                if let Some((name, args, cont_beg, cont_end, end)) = Block::parse(&src[pos..]) {
+                if let Some((name, args, cont_beg, cont_end, end)) = block::parse(&src[pos..]) {
                     let cont = &src[pos + cont_beg..pos + cont_end];
                     match name.to_uppercase().as_str() {
                         "COMMENT" => brk!(Element::CommentBlock { args, cont }, end),
@@ -214,7 +209,7 @@ impl<'a> Element<'a> {
                     };
                 }
 
-                if let Some((name, args, cont_beg, cont_end, end)) = DynBlock::parse(&src[pos..]) {
+                if let Some((name, args, cont_beg, cont_end, end)) = dyn_block::parse(&src[pos..]) {
                     brk!(
                         Element::DynBlock {
                             name,
@@ -226,7 +221,7 @@ impl<'a> Element<'a> {
                     )
                 }
 
-                if let Some((key, value, off)) = Keyword::parse(&src[pos..]) {
+                if let Some((key, value, off)) = keyword::parse(&src[pos..]) {
                     brk!(
                         if let Key::Call = key {
                             Element::Call { value }

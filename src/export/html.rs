@@ -3,9 +3,7 @@
 use crate::elements::Key;
 use crate::export::Handler;
 use crate::headline::Headline;
-use crate::objects::{
-    Cookie, FnRef, InlineCall, InlineSrc, Link, Macros, RadioTarget, Snippet, Target,
-};
+use crate::objects::Cookie;
 use std::io::{Result, Write};
 
 pub struct HtmlHandler;
@@ -117,36 +115,49 @@ impl<W: Write> Handler<W> for HtmlHandler {
     fn handle_cookie(&mut self, w: &mut W, cookie: Cookie) -> Result<()> {
         Ok(())
     }
-    fn handle_fn_ref(&mut self, w: &mut W, fn_ref: FnRef) -> Result<()> {
+    fn handle_fn_ref(&mut self, w: &mut W, label: Option<&str>, def: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_inline_call(&mut self, w: &mut W, inline_call: InlineCall) -> Result<()> {
+    fn handle_inline_call(
+        &mut self,
+        w: &mut W,
+        name: &str,
+        args: &str,
+        inside_header: Option<&str>,
+        end_header: Option<&str>,
+    ) -> Result<()> {
         Ok(())
     }
-    fn handle_inline_src(&mut self, w: &mut W, inline_src: InlineSrc) -> Result<()> {
-        write!(w, "<code>{}</code>", inline_src.body)
+    fn handle_inline_src(
+        &mut self,
+        w: &mut W,
+        lang: &str,
+        option: Option<&str>,
+        body: &str,
+    ) -> Result<()> {
+        write!(w, "<code>{}</code>", body)
     }
-    fn handle_link(&mut self, w: &mut W, link: Link) -> Result<()> {
-        if let Some(desc) = link.desc {
-            write!(w, r#"<a href="{}">{}</a>"#, link.path, desc)
+    fn handle_link(&mut self, w: &mut W, path: &str, desc: Option<&str>) -> Result<()> {
+        if let Some(desc) = desc {
+            write!(w, r#"<a href="{}">{}</a>"#, path, desc)
         } else {
-            write!(w, r#"<a href="{0}">{0}</a>"#, link.path)
+            write!(w, r#"<a href="{0}">{0}</a>"#, path)
         }
     }
-    fn handle_macros(&mut self, w: &mut W, macros: Macros) -> Result<()> {
+    fn handle_macros(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
-    fn handle_radio_target(&mut self, w: &mut W, target: RadioTarget) -> Result<()> {
+    fn handle_radio_target(&mut self, w: &mut W, target: &str) -> Result<()> {
         Ok(())
     }
-    fn handle_snippet(&mut self, w: &mut W, snippet: Snippet) -> Result<()> {
-        if snippet.name.eq_ignore_ascii_case("HTML") {
-            write!(w, "{}", snippet.value)
+    fn handle_snippet(&mut self, w: &mut W, name: &str, value: &str) -> Result<()> {
+        if name.eq_ignore_ascii_case("HTML") {
+            write!(w, "{}", value)
         } else {
             Ok(())
         }
     }
-    fn handle_target(&mut self, w: &mut W, target: Target) -> Result<()> {
+    fn handle_target(&mut self, w: &mut W, target: &str) -> Result<()> {
         Ok(())
     }
     fn handle_bold_beg(&mut self, w: &mut W) -> Result<()> {

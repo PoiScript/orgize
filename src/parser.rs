@@ -1,10 +1,12 @@
+//! Parser
+
 use crate::elements::*;
 use crate::headline::*;
 use crate::objects::*;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Copy, Clone, Debug)]
-pub enum Container {
+enum Container {
     Headline {
         beg: usize,
         end: usize,
@@ -143,14 +145,39 @@ pub enum Event<'a> {
     Rule,
 
     Cookie(Cookie<'a>),
-    FnRef(FnRef<'a>),
-    InlineCall(InlineCall<'a>),
-    InlineSrc(InlineSrc<'a>),
-    Link(Link<'a>),
-    Macros(Macros<'a>),
-    RadioTarget(RadioTarget<'a>),
-    Snippet(Snippet<'a>),
-    Target(Target<'a>),
+    FnRef {
+        label: Option<&'a str>,
+        def: Option<&'a str>,
+    },
+    InlineCall {
+        name: &'a str,
+        args: &'a str,
+        inside_header: Option<&'a str>,
+        end_header: Option<&'a str>,
+    },
+    InlineSrc {
+        lang: &'a str,
+        option: Option<&'a str>,
+        body: &'a str,
+    },
+    Link {
+        path: &'a str,
+        desc: Option<&'a str>,
+    },
+    Macros {
+        name: &'a str,
+        args: Option<&'a str>,
+    },
+    RadioTarget {
+        target: &'a str,
+    },
+    Snippet {
+        name: &'a str,
+        value: &'a str,
+    },
+    Target {
+        target: &'a str,
+    },
 
     BoldBeg,
     BoldEnd,
@@ -176,6 +203,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    /// creates a new parser from string
     pub fn new(text: &'a str) -> Parser<'a> {
         Parser {
             text,
@@ -187,10 +215,12 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// returns current offset
     pub fn offset(&self) -> usize {
         self.off
     }
 
+    /// returns current stack depth
     pub fn stack_depth(&self) -> usize {
         self.stack.len()
     }
@@ -359,16 +389,26 @@ impl<'a> Parser<'a> {
             Object::Bold { .. } => Event::BoldBeg,
             Object::Code(c) => Event::Code(c),
             Object::Cookie(c) => Event::Cookie(c),
-            Object::FnRef(f) => Event::FnRef(f),
-            Object::InlineCall(i) => Event::InlineCall(i),
-            Object::InlineSrc(i) => Event::InlineSrc(i),
+            Object::FnRef { label, def } => Event::FnRef { label, def },
+            Object::InlineCall {
+                name,
+                args,
+                inside_header,
+                end_header,
+            } => Event::InlineCall {
+                name,
+                args,
+                inside_header,
+                end_header,
+            },
+            Object::InlineSrc { lang, option, body } => Event::InlineSrc { lang, option, body },
             Object::Italic { .. } => Event::ItalicBeg,
-            Object::Link(l) => Event::Link(l),
-            Object::Macros(m) => Event::Macros(m),
-            Object::RadioTarget(r) => Event::RadioTarget(r),
-            Object::Snippet(s) => Event::Snippet(s),
+            Object::Link { path, desc } => Event::Link { path, desc },
+            Object::Macros { name, args } => Event::Macros { name, args },
+            Object::RadioTarget { target } => Event::RadioTarget { target },
+            Object::Snippet { name, value } => Event::Snippet { name, value },
             Object::Strike { .. } => Event::StrikeBeg,
-            Object::Target(t) => Event::Target(t),
+            Object::Target { target } => Event::Target { target },
             Object::Text(t) => Event::Text(t),
             Object::Underline { .. } => Event::UnderlineBeg,
             Object::Verbatim(v) => Event::Verbatim(v),
@@ -376,7 +416,7 @@ impl<'a> Parser<'a> {
     }
 
     fn next_list_item(&mut self, ident: usize, end: usize) -> Event<'a> {
-        let (bullet, off, cont_end, end, has_more) = List::parse(&self.text[self.off..end], ident);
+        let (bullet, off, cont_end, end, has_more) = list::parse(&self.text[self.off..end], ident);
         self.stack.push(Container::ListItem {
             cont_end: self.off + cont_end,
             end: self.off + end,
@@ -386,6 +426,7 @@ impl<'a> Parser<'a> {
         Event::ListItemBeg { bullet }
     }
 
+    #[inline]
     fn end(&mut self) -> Event<'a> {
         match self.stack.pop().unwrap() {
             Container::Bold { .. } => Event::BoldEnd,
@@ -482,7 +523,13 @@ fn parse() {
     use self::Event::*;
 
     let expected = vec![
-        HeadlineBeg(Headline::new(1, None, None, "Title 1", None)),
+        HeadlineBeg(Headline {
+            level: 1,
+            priority: None,
+            keyword: None,
+            title: "Title 1",
+            tags: None,
+        }),
         SectionBeg,
         ParagraphBeg,
         BoldBeg,
@@ -490,7 +537,13 @@ fn parse() {
         BoldEnd,
         ParagraphEnd,
         SectionEnd,
-        HeadlineBeg(Headline::new(2, None, None, "Title 2", None)),
+        HeadlineBeg(Headline {
+            level: 2,
+            priority: None,
+            keyword: None,
+            title: "Title 2",
+            tags: None,
+        }),
         SectionBeg,
         ParagraphBeg,
         UnderlineBeg,
@@ -500,7 +553,13 @@ fn parse() {
         SectionEnd,
         HeadlineEnd,
         HeadlineEnd,
-        HeadlineBeg(Headline::new(1, None, None, "Title 3", None)),
+        HeadlineBeg(Headline {
+            level: 1,
+            priority: None,
+            keyword: None,
+            title: "Title 3",
+            tags: None,
+        }),
         SectionBeg,
         ParagraphBeg,
         ItalicBeg,
@@ -509,7 +568,13 @@ fn parse() {
         ParagraphEnd,
         SectionEnd,
         HeadlineEnd,
-        HeadlineBeg(Headline::new(1, None, None, "Title 4", None)),
+        HeadlineBeg(Headline {
+            level: 1,
+            priority: None,
+            keyword: None,
+            title: "Title 4",
+            tags: None,
+        }),
         SectionBeg,
         ParagraphBeg,
         Verbatim("Section 4"),
