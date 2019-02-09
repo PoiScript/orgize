@@ -11,18 +11,6 @@ macro_rules! expect {
 }
 
 #[macro_export]
-macro_rules! eol {
-    ($src:expr) => {
-        memchr::memchr(b'\n', $src.as_bytes()).unwrap_or_else(|| $src.len())
-    };
-    ($src:expr, $from:expr) => {
-        memchr::memchr(b'\n', $src.as_bytes()[$from..])
-            .map(|i| i + $from)
-            .unwrap_or_else(|| $src.len())
-    };
-}
-
-#[macro_export]
 macro_rules! skip_space {
     ($src:ident) => {
         $src.as_bytes()
@@ -38,18 +26,4 @@ macro_rules! skip_space {
             .map(|i| i + $from)
             .unwrap_or(0)
     };
-}
-
-#[macro_export]
-macro_rules! skip_empty_line {
-    ($src:ident, $from:expr) => {{
-        let mut pos = $from;
-        loop {
-            if pos >= $src.len() || $src.as_bytes()[pos] != b'\n' {
-                break pos;
-            } else {
-                pos += 1;
-            }
-        }
-    }};
 }

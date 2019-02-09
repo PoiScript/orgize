@@ -1,7 +1,7 @@
 use crate::lines::Lines;
 use memchr::memchr2;
 
-// return (name, parameters, contents-begin, contents-end, end)
+/// return (name, parameters, contents-begin, contents-end, end)
 #[inline]
 pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
     debug_assert!(src.starts_with("#+"));
@@ -11,7 +11,10 @@ pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
     }
 
     let bytes = src.as_bytes();
-    let args = eol!(src);
+
+    let args = memchr::memchr(b'\n', src.as_bytes())
+        .map(|i| i + 1)
+        .unwrap_or_else(|| src.len());
     let name = memchr2(b' ', b'\n', &bytes[9..])
         .map(|i| i + 9)
         .filter(|&i| {
@@ -56,7 +59,7 @@ CONTENTS
 #+END:
 "
             ),
-            Some(("clocktable", Some(":scope file"), 31, 40, 48))
-        )
+            Some(("clocktable", Some(":scope file"), 32, 40, 48))
+        );
     }
 }

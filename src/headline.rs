@@ -1,5 +1,7 @@
 //! Headline
 
+use memchr::memchr2;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Headline<'a> {
@@ -34,20 +36,12 @@ impl<'a> Headline<'a> {
 
     #[inline]
     fn parse_keyword(src: &'a str) -> Option<(&'a str, usize)> {
-        let mut pos = 0;
-        while pos < src.len() {
-            if src.as_bytes()[pos] == b' ' {
-                break;
-            } else if src.as_bytes()[pos].is_ascii_uppercase() {
-                pos += 1;
-            } else {
-                return None;
-            }
-        }
-        if pos == src.len() || src[0..pos] == *"COMMENT" {
-            None
+        let pos = memchr2(b' ', b'\n', src.as_bytes()).unwrap_or_else(|| src.len());
+        let word = &src[0..pos];
+        if word.as_bytes().iter().all(|&c| c.is_ascii_uppercase()) && word != "COMMENT" {
+            Some((word, pos))
         } else {
-            Some((&src[0..pos], pos))
+            None
         }
     }
 
@@ -80,21 +74,13 @@ impl<'a> Headline<'a> {
     /// assert_eq!(hdl.keyword, Some("DONE"));
     /// ```
     pub fn parse(src: &'a str) -> (Headline<'a>, usize, usize) {
-        let mut level = 0;
-        loop {
-            if src.as_bytes()[level] == b'*' {
-                level += 1;
-            } else {
-                break;
-            }
-        }
+        let level = memchr2(b'\n', b' ', src.as_bytes()).unwrap_or_else(|| src.len());
 
-        let eol = eol!(src);
-        let end = if eol == src.len() {
-            eol
-        } else {
-            Headline::find_level(&src[eol..], level) + eol
-        };
+        debug_assert!(src.as_bytes()[0..level].iter().all(|&c| c == b'*'));
+
+        let (eol, end) = memchr::memchr(b'\n', src.as_bytes())
+            .map(|i| (i, Headline::find_level(&src[i..], level) + i))
+            .unwrap_or_else(|| (src.len(), src.len()));
 
         let mut title_start = skip_space!(src, level);
 
@@ -129,12 +115,11 @@ impl<'a> Headline<'a> {
 
     pub fn find_level(src: &str, level: usize) -> usize {
         use jetscii::ByteSubstring;
-        use memchr::memchr2;
 
         let bytes = src.as_bytes();
         if bytes[0] == b'*' {
             if let Some(stars) = memchr2(b'\n', b' ', bytes) {
-                if stars > 0 && stars <= level && bytes[0..stars].iter().all(|&c| c == b'*') {
+                if stars <= level && bytes[0..stars].iter().all(|&c| c == b'*') {
                     return 0;
                 }
             }

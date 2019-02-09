@@ -1,8 +1,8 @@
 //! Parser
 
-use crate::elements::*;
+use crate::elements::{self, *};
 use crate::headline::*;
-use crate::objects::*;
+use crate::objects::{self, *};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Copy, Clone, Debug)]
@@ -227,7 +227,7 @@ impl<'a> Parser<'a> {
 
     fn next_sec_or_hdl(&mut self) -> Event<'a> {
         let end = Headline::find_level(&self.text[self.off..], std::usize::MAX);
-        debug_assert!(end <= self.text.len());
+        debug_assert!(end <= self.text[self.off..].len());
         if end != 0 {
             self.stack.push(Container::Section {
                 end: self.off + end,
@@ -241,7 +241,7 @@ impl<'a> Parser<'a> {
     fn next_hdl(&mut self) -> Event<'a> {
         let tail = &self.text[self.off..];
         let (hdl, off, end) = Headline::parse(tail);
-        debug_assert!(end <= self.text.len());
+        debug_assert!(end <= self.text[self.off..].len());
         self.stack.push(Container::Headline {
             beg: self.off + off,
             end: self.off + end,
@@ -257,7 +257,7 @@ impl<'a> Parser<'a> {
             .take()
             .map(|(ele, off)| (Some(ele), off))
             .unwrap_or_else(|| {
-                let (ele, off, next_ele) = Element::next_2(text);
+                let (ele, off, next_ele) = elements::parse(text);
                 self.ele_buf = next_ele;
                 (ele, off)
             });
@@ -344,49 +344,48 @@ impl<'a> Parser<'a> {
     fn next_obj(&mut self, end: usize) -> Event<'a> {
         let text = &self.text[self.off..end];
         let (obj, off) = self.obj_buf.take().unwrap_or_else(|| {
-            let (obj, off, next_obj) = Object::next_2(text);
+            let (obj, off, next_obj) = objects::parse(text);
             self.obj_buf = next_obj;
             (obj, off)
         });
 
         debug_assert!(off <= text.len());
 
+        self.off += off;
+
         match obj {
             Object::Underline { end } => {
                 debug_assert!(end <= text.len());
                 self.stack.push(Container::Underline {
-                    cont_end: self.off + end,
-                    end: self.off + end + 1,
+                    cont_end: self.off + end - 1,
+                    end: self.off + end,
                 });
+                Event::UnderlineBeg
             }
             Object::Strike { end } => {
                 debug_assert!(end <= text.len());
                 self.stack.push(Container::Strike {
-                    cont_end: self.off + end,
-                    end: self.off + end + 1,
+                    cont_end: self.off + end - 1,
+                    end: self.off + end,
                 });
+                Event::StrikeBeg
             }
             Object::Italic { end } => {
                 debug_assert!(end <= text.len());
                 self.stack.push(Container::Italic {
-                    cont_end: self.off + end,
-                    end: self.off + end + 1,
+                    cont_end: self.off + end - 1,
+                    end: self.off + end,
                 });
+                Event::ItalicBeg
             }
             Object::Bold { end } => {
                 debug_assert!(end <= text.len());
                 self.stack.push(Container::Bold {
-                    cont_end: self.off + end,
-                    end: self.off + end + 1,
+                    cont_end: self.off + end - 1,
+                    end: self.off + end,
                 });
+                Event::BoldBeg
             }
-            _ => (),
-        }
-
-        self.off += off;
-
-        match obj {
-            Object::Bold { .. } => Event::BoldBeg,
             Object::Code(c) => Event::Code(c),
             Object::Cookie(c) => Event::Cookie(c),
             Object::FnRef { label, def } => Event::FnRef { label, def },
@@ -402,15 +401,12 @@ impl<'a> Parser<'a> {
                 end_header,
             },
             Object::InlineSrc { lang, option, body } => Event::InlineSrc { lang, option, body },
-            Object::Italic { .. } => Event::ItalicBeg,
             Object::Link { path, desc } => Event::Link { path, desc },
             Object::Macros { name, args } => Event::Macros { name, args },
             Object::RadioTarget { target } => Event::RadioTarget { target },
             Object::Snippet { name, value } => Event::Snippet { name, value },
-            Object::Strike { .. } => Event::StrikeBeg,
             Object::Target { target } => Event::Target { target },
             Object::Text(t) => Event::Text(t),
-            Object::Underline { .. } => Event::UnderlineBeg,
             Object::Verbatim(v) => Event::Verbatim(v),
         }
     }
