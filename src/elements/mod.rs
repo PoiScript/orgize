@@ -96,8 +96,8 @@ pub fn parse<'a>(src: &'a str) -> (Option<Element<'a>>, usize, Option<(Element<'
 
         macro_rules! brk {
             ($ele:expr, $off:expr) => {
-                break if line_beg == 0 || pos == start {
-                    (Some($ele), start + $off, None)
+                break if line_beg == start || pos == start {
+                    (Some($ele), pos + $off, None)
                 } else {
                     (
                         Some(Element::Paragraph {
@@ -272,8 +272,7 @@ pub fn parse<'a>(src: &'a str) -> (Option<Element<'a>>, usize, Option<(Element<'
 mod tests {
     #[test]
     fn parse() {
-        use super::parse;
-        use super::Element::*;
+        use super::{Element::*, *};
 
         assert_eq!(parse("\n\n\n"), (None, 3, None));
 
@@ -386,6 +385,17 @@ mod tests {
                     },
                     "#+BEGIN_QUOTE\n".len()
                 ))
+            )
+        );
+        assert_eq!(
+            parse("\n  #+ATTR_HTML: :width 200px"),
+            (
+                Some(Keyword {
+                    key: keyword::Key::Attr { backend: "HTML" },
+                    value: ":width 200px"
+                }),
+                "\n  #+ATTR_HTML: :width 200px".len(),
+                None
             )
         );
         // TODO: more tests

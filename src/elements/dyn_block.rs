@@ -6,7 +6,7 @@ use memchr::memchr2;
 pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
     debug_assert!(src.starts_with("#+"));
 
-    if !src[2..9].eq_ignore_ascii_case("BEGIN: ") {
+    if src.len() <= 9 || !src[2..9].eq_ignore_ascii_case("BEGIN: ") {
         return None;
     }
 

@@ -144,7 +144,7 @@ pub fn parse<'a>(src: &'a str) -> (Object<'a>, usize, Option<(Object<'a>, usize)
         if let Some(off) = bs
             .find(&bytes[pos + 1..])
             .map(|i| i + pos + 1)
-            .filter(|&i| i < src.len() - 2)
+            .filter(|&i| i < src.len() - 3)
         {
             pos = off;
         } else {
