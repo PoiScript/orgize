@@ -62,5 +62,6 @@ pub mod headline;
 mod lines;
 pub mod objects;
 mod parser;
+pub mod tools;
 
 pub use parser::{Event, Parser};
