@@ -23,32 +23,32 @@ mod tests {
         use super::parse;
 
         assert_eq!(
-            parse("[fn:1] https://orgmode.org").unwrap(),
-            (
+            parse("[fn:1] https://orgmode.org"),
+            Some((
                 "1",
                 " https://orgmode.org",
                 "[fn:1] https://orgmode.org".len()
-            )
+            ))
         );
         assert_eq!(
-            parse("[fn:word_1] https://orgmode.org").unwrap(),
-            (
+            parse("[fn:word_1] https://orgmode.org"),
+            Some((
                 "word_1",
                 " https://orgmode.org",
                 "[fn:word_1] https://orgmode.org".len()
-            )
+            ))
         );
         assert_eq!(
-            parse("[fn:WORD-1] https://orgmode.org").unwrap(),
-            (
+            parse("[fn:WORD-1] https://orgmode.org"),
+            Some((
                 "WORD-1",
                 " https://orgmode.org",
                 "[fn:WORD-1] https://orgmode.org".len()
-            )
+            ))
         );
-        assert_eq!(parse("[fn:WORD]").unwrap(), ("WORD", "", "[fn:WORD]".len()));
-        assert!(parse("[fn:] https://orgmode.org").is_none());
-        assert!(parse("[fn:wor d] https://orgmode.org").is_none());
-        assert!(parse("[fn:WORD https://orgmode.org").is_none());
+        assert_eq!(parse("[fn:WORD]"), Some(("WORD", "", "[fn:WORD]".len())));
+        assert_eq!(parse("[fn:] https://orgmode.org"), None);
+        assert_eq!(parse("[fn:wor d] https://orgmode.org"), None);
+        assert_eq!(parse("[fn:WORD https://orgmode.org"), None);
     }
 }

@@ -1,3 +1,4 @@
+use bytecount::count;
 use memchr::memchr;
 
 #[inline]
@@ -13,14 +14,13 @@ pub fn parse(src: &str, marker: u8) -> Option<usize> {
 
     let end = memchr(marker, &bytes[1..])
         .map(|i| i + 1)
-        .filter(|&i| bytes[1..i].iter().filter(|&&c| c == b'\n').count() < 2)?;
+        .filter(|&i| count(&bytes[1..i], b'\n') < 2)?;
 
     if bytes[end - 1].is_ascii_whitespace() {
         return None;
     }
 
-    if end < src.len() - 1 {
-        let post = bytes[end + 1];
+    if let Some(&post) = bytes.get(end + 1) {
         if post == b' '
             || post == b'-'
             || post == b'.'
@@ -48,12 +48,12 @@ mod tests {
     fn parse() {
         use super::parse;
 
-        assert_eq!(parse("*bold*", b'*').unwrap(), "*bold".len());
-        assert_eq!(parse("*bo\nld*", b'*').unwrap(), "*bo\nld".len());
-        assert!(parse("*bold*a", b'*').is_none());
-        assert!(parse("*bold*", b'/').is_none());
-        assert!(parse("*bold *", b'*').is_none());
-        assert!(parse("* bold*", b'*').is_none());
-        assert!(parse("*b\nol\nd*", b'*').is_none());
+        assert_eq!(parse("*bold*", b'*'), Some("*bold".len()));
+        assert_eq!(parse("*bo\nld*", b'*'), Some("*bo\nld".len()));
+        assert_eq!(parse("*bold*a", b'*'), None);
+        assert_eq!(parse("*bold*", b'/'), None);
+        assert_eq!(parse("*bold *", b'*'), None);
+        assert_eq!(parse("* bold*", b'*'), None);
+        assert_eq!(parse("*b\nol\nd*", b'*'), None);
     }
 }

@@ -55,19 +55,16 @@ mod tests {
     fn parse() {
         use super::parse;
 
-        assert_eq!(parse("[fn:1]").unwrap(), (Some("1"), None, "[fn:1]".len()));
+        assert_eq!(parse("[fn:1]"), Some((Some("1"), None, "[fn:1]".len())));
         assert_eq!(
-            parse("[fn:1:2]").unwrap(),
-            (Some("1"), Some("2"), "[fn:1:2]".len())
+            parse("[fn:1:2]"),
+            Some((Some("1"), Some("2"), "[fn:1:2]".len()))
         );
+        assert_eq!(parse("[fn::2]"), Some((None, Some("2"), "[fn::2]".len())));
         assert_eq!(
-            parse("[fn::2]").unwrap(),
-            (None, Some("2"), "[fn::2]".len())
+            parse("[fn::[]]"),
+            Some((None, Some("[]"), "[fn::[]]".len()))
         );
-        assert_eq!(
-            parse("[fn::[]]").unwrap(),
-            (None, Some("[]"), "[fn::[]]".len())
-        );
-        assert!(parse("[fn::[]").is_none());
+        assert_eq!(parse("[fn::[]"), None);
     }
 }

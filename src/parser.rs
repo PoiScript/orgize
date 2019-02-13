@@ -239,8 +239,7 @@ impl<'a> Parser<'a> {
     }
 
     fn next_hdl(&mut self) -> Event<'a> {
-        let tail = &self.text[self.off..];
-        let (hdl, off, end) = Headline::parse(tail);
+        let (hdl, off, end) = Headline::parse(&self.text[self.off..]);
         debug_assert!(end <= self.text[self.off..].len());
         self.stack.push(Container::Headline {
             beg: self.off + off,
@@ -467,6 +466,7 @@ impl<'a> Iterator for Parser<'a> {
                 | Container::SplBlock { cont_end, end, .. }
                 | Container::ListItem { cont_end, end } => {
                     debug_assert!(self.off <= cont_end);
+                    debug_assert!(self.off <= end);
                     if self.off >= cont_end {
                         self.off = end;
                         self.end()
@@ -495,6 +495,7 @@ impl<'a> Iterator for Parser<'a> {
                 | Container::Underline { cont_end, end }
                 | Container::Italic { cont_end, end }
                 | Container::Strike { cont_end, end } => {
+                    debug_assert!(self.off <= cont_end);
                     debug_assert!(self.off <= end);
                     if self.off >= cont_end {
                         self.off = end;

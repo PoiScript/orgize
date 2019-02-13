@@ -32,11 +32,11 @@ mod tests {
     fn parse() {
         use super::parse;
 
-        assert_eq!(parse("[[#id]]").unwrap(), ("#id", None, "[[#id]]".len()));
+        assert_eq!(parse("[[#id]]"), Some(("#id", None, "[[#id]]".len())));
         assert_eq!(
-            parse("[[#id][desc]]").unwrap(),
-            ("#id", Some("desc"), "[[#id][desc]]".len())
+            parse("[[#id][desc]]"),
+            Some(("#id", Some("desc"), "[[#id][desc]]".len()))
         );
-        assert!(parse("[[#id][desc]").is_none());
+        assert_eq!(parse("[[#id][desc]"), None);
     }
 }

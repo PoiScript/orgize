@@ -77,7 +77,7 @@ pub fn parse(src: &str, ident: usize) -> (&str, usize, usize, usize, bool) {
             }
         }
 
-        let line_ident = self::ident(line);
+        let line_ident = count_ident(line);
 
         if line_ident < ident {
             return (bullet, beg, pre_cont_end, pre_end, false);
@@ -99,7 +99,7 @@ pub fn parse(src: &str, ident: usize) -> (&str, usize, usize, usize, bool) {
 }
 
 #[inline]
-fn ident(src: &str) -> usize {
+fn count_ident(src: &str) -> usize {
     src.as_bytes()
         .iter()
         .position(|&c| c != b' ' && c != b'\t')

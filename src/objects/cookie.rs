@@ -32,20 +32,20 @@ mod tests {
         use super::parse;
         use super::Cookie::*;
 
-        assert_eq!(parse("[1/10]").unwrap(), (Slash("1", "10"), "[1/10]".len()));
+        assert_eq!(parse("[1/10]"), Some((Slash("1", "10"), "[1/10]".len())));
         assert_eq!(
-            parse("[1/1000]").unwrap(),
-            (Slash("1", "1000"), "[1/1000]".len())
+            parse("[1/1000]"),
+            Some((Slash("1", "1000"), "[1/1000]".len()))
         );
-        assert_eq!(parse("[10%]").unwrap(), (Percent("10"), "[10%]".len()));
-        assert_eq!(parse("[%]").unwrap(), (Percent(""), "[%]".len()));
-        assert_eq!(parse("[/]").unwrap(), (Slash("", ""), "[/]".len()));
-        assert_eq!(parse("[100/]").unwrap(), (Slash("100", ""), "[100/]".len()));
-        assert_eq!(parse("[/100]").unwrap(), (Slash("", "100"), "[/100]".len()));
+        assert_eq!(parse("[10%]"), Some((Percent("10"), "[10%]".len())));
+        assert_eq!(parse("[%]"), Some((Percent(""), "[%]".len())));
+        assert_eq!(parse("[/]"), Some((Slash("", ""), "[/]".len())));
+        assert_eq!(parse("[100/]"), Some((Slash("100", ""), "[100/]".len())));
+        assert_eq!(parse("[/100]"), Some((Slash("", "100"), "[/100]".len())));
 
-        assert!(parse("[10% ]").is_none(),);
-        assert!(parse("[1//100]").is_none(),);
-        assert!(parse("[1\\100]").is_none(),);
-        assert!(parse("[10%%]").is_none(),);
+        assert_eq!(parse("[10% ]"), None);
+        assert_eq!(parse("[1//100]"), None);
+        assert_eq!(parse("[1\\100]"), None);
+        assert_eq!(parse("[10%%]"), None);
     }
 }

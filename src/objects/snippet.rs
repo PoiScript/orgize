@@ -27,20 +27,20 @@ mod tests {
         use super::parse;
 
         assert_eq!(
-            parse("@@html:<b>@@").unwrap(),
-            ("html", "<b>", "@@html:<b>@@".len())
+            parse("@@html:<b>@@"),
+            Some(("html", "<b>", "@@html:<b>@@".len()))
         );
         assert_eq!(
-            parse("@@latex:any arbitrary LaTeX code@@").unwrap(),
-            (
+            parse("@@latex:any arbitrary LaTeX code@@"),
+            Some((
                 "latex",
                 "any arbitrary LaTeX code",
                 "@@latex:any arbitrary LaTeX code@@".len()
-            )
+            ))
         );
-        assert_eq!(parse("@@html:@@").unwrap(), ("html", "", "@@html:@@".len()));
-        assert!(parse("@@html:<b>@").is_none());
-        assert!(parse("@@html<b>@@").is_none());
-        assert!(parse("@@:<b>@@").is_none());
+        assert_eq!(parse("@@html:@@"), Some(("html", "", "@@html:@@".len())));
+        assert_eq!(parse("@@html:<b>@"), None);
+        assert_eq!(parse("@@html<b>@@"), None);
+        assert_eq!(parse("@@:<b>@@"), None);
     }
 }

@@ -51,38 +51,38 @@ mod tests {
         use super::parse;
 
         assert_eq!(
-            parse("call_square(4)").unwrap(),
-            ("square", "4", None, None, "call_square(4)".len())
+            parse("call_square(4)"),
+            Some(("square", "4", None, None, "call_square(4)".len()))
         );
         assert_eq!(
-            parse("call_square[:results output](4)").unwrap(),
-            (
+            parse("call_square[:results output](4)"),
+            Some((
                 "square",
                 "4",
                 Some(":results output"),
                 None,
                 "call_square[:results output](4)".len()
-            )
+            ))
         );
         assert_eq!(
-            parse("call_square(4)[:results html]").unwrap(),
-            (
+            parse("call_square(4)[:results html]"),
+            Some((
                 "square",
                 "4",
                 None,
                 Some(":results html"),
                 "call_square(4)[:results html]".len()
-            )
+            ))
         );
         assert_eq!(
-            parse("call_square[:results output](4)[:results html]").unwrap(),
-            (
+            parse("call_square[:results output](4)[:results html]"),
+            Some((
                 "square",
                 "4",
                 Some(":results output"),
                 Some(":results html"),
                 "call_square[:results output](4)[:results html]".len()
-            )
+            ))
         );
     }
 }

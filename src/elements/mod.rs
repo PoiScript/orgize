@@ -81,7 +81,7 @@ pub enum Element<'a> {
 // return (element, off, next element, next offset)
 // the end of first element is relative to the offset
 // next offset is relative to the end of the first element
-pub fn parse<'a>(src: &'a str) -> (Option<Element<'a>>, usize, Option<(Element<'a>, usize)>) {
+pub fn parse(src: &str) -> (Option<Element<'_>>, usize, Option<(Element<'_>, usize)>) {
     // skip empty lines
     let mut pos = match src.chars().position(|c| c != '\n') {
         Some(pos) => pos,

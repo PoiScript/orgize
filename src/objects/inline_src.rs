@@ -35,20 +35,20 @@ mod tests {
         use super::parse;
 
         assert_eq!(
-            parse("src_C{int a = 0;}").unwrap(),
-            ("C", None, "int a = 0;", "src_C{int a = 0;}".len())
+            parse("src_C{int a = 0;}"),
+            Some(("C", None, "int a = 0;", "src_C{int a = 0;}".len()))
         );
         assert_eq!(
-            parse("src_xml[:exports code]{<tag>text</tag>}").unwrap(),
-            (
+            parse("src_xml[:exports code]{<tag>text</tag>}"),
+            Some((
                 "xml",
                 Some(":exports code"),
                 "<tag>text</tag>",
                 "src_xml[:exports code]{<tag>text</tag>}".len()
-            )
+            ))
         );
-        assert!(parse("src_xml[:exports code]{<tag>text</tag>").is_none());
-        assert!(parse("src_[:exports code]{<tag>text</tag>}").is_none());
-        assert!(parse("src_xml[:exports code]").is_none());
+        assert_eq!(parse("src_xml[:exports code]{<tag>text</tag>"), None);
+        assert_eq!(parse("src_[:exports code]{<tag>text</tag>}"), None);
+        assert_eq!(parse("src_xml[:exports code]"), None);
     }
 }

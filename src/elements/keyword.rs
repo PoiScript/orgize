@@ -101,8 +101,8 @@ mod tests {
             parse("#+KEY:VALUE\n"),
             Some((Key::Custom("KEY"), "VALUE", "#+KEY:VALUE\n".len()))
         );
-        assert!(parse("#+KE Y: VALUE").is_none());
-        assert!(parse("#+ KEY: VALUE").is_none());
+        assert_eq!(parse("#+KE Y: VALUE"), None);
+        assert_eq!(parse("#+ KEY: VALUE"), None);
 
         assert_eq!(
             parse("#+RESULTS:"),

@@ -76,6 +76,7 @@ impl<'a> Headline<'a> {
     pub fn parse(src: &'a str) -> (Headline<'a>, usize, usize) {
         let level = memchr2(b'\n', b' ', src.as_bytes()).unwrap_or_else(|| src.len());
 
+        debug_assert!(level > 0);
         debug_assert!(src.as_bytes()[0..level].iter().all(|&c| c == b'*'));
 
         let (eol, end) = memchr::memchr(b'\n', src.as_bytes())

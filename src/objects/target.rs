@@ -25,11 +25,8 @@ mod tests {
     fn parse() {
         use super::parse;
 
-        assert_eq!(parse("<<target>>").unwrap(), ("target", "<<target>>".len()));
-        assert_eq!(
-            parse("<<tar get>>").unwrap(),
-            ("tar get", "<<tar get>>".len())
-        );
+        assert_eq!(parse("<<target>>"), Some(("target", "<<target>>".len())));
+        assert_eq!(parse("<<tar get>>"), Some(("tar get", "<<tar get>>".len())));
         assert_eq!(parse("<<target >>"), None);
         assert_eq!(parse("<< target>>"), None);
         assert_eq!(parse("<<ta<get>>"), None);

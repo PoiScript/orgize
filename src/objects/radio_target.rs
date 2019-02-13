@@ -7,13 +7,14 @@ pub fn parse(src: &str) -> Option<(&str, usize)> {
 
     expect!(src, 3, |c| c != b' ')?;
 
+    let bytes = src.as_bytes();
     let end = Substring::new(">>>").find(src).filter(|&i| {
-        src.as_bytes()[3..i]
+        bytes[3..i]
             .iter()
             .all(|&c| c != b'<' && c != b'\n' && c != b'>')
     })?;
 
-    if src.as_bytes()[end - 1] == b' ' {
+    if bytes[end - 1] == b' ' {
         return None;
     }
 
@@ -27,12 +28,12 @@ mod tests {
         use super::parse;
 
         assert_eq!(
-            parse("<<<target>>>").unwrap(),
-            ("target", "<<<target>>>".len())
+            parse("<<<target>>>"),
+            Some(("target", "<<<target>>>".len()))
         );
         assert_eq!(
-            parse("<<<tar get>>>").unwrap(),
-            ("tar get", "<<<tar get>>>".len())
+            parse("<<<tar get>>>"),
+            Some(("tar get", "<<<tar get>>>".len()))
         );
         assert_eq!(parse("<<<target >>>"), None);
         assert_eq!(parse("<<< target>>>"), None);

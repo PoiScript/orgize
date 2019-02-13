@@ -68,20 +68,25 @@ pub enum Object<'a> {
     Text(&'a str),
 }
 
-pub fn parse<'a>(src: &'a str) -> (Object<'a>, usize, Option<(Object<'a>, usize)>) {
+pub fn parse(src: &str) -> (Object<'_>, usize, Option<(Object<'_>, usize)>) {
     let bytes = src.as_bytes();
-
-    if src.len() <= 2 {
-        return (Object::Text(src), src.len(), None);
-    }
-
     let bs = bytes!(b'@', b' ', b'"', b'(', b'\n', b'{', b'<', b'[');
 
     let mut pos = 0;
-    loop {
+    while let Some(off) = if pos == 0 {
+        Some(0)
+    } else {
+        bs.find(&bytes[pos..])
+    } {
+        pos += off;
+
+        if src.len() - pos < 3 {
+            return (Object::Text(src), src.len(), None);
+        }
+
         macro_rules! brk {
             ($obj:expr, $off:expr, $pos:expr) => {
-                break if $pos == 0 {
+                return if $pos == 0 {
                     ($obj, $off, None)
                 } else {
                     (Object::Text(&src[0..$pos]), $pos, Some(($obj, $off)))
@@ -141,19 +146,13 @@ pub fn parse<'a>(src: &'a str) -> (Object<'a>, usize, Option<(Object<'a>, usize)
             }
         }
 
-        if let Some(off) = bs
-            .find(&bytes[pos + 1..])
-            .map(|i| i + pos + 1)
-            .filter(|&i| i < src.len() - 3)
-        {
-            pos = off;
-        } else {
-            break (Object::Text(src), src.len(), None);
-        }
+        pos += 1;
     }
+
+    (Object::Text(src), src.len(), None)
 }
 
-fn parse_text_markup<'a>(src: &'a str) -> Option<(Object<'a>, usize)> {
+fn parse_text_markup(src: &str) -> Option<(Object<'_>, usize)> {
     match src.as_bytes()[0] {
         b'*' => emphasis::parse(src, b'*').map(|end| (Object::Bold { end }, 1)),
         b'+' => emphasis::parse(src, b'+').map(|end| (Object::Strike { end }, 1)),
