@@ -1,9 +1,13 @@
 #![allow(unused_variables)]
 
+use std::fmt;
+use std::io::{Result, Write};
+
+use jetscii::ascii_chars;
+
 use crate::elements::Key;
 use crate::headline::Headline;
 use crate::objects::Cookie;
-use std::io::{Result, Write};
 
 pub trait HtmlHandler<W: Write> {
     fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
@@ -188,6 +192,42 @@ pub trait HtmlHandler<W: Write> {
         write!(w, "<code>{}</code>", cont)
     }
     fn handle_text(&mut self, w: &mut W, cont: &str) -> Result<()> {
-        write!(w, "{}", cont.replace('\n', " "))
+        write!(w, "{}", Escape(&cont))
+    }
+}
+
+pub struct Escape<'a>(&'a str);
+
+impl<'a> fmt::Display for Escape<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        let mut pos = 0;
+        while let Some(off) = ascii_chars!('<', '>', '&', '\'', '"').find(&self.0[pos..]) {
+            fmt.write_str(&self.0[pos..pos + off])?;
+
+            pos += off + 1;
+
+            match &self.0.as_bytes()[pos - 1] {
+                b'"' => fmt.write_str("&quot;")?,
+                b'&' => fmt.write_str("&amp;")?,
+                b'<' => fmt.write_str("&lt;")?,
+                b'>' => fmt.write_str("&gt;")?,
+                b'\'' => fmt.write_str("&#39;")?,
+                b'\n' => fmt.write_str(" ")?,
+                _ => unreachable!(),
+            }
+        }
+
+        fmt.write_str(&self.0[pos..])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape() {
+        assert_eq!(format!("{}", Escape("<<<<<<")), "&lt;&lt;&lt;&lt;&lt;&lt;");
+        assert_eq!(format!("{}", Escape(" <> <> ")), " &lt;&gt; &lt;&gt; ");
     }
 }
