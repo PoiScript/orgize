@@ -20,7 +20,7 @@ macro_rules! create_render {
             }
 
             #[inline]
-            pub fn into_wirter(self) -> W {
+            pub fn into_writer(self) -> W {
                 self.0.writer
             }
 
@@ -45,7 +45,7 @@ macro_rules! create_render {
                 }
             }
 
-            pub fn into_wirter(self) -> W {
+            pub fn into_writer(self) -> W {
                 self.writer
             }
 

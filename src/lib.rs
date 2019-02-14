@@ -43,7 +43,7 @@
 //!     .render()
 //!     .expect("something went wrong rendering the file");
 //!
-//! let result = String::from_utf8(render.into_wirter().into_inner()).expect("invalid utf-8");
+//! let result = String::from_utf8(render.into_writer().into_inner()).expect("invalid utf-8");
 //! ```
 //!
 //! or `impl HtmlHandler` to create your own render. The following example
@@ -87,7 +87,7 @@
 //!     .render()
 //!     .expect("something went wrong rendering the file");
 //!
-//! let result = String::from_utf8(render.into_wirter().into_inner()).expect("invalid utf-8");
+//! let result = String::from_utf8(render.into_writer().into_inner()).expect("invalid utf-8");
 //! ```
 
 #[macro_use]
