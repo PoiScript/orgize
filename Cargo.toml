@@ -16,3 +16,6 @@ travis-ci = { repository = "PoiScript/orgize" }
 bytecount = "0.5.1"
 jetscii = "0.4.3"
 memchr = "2"
+
+[dev-dependencies]
+slugify = "0.1.0"

@@ -1,14 +1,11 @@
 #![allow(unused_variables)]
 
 use crate::elements::Key;
-use crate::export::Handler;
 use crate::headline::Headline;
 use crate::objects::Cookie;
 use std::io::{Result, Write};
 
-pub struct HtmlHandler;
-
-impl<W: Write> Handler<W> for HtmlHandler {
+pub trait HtmlHandler<W: Write> {
     fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
         let level = if hdl.level <= 6 { hdl.level } else { 6 };
         write!(w, "<h{0}>{1}</h{0}>", level, hdl.title)

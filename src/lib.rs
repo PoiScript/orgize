@@ -5,52 +5,89 @@
 //! ```rust
 //! use orgize::Parser;
 //!
-//! fn main() {
-//!     let parser = Parser::new(
-//!         r#"* Title 1
+//! let parser = Parser::new(
+//!     r"* Title 1
 //! *Section 1*
 //! ** Title 2
 //! _Section 2_
 //! * Title 3
 //! /Section 3/
 //! * Title 4
-//! =Section 4="#,
+//! =Section 4=",
 //!     );
 //!
-//!     for event in parser {
-//!         // handling the event
-//!     }
+//! for event in parser {
+//!     // handling the event
 //! }
 //! ```
 //!
-//! Alternatively, you can use the built-in render.
+//! Alternatively, you can use the built-in render directly:
 //!
 //! ```rust
-//! use orgize::export::{HtmlHandler, Render};
+//! use orgize::export::DefaultHtmlRender;
 //! use std::io::Cursor;
 //!
-//! fn main() {
-//!     let contents = r#"* Title 1
+//! let contents = r"* Title 1
 //! *Section 1*
 //! ** Title 2
 //! _Section 2_
 //! * Title 3
 //! /Section 3/
 //! * Title 4
-//! =Section 4="#;
+//! =Section 4=";
 //!
-//!     let cursor = Cursor::new(Vec::new());
-//!     let mut render = Render::new(HtmlHandler, cursor, &contents);
+//! let cursor = Cursor::new(Vec::new());
+//! let mut render = DefaultHtmlRender::new(cursor, &contents);
 //!
-//!     render
-//!         .render()
-//!         .expect("something went wrong rendering the file");
+//! render
+//!     .render()
+//!     .expect("something went wrong rendering the file");
 //!
-//!     println!(
-//!         "{}",
-//!         String::from_utf8(render.into_wirter().into_inner()).expect("invalid utf-8")
-//!     );
+//! let result = String::from_utf8(render.into_wirter().into_inner()).expect("invalid utf-8");
+//! ```
+//!
+//! or `impl HtmlHandler` to create your own render. The following example
+//! add an anchor to every headline.
+//!
+//! ```rust
+//! use std::io::{Cursor, Result, Write};
+//!
+//! use orgize::export::*;
+//! use orgize::headline::Headline;
+//! use slugify::slugify;
+//!
+//! struct CustomHtmlHandler;
+//!
+//! impl<W: Write> HtmlHandler<W> for CustomHtmlHandler {
+//!     fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
+//!         write!(
+//!             w,
+//!             r##"<h{0}><a class="anchor" href="#{1}">{2}</a></h{0}>"##,
+//!             if hdl.level <= 6 { hdl.level } else { 6 },
+//!             slugify!(hdl.title),
+//!             hdl.title,
+//!         )
+//!     }
 //! }
+//!
+//! let contents = r"* Title 1
+//! *Section 1*
+//! ** Title 2
+//! _Section 2_
+//! * Title 3
+//! /Section 3/
+//! * Title 4
+//! =Section 4=";
+//!
+//! let cursor = Cursor::new(Vec::new());
+//!
+//! let mut render = HtmlRender::new(CustomHtmlHandler, cursor, &contents);
+//!
+//! render
+//!     .render()
+//!     .expect("something went wrong rendering the file");
+//!
+//! let result = String::from_utf8(render.into_wirter().into_inner()).expect("invalid utf-8");
 //! ```
 
 #[macro_use]
