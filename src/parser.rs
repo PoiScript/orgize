@@ -200,6 +200,7 @@ pub struct Parser<'a> {
     ele_buf: Option<(Element<'a>, usize)>,
     obj_buf: Option<(Object<'a>, usize)>,
     has_more_item: bool,
+    keywords: Option<&'a [&'a str]>,
 }
 
 impl<'a> Parser<'a> {
@@ -212,6 +213,7 @@ impl<'a> Parser<'a> {
             ele_buf: None,
             obj_buf: None,
             has_more_item: false,
+            keywords: None,
         }
     }
 
@@ -223,6 +225,10 @@ impl<'a> Parser<'a> {
     /// returns current stack depth
     pub fn stack_depth(&self) -> usize {
         self.stack.len()
+    }
+
+    pub fn set_keywords(&mut self, keywords: &'a [&'a str]) {
+        self.keywords = Some(keywords)
     }
 
     fn next_sec_or_hdl(&mut self) -> Event<'a> {
@@ -239,7 +245,11 @@ impl<'a> Parser<'a> {
     }
 
     fn next_hdl(&mut self) -> Event<'a> {
-        let (hdl, off, end) = Headline::parse(&self.text[self.off..]);
+        let (hdl, off, end) = if let Some(keywords) = self.keywords {
+            Headline::parse_with_keywords(&self.text[self.off..], keywords)
+        } else {
+            Headline::parse(&self.text[self.off..])
+        };
         debug_assert!(end <= self.text[self.off..].len());
         self.stack.push(Container::Headline {
             beg: self.off + off,
