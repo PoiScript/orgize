@@ -12,7 +12,7 @@ use crate::objects::Cookie;
 pub trait HtmlHandler<W: Write> {
     fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
         let level = if hdl.level <= 6 { hdl.level } else { 6 };
-        write!(w, "<h{0}>{1}</h{0}>", level, hdl.title)
+        write!(w, "<h{0}>{1}</h{0}>", level, Escape(hdl.title))
     }
     fn handle_headline_end(&mut self, w: &mut W) -> Result<()> {
         Ok(())
@@ -51,13 +51,13 @@ pub trait HtmlHandler<W: Write> {
         Ok(())
     }
     fn handle_example_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
-        write!(w, "<pre><code>{}</code></pre>", cont)
+        write!(w, "<pre><code>{}</code></pre>", Escape(cont))
     }
     fn handle_export_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
         Ok(())
     }
     fn handle_src_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
-        write!(w, "<pre><code>{}</code></pre>", cont)
+        write!(w, "<pre><code>{}</code></pre>", Escape(cont))
     }
     fn handle_verse_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<()> {
         Ok(())
@@ -69,10 +69,18 @@ pub trait HtmlHandler<W: Write> {
         Ok(())
     }
     fn handle_list_beg(&mut self, w: &mut W, ordered: bool) -> Result<()> {
-        write!(w, "{}", if ordered { "<ol>" } else { "<ul>" })
+        if ordered {
+            write!(w, "<ol>")
+        } else {
+            write!(w, "<ul>")
+        }
     }
     fn handle_list_end(&mut self, w: &mut W, ordered: bool) -> Result<()> {
-        write!(w, "{}", if ordered { "</ol>" } else { "</ul>" })
+        if ordered {
+            write!(w, "</ol>")
+        } else {
+            write!(w, "</ul>")
+        }
     }
     fn handle_list_beg_item(&mut self, w: &mut W, bullet: &str) -> Result<()> {
         write!(w, "<li>")
@@ -90,7 +98,7 @@ pub trait HtmlHandler<W: Write> {
         Ok(())
     }
     fn handle_fixed_width(&mut self, w: &mut W, cont: &str) -> Result<()> {
-        write!(w, "<pre>{}</pre>", cont)
+        write!(w, "<pre>{}</pre>", Escape(cont))
     }
     fn handle_table_start(&mut self, w: &mut W) -> Result<()> {
         Ok(())
@@ -136,13 +144,13 @@ pub trait HtmlHandler<W: Write> {
         option: Option<&str>,
         body: &str,
     ) -> Result<()> {
-        write!(w, "<code>{}</code>", body)
+        write!(w, "<code>{}</code>", Escape(body))
     }
     fn handle_link(&mut self, w: &mut W, path: &str, desc: Option<&str>) -> Result<()> {
         if let Some(desc) = desc {
-            write!(w, r#"<a href="{}">{}</a>"#, path, desc)
+            write!(w, r#"<a href="{}">{}</a>"#, Escape(path), Escape(desc))
         } else {
-            write!(w, r#"<a href="{0}">{0}</a>"#, path)
+            write!(w, r#"<a href="{0}">{0}</a>"#, Escape(path))
         }
     }
     fn handle_macros(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<()> {
@@ -186,13 +194,13 @@ pub trait HtmlHandler<W: Write> {
         write!(w, "</u>")
     }
     fn handle_verbatim(&mut self, w: &mut W, cont: &str) -> Result<()> {
-        write!(w, "<code>{}</code>", cont)
+        write!(w, "<code>{}</code>", Escape(cont))
     }
     fn handle_code(&mut self, w: &mut W, cont: &str) -> Result<()> {
-        write!(w, "<code>{}</code>", cont)
+        write!(w, "<code>{}</code>", Escape(cont))
     }
     fn handle_text(&mut self, w: &mut W, cont: &str) -> Result<()> {
-        write!(w, "{}", Escape(&cont))
+        write!(w, "{}", Escape(cont))
     }
 }
 
