@@ -261,21 +261,17 @@ impl<'a> Parser<'a> {
 
     fn next_ele(&mut self, end: usize) -> Event<'a> {
         let text = &self.text[self.off..end];
-        let (ele, off) = self
-            .ele_buf
-            .take()
-            .map(|(ele, off)| (Some(ele), off))
-            .unwrap_or_else(|| {
-                let (ele, off, next_ele) = elements::parse(text);
-                self.ele_buf = next_ele;
-                (ele, off)
-            });
+        let (ele, off) = self.ele_buf.take().unwrap_or_else(|| {
+            let (ele, off, next_ele) = elements::parse(text);
+            self.ele_buf = next_ele;
+            (ele, off)
+        });
 
         debug_assert!(off <= text.len());
 
         self.off += off;
 
-        ele.map(|x| match x {
+        match ele {
             Element::Paragraph { cont_end, end } => {
                 debug_assert!(cont_end <= text.len() && end <= text.len());
                 self.stack.push(Container::Paragraph {
@@ -346,8 +342,8 @@ impl<'a> Parser<'a> {
             Element::Rule => Event::Rule,
             Element::SrcBlock { args, cont } => Event::SrcBlock { args, cont },
             Element::VerseBlock { args, cont } => Event::VerseBlock { args, cont },
-        })
-        .unwrap_or_else(|| self.end())
+            Element::Empty => self.end(),
+        }
     }
 
     fn next_obj(&mut self, end: usize) -> Event<'a> {

@@ -76,16 +76,19 @@ pub enum Element<'a> {
         ident: usize,
         ordered: bool,
     },
+
+    // Element::Empty actually means Option<Element>::None
+    Empty,
 }
 
 // return (element, off, next element, next offset)
 // the end of first element is relative to the offset
 // next offset is relative to the end of the first element
-pub fn parse(src: &str) -> (Option<Element<'_>>, usize, Option<(Element<'_>, usize)>) {
+pub fn parse(src: &str) -> (Element<'_>, usize, Option<(Element<'_>, usize)>) {
     // skip empty lines
     let mut pos = match src.chars().position(|c| c != '\n') {
         Some(pos) => pos,
-        None => return (None, src.len(), None),
+        None => return (Element::Empty, src.len(), None),
     };
     let start = pos;
     let bytes = src.as_bytes();
@@ -97,13 +100,13 @@ pub fn parse(src: &str) -> (Option<Element<'_>>, usize, Option<(Element<'_>, usi
         macro_rules! brk {
             ($ele:expr, $off:expr) => {
                 break if line_beg == start || pos == start {
-                    (Some($ele), pos + $off, None)
+                    ($ele, pos + $off, None)
                 } else {
                     (
-                        Some(Element::Paragraph {
+                        Element::Paragraph {
                             cont_end: line_beg - start - 1,
                             end: line_beg - start,
-                        }),
+                        },
                         start,
                         Some(($ele, $off)),
                     )
@@ -120,10 +123,10 @@ pub fn parse(src: &str) -> (Option<Element<'_>>, usize, Option<(Element<'_>, usi
 
         if bytes[pos] == b'\n' {
             break (
-                Some(Element::Paragraph {
+                Element::Paragraph {
                     cont_end: pos - start - 1,
                     end: pos - start + 1,
-                }),
+                },
                 start,
                 None,
             );
@@ -138,13 +141,13 @@ pub fn parse(src: &str) -> (Option<Element<'_>>, usize, Option<(Element<'_>, usi
                 ordered,
             };
             break if line_beg == start {
-                (Some(list), start, None)
+                (list, start, None)
             } else {
                 (
-                    Some(Element::Paragraph {
+                    Element::Paragraph {
                         cont_end: line_beg - start - 1,
                         end: line_beg - start,
-                    }),
+                    },
                     start,
                     Some((list, 0)),
                 )
@@ -247,20 +250,20 @@ pub fn parse(src: &str) -> (Option<Element<'_>>, usize, Option<(Element<'_>, usi
             // the last character
             if pos >= src.len() {
                 break (
-                    Some(Element::Paragraph {
+                    Element::Paragraph {
                         cont_end: src.len() - start - 1,
                         end: src.len() - start,
-                    }),
+                    },
                     start,
                     None,
                 );
             }
         } else {
             break (
-                Some(Element::Paragraph {
+                Element::Paragraph {
                     cont_end: src.len() - start,
                     end: src.len() - start,
-                }),
+                },
                 start,
                 None,
             );
@@ -272,18 +275,20 @@ pub fn parse(src: &str) -> (Option<Element<'_>>, usize, Option<(Element<'_>, usi
 mod tests {
     #[test]
     fn parse() {
-        use super::{Element::*, *};
+        use super::keyword::Key;
+        use super::parse;
+        use super::Element::*;
 
-        assert_eq!(parse("\n\n\n"), (None, 3, None));
+        assert_eq!(parse("\n\n\n"), (Empty, 3, None));
 
         let len = "Lorem ipsum dolor sit amet.".len();
         assert_eq!(
             parse("\nLorem ipsum dolor sit amet.\n\n\n"),
             (
-                Some(Paragraph {
+                Paragraph {
                     cont_end: len,
                     end: len + 2,
-                }),
+                },
                 1,
                 None
             )
@@ -291,10 +296,10 @@ mod tests {
         assert_eq!(
             parse("\n\nLorem ipsum dolor sit amet.\n\n"),
             (
-                Some(Paragraph {
+                Paragraph {
                     cont_end: len,
                     end: len + 2,
-                }),
+                },
                 2,
                 None
             )
@@ -302,10 +307,10 @@ mod tests {
         assert_eq!(
             parse("\nLorem ipsum dolor sit amet.\n"),
             (
-                Some(Paragraph {
+                Paragraph {
                     cont_end: len,
                     end: len + 1,
-                }),
+                },
                 1,
                 None
             )
@@ -313,10 +318,10 @@ mod tests {
         assert_eq!(
             parse("\n\n\nLorem ipsum dolor sit amet."),
             (
-                Some(Paragraph {
+                Paragraph {
                     cont_end: len,
                     end: len,
-                }),
+                },
                 3,
                 None
             )
@@ -325,7 +330,7 @@ mod tests {
         assert_eq!(
             parse("\n\n\n: Lorem ipsum dolor sit amet.\n"),
             (
-                Some(FixedWidth("Lorem ipsum dolor sit amet.")),
+                FixedWidth("Lorem ipsum dolor sit amet."),
                 "\n\n\n: Lorem ipsum dolor sit amet.\n".len(),
                 None
             )
@@ -333,7 +338,7 @@ mod tests {
         assert_eq!(
             parse("\n\n\n: Lorem ipsum dolor sit amet."),
             (
-                Some(FixedWidth("Lorem ipsum dolor sit amet.")),
+                FixedWidth("Lorem ipsum dolor sit amet."),
                 "\n\n\n: Lorem ipsum dolor sit amet.".len(),
                 None
             )
@@ -342,10 +347,10 @@ mod tests {
         assert_eq!(
             parse("\n\nLorem ipsum dolor sit amet.\n: Lorem ipsum dolor sit amet.\n"),
             (
-                Some(Paragraph {
+                Paragraph {
                     cont_end: len,
                     end: len + 1,
-                }),
+                },
                 2,
                 Some((FixedWidth("Lorem ipsum dolor sit amet."), 30))
             )
@@ -354,10 +359,10 @@ mod tests {
         assert_eq!(
             parse("\n\nLorem ipsum dolor sit amet.\n+ Lorem ipsum dolor sit amet.\n"),
             (
-                Some(Paragraph {
+                Paragraph {
                     cont_end: len,
                     end: len + 1,
-                }),
+                },
                 2,
                 Some((
                     List {
@@ -372,10 +377,10 @@ mod tests {
         assert_eq!(
             parse("\n\nLorem ipsum dolor sit amet.\n#+BEGIN_QUOTE\nLorem ipsum dolor sit amet.\n#+END_QUOTE\n"),
             (
-                Some(Paragraph {
+                Paragraph {
                     cont_end: len,
                     end: len + 1,
-                }),
+                },
                 2,
                 Some((
                     QteBlock {
@@ -390,10 +395,10 @@ mod tests {
         assert_eq!(
             parse("\n  #+ATTR_HTML: :width 200px"),
             (
-                Some(Keyword {
-                    key: keyword::Key::Attr { backend: "HTML" },
+                Keyword {
+                    key: Key::Attr { backend: "HTML" },
                     value: ":width 200px"
-                }),
+                },
                 "\n  #+ATTR_HTML: :width 200px".len(),
                 None
             )
