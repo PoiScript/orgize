@@ -98,7 +98,12 @@ pub trait HtmlHandler<W: Write> {
         Ok(())
     }
     fn handle_fixed_width(&mut self, w: &mut W, cont: &str) -> Result<()> {
-        write!(w, "<pre>{}</pre>", Escape(cont))
+        for line in cont.lines() {
+            // remove leading colon
+            write!(w, "<pre>{}</pre>", Escape(&line[1..]))?;
+        }
+
+        Ok(())
     }
     fn handle_table_start(&mut self, w: &mut W) -> Result<()> {
         Ok(())

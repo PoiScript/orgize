@@ -11,7 +11,7 @@ pub fn parse(src: &str) -> Option<(&str, &str, usize)> {
                 .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
     })?;
 
-    let end = memchr::memchr(b'\n', src.as_bytes()).unwrap_or_else(|| src.len());
+    let end = memchr(b'\n', src.as_bytes()).unwrap_or_else(|| src.len());
 
     Some((&src[4..label], &src[label + 1..end], end))
 }

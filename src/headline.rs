@@ -2,7 +2,7 @@
 
 use memchr::memchr2;
 
-const HEADLINE_DEFAULT_KEYWORDS: &'static [&'static str] =
+const HEADLINE_DEFAULT_KEYWORDS: &[&str] =
     &["TODO", "DONE", "NEXT", "WAITING", "LATER", "CANCELLED"];
 
 #[cfg_attr(test, derive(PartialEq))]

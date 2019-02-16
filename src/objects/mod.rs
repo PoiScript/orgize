@@ -94,53 +94,54 @@ pub fn parse(src: &str) -> (Object<'_>, usize, Option<(Object<'_>, usize)>) {
             };
         }
 
+        let tail = &src[pos..];
         match bytes[pos] {
             b'@' if bytes[pos + 1] == b'@' => {
-                if let Some((name, value, off)) = snippet::parse(&src[pos..]) {
+                if let Some((name, value, off)) = snippet::parse(tail) {
                     brk!(Object::Snippet { name, value }, off, pos);
                 }
             }
             b'{' if bytes[pos + 1] == b'{' && bytes[pos + 2] == b'{' => {
-                if let Some((name, args, off)) = macros::parse(&src[pos..]) {
+                if let Some((name, args, off)) = macros::parse(tail) {
                     brk!(Object::Macros { name, args }, off, pos);
                 }
             }
             b'<' if bytes[pos + 1] == b'<' => {
                 if bytes[pos + 2] == b'<' {
-                    if let Some((target, off)) = radio_target::parse(&src[pos..]) {
+                    if let Some((target, off)) = radio_target::parse(tail) {
                         brk!(Object::RadioTarget { target }, off, pos);
                     }
                 } else if bytes[pos + 2] != b'\n' {
-                    if let Some((target, off)) = target::parse(&src[pos..]) {
+                    if let Some((target, off)) = target::parse(tail) {
                         brk!(Object::Target { target }, off, pos);
                     }
                 }
             }
             b'[' => {
-                if bytes[pos + 1..].starts_with(b"fn:") {
-                    if let Some((label, def, off)) = fn_ref::parse(&src[pos..]) {
+                if tail[1..].starts_with("fn:") {
+                    if let Some((label, def, off)) = fn_ref::parse(tail) {
                         brk!(Object::FnRef { label, def }, off, pos);
                     }
                 }
 
                 if bytes[pos + 1] == b'[' {
-                    if let Some((path, desc, off)) = link::parse(&src[pos..]) {
+                    if let Some((path, desc, off)) = link::parse(tail) {
                         brk!(Object::Link { path, desc }, off, pos);
                     }
                 }
 
-                if let Some((cookie, off)) = cookie::parse(&src[pos..]) {
+                if let Some((cookie, off)) = cookie::parse(tail) {
                     brk!(Object::Cookie(cookie), off, pos);
                 }
                 // TODO: Timestamp
             }
             b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => {
-                if let Some((obj, off)) = parse_text_markup(&src[pos + 1..]) {
+                if let Some((obj, off)) = parse_text_markup(&tail[1..]) {
                     brk!(obj, off, pos + 1);
                 }
             }
             _ => {
-                if let Some((obj, off)) = parse_text_markup(&src[pos..]) {
+                if let Some((obj, off)) = parse_text_markup(tail) {
                     brk!(obj, off, pos);
                 }
             }

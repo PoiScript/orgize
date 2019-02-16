@@ -47,7 +47,7 @@ pub fn parse(src: &str) -> Option<(Key<'_>, &str, usize)> {
         .unwrap_or_else(|| src.len());
 
     Some((
-        match src[2..key_end].to_uppercase().as_str() {
+        match &*src[2..key_end].to_uppercase() {
             "AUTHOR" => Key::Author,
             "CALL" => Key::Call,
             "DATE" => Key::Date,

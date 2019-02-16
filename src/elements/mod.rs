@@ -7,7 +7,7 @@ pub mod rule;
 
 pub use self::keyword::Key;
 
-use memchr::{memchr, memchr_iter};
+use memchr::memchr_iter;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
@@ -114,9 +114,11 @@ pub fn parse(src: &str) -> (Element<'_>, usize, Option<(Element<'_>, usize)>) {
             };
         }
 
+        let tail = &src[pos..];
+
         // Unlike other element, footnote def must starts at column 0
-        if bytes[pos..].starts_with(b"[fn:") {
-            if let Some((label, cont, off)) = fn_def::parse(&src[pos..]) {
+        if tail.starts_with("[fn:") {
+            if let Some((label, cont, off)) = fn_def::parse(tail) {
                 brk!(Element::FnDef { label, cont }, off + 1);
             }
         }
@@ -134,7 +136,9 @@ pub fn parse(src: &str) -> (Element<'_>, usize, Option<(Element<'_>, usize)>) {
 
         pos = skip_space!(src, pos);
 
-        let (is_item, ordered) = list::is_item(&src[pos..]);
+        let tail = &src[pos..];
+
+        let (is_item, ordered) = list::is_item(tail);
         if is_item {
             let list = Element::List {
                 ident: pos - line_beg,
@@ -155,28 +159,42 @@ pub fn parse(src: &str) -> (Element<'_>, usize, Option<(Element<'_>, usize)>) {
         }
 
         // TODO: LaTeX environment
-        if bytes[pos..].starts_with(b"\\begin{") {}
+        if tail.starts_with("\\begin{") {}
 
-        // Rule
-        if bytes[pos] == b'-' {
-            let off = rule::parse(&src[pos..]);
+        // rule
+        if tail.starts_with("-----") {
+            let off = rule::parse(tail);
             if off != 0 {
                 brk!(Element::Rule, off);
             }
         }
 
-        // TODO: multiple lines fixed width area
-        if bytes[pos..].starts_with(b": ") || bytes[pos..].starts_with(b":\n") {
-            let eol = memchr(b'\n', &bytes[pos..])
+        // fixed width
+        if tail.starts_with(": ") || tail.starts_with(":\n") {
+            let end = line_ends
+                .skip_while(|&i| src[i + 1..].starts_with(": ") || src[i + 1..].starts_with(":\n"))
+                .next()
                 .map(|i| i + 1)
-                .unwrap_or_else(|| src.len() - pos);
-            brk!(Element::FixedWidth(&src[pos + 1..pos + eol].trim()), eol);
+                .unwrap_or_else(|| src.len());
+            let off = end - pos;
+            brk!(Element::FixedWidth(&tail[0..off]), off);
         }
 
-        if bytes[pos..].starts_with(b"#+") {
-            if let Some((name, args, cont_beg, cont_end, end)) = block::parse(&src[pos..]) {
-                let cont = &src[pos + cont_beg..pos + cont_end];
-                match name.to_uppercase().as_str() {
+        // comment
+        if tail.starts_with("# ") || tail.starts_with("#\n") {
+            let end = line_ends
+                .skip_while(|&i| src[i + 1..].starts_with("# ") || src[i + 1..].starts_with("#\n"))
+                .next()
+                .map(|i| i + 1)
+                .unwrap_or_else(|| src.len());
+            let off = end - pos;
+            brk!(Element::Comment(&tail[0..off]), off);
+        }
+
+        if tail.starts_with("#+") {
+            if let Some((name, args, cont_beg, cont_end, end)) = block::parse(tail) {
+                let cont = &tail[cont_beg..cont_end];
+                match &*name.to_uppercase() {
                     "COMMENT" => brk!(Element::CommentBlock { args, cont }, end),
                     "EXAMPLE" => brk!(Element::ExampleBlock { args, cont }, end),
                     "EXPORT" => brk!(Element::ExportBlock { args, cont }, end),
@@ -210,7 +228,7 @@ pub fn parse(src: &str) -> (Element<'_>, usize, Option<(Element<'_>, usize)>) {
                 };
             }
 
-            if let Some((name, args, cont_beg, cont_end, end)) = dyn_block::parse(&src[pos..]) {
+            if let Some((name, args, cont_beg, cont_end, end)) = dyn_block::parse(tail) {
                 brk!(
                     Element::DynBlock {
                         name,
@@ -222,7 +240,7 @@ pub fn parse(src: &str) -> (Element<'_>, usize, Option<(Element<'_>, usize)>) {
                 )
             }
 
-            if let Some((key, value, off)) = keyword::parse(&src[pos..]) {
+            if let Some((key, value, off)) = keyword::parse(tail) {
                 brk!(
                     if let Key::Call = key {
                         Element::Call { value }
@@ -232,15 +250,6 @@ pub fn parse(src: &str) -> (Element<'_>, usize, Option<(Element<'_>, usize)>) {
                     off
                 )
             }
-        }
-
-        // Comment
-        // TODO: multiple lines comment
-        if bytes[pos..].starts_with(b"# ") || bytes[pos..].starts_with(b"#\n") {
-            let eol = memchr(b'\n', &bytes[pos..])
-                .map(|i| i + 1)
-                .unwrap_or_else(|| src.len() - pos);
-            brk!(Element::Comment(&src[pos + 1..pos + eol].trim()), eol);
         }
 
         // move to the beginning of the next line
@@ -330,7 +339,7 @@ mod tests {
         assert_eq!(
             parse("\n\n\n: Lorem ipsum dolor sit amet.\n"),
             (
-                FixedWidth("Lorem ipsum dolor sit amet."),
+                FixedWidth(": Lorem ipsum dolor sit amet.\n"),
                 "\n\n\n: Lorem ipsum dolor sit amet.\n".len(),
                 None
             )
@@ -338,7 +347,7 @@ mod tests {
         assert_eq!(
             parse("\n\n\n: Lorem ipsum dolor sit amet."),
             (
-                FixedWidth("Lorem ipsum dolor sit amet."),
+                FixedWidth(": Lorem ipsum dolor sit amet."),
                 "\n\n\n: Lorem ipsum dolor sit amet.".len(),
                 None
             )
@@ -352,7 +361,19 @@ mod tests {
                     end: len + 1,
                 },
                 2,
-                Some((FixedWidth("Lorem ipsum dolor sit amet."), 30))
+                Some((FixedWidth(": Lorem ipsum dolor sit amet.\n"), 30))
+            )
+        );
+
+        assert_eq!(
+            parse("\n\nLorem ipsum dolor sit amet.\n: Lorem ipsum dolor sit amet.\n:\n: Lorem ipsum dolor sit amet."),
+            (
+                Paragraph {
+                    cont_end: len,
+                    end: len + 1,
+                },
+                2,
+                Some((FixedWidth(": Lorem ipsum dolor sit amet.\n:\n: Lorem ipsum dolor sit amet."), 61))
             )
         );
 
