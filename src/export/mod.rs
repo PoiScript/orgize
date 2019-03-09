@@ -15,13 +15,8 @@ macro_rules! create_render {
 
         impl<'a, W: Write> $default_render<'a, W> {
             #[inline]
-            pub fn new(writer: W, text: &'a str) -> Self {
+            pub fn new(writer: &'a mut W, text: &'a str) -> Self {
                 $default_render($render::new($default_handler, writer, text))
-            }
-
-            #[inline]
-            pub fn into_writer(self) -> W {
-                self.0.writer
             }
 
             #[inline]
@@ -33,20 +28,16 @@ macro_rules! create_render {
         pub struct $render<'a, W: Write, H: $handler<W>> {
             pub parser: Parser<'a>,
             handler: H,
-            writer: W,
+            writer: &'a mut W,
         }
 
         impl<'a, W: Write, H: $handler<W>> $render<'a, W, H> {
-            pub fn new(handler: H, writer: W, text: &'a str) -> Self {
+            pub fn new(handler: H, writer: &'a mut W, text: &'a str) -> Self {
                 $render {
                     parser: Parser::new(text),
                     handler,
                     writer,
                 }
-            }
-
-            pub fn into_writer(self) -> W {
-                self.writer
             }
 
             pub fn render(&mut self) -> Result<()> {

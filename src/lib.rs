@@ -36,14 +36,14 @@
 //! * Title 4
 //! =Section 4=";
 //!
-//! let cursor = Cursor::new(Vec::new());
-//! let mut render = DefaultHtmlRender::new(cursor, &contents);
+//! let mut cursor = Cursor::new(Vec::new());
+//! let mut render = DefaultHtmlRender::new(&mut cursor, &contents);
 //!
 //! render
 //!     .render()
 //!     .expect("something went wrong rendering the file");
 //!
-//! let result = String::from_utf8(render.into_writer().into_inner()).expect("invalid utf-8");
+//! let result = String::from_utf8(cursor.into_inner()).expect("invalid utf-8");
 //! ```
 //!
 //! or `impl HtmlHandler` to create your own render. The following example
@@ -79,15 +79,15 @@
 //! * Title 4
 //! =Section 4=";
 //!
-//! let cursor = Cursor::new(Vec::new());
+//! let mut cursor = Cursor::new(Vec::new());
 //!
-//! let mut render = HtmlRender::new(CustomHtmlHandler, cursor, &contents);
+//! let mut render = HtmlRender::new(CustomHtmlHandler, &mut cursor, &contents);
 //!
 //! render
 //!     .render()
 //!     .expect("something went wrong rendering the file");
 //!
-//! let result = String::from_utf8(render.into_writer().into_inner()).expect("invalid utf-8");
+//! let result = String::from_utf8(cursor.into_inner()).expect("invalid utf-8");
 //! ```
 
 #[macro_use]

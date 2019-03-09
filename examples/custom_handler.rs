@@ -31,17 +31,17 @@ fn main() -> Result<()> {
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
 
-        let cursor = Cursor::new(Vec::new());
+        let mut cursor = Cursor::new(Vec::new());
 
         //let mut render = DefaultHtmlRender::new(cursor, &contents);
         // comment the following line and uncomment the line above to use the default handler
-        let mut render = HtmlRender::new(CustomHtmlHandler, cursor, &contents);
+        let mut render = HtmlRender::new(CustomHtmlHandler, &mut cursor, &contents);
 
         render.render()?;
 
         println!(
             "{}",
-            String::from_utf8(render.into_writer().into_inner()).expect("invalid utf-8")
+            String::from_utf8(cursor.into_inner()).expect("invalid utf-8")
         );
     }
 
