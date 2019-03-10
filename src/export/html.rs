@@ -209,7 +209,7 @@ pub trait HtmlHandler<W: Write> {
     }
 }
 
-pub struct Escape<'a>(&'a str);
+pub struct Escape<'a>(pub &'a str);
 
 impl<'a> fmt::Display for Escape<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
