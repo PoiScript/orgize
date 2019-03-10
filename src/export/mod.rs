@@ -1,6 +1,6 @@
 mod html;
 
-pub use self::html::HtmlHandler;
+pub use html::*;
 
 use crate::parser::Parser;
 use std::io::{Result, Write};
