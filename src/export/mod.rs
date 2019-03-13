@@ -1,126 +1,74 @@
-mod html;
+#[macro_use]
+macro_rules! handle_event {
+    ($event:expr, $handler:expr, $writer:expr) => {
+        use crate::parser::Event::*;
 
-pub use html::*;
-
-use crate::parser::Parser;
-use std::io::{Result, Write};
-
-macro_rules! create_render {
-    ($handler:ident, $default_handler:ident, $render:ident, $default_render:ident) => {
-        struct $default_handler;
-
-        impl<W: Write> $handler<W> for $default_handler {}
-
-        pub struct $default_render<'a, W: Write>($render<'a, W, $default_handler>);
-
-        impl<'a, W: Write> $default_render<'a, W> {
-            #[inline]
-            pub fn new(writer: &'a mut W, text: &'a str) -> Self {
-                $default_render($render::new($default_handler, writer, text))
+        match $event {
+            HeadlineBeg(hdl) => $handler.handle_headline_beg($writer, hdl)?,
+            HeadlineEnd => $handler.handle_headline_end($writer)?,
+            SectionBeg => $handler.handle_section_beg($writer)?,
+            SectionEnd => $handler.handle_section_end($writer)?,
+            ParagraphBeg => $handler.handle_paragraph_beg($writer)?,
+            ParagraphEnd => $handler.handle_paragraph_end($writer)?,
+            CtrBlockBeg => $handler.handle_ctr_block_beg($writer)?,
+            CtrBlockEnd => $handler.handle_ctr_block_end($writer)?,
+            QteBlockBeg => $handler.handle_qte_block_beg($writer)?,
+            QteBlockEnd => $handler.handle_qte_block_end($writer)?,
+            SplBlockBeg { name, args } => $handler.handle_spl_block_beg($writer, name, args)?,
+            SplBlockEnd => $handler.handle_spl_block_end($writer)?,
+            CommentBlock { cont, args } => $handler.handle_comment_block($writer, cont, args)?,
+            ExampleBlock { cont, args } => $handler.handle_example_block($writer, cont, args)?,
+            ExportBlock { cont, args } => $handler.handle_export_block($writer, cont, args)?,
+            SrcBlock { cont, args } => $handler.handle_src_block($writer, cont, args)?,
+            VerseBlock { cont, args } => $handler.handle_verse_block($writer, cont, args)?,
+            DynBlockBeg { name, args } => $handler.handle_dyn_block_beg($writer, name, args)?,
+            DynBlockEnd => $handler.handle_dyn_block_end($writer)?,
+            ListBeg { ordered } => $handler.handle_list_beg($writer, ordered)?,
+            ListEnd { ordered } => $handler.handle_list_end($writer, ordered)?,
+            ListItemBeg { bullet } => $handler.handle_list_beg_item($writer, bullet)?,
+            ListItemEnd => $handler.handle_list_end_item($writer)?,
+            Call { value } => $handler.handle_call($writer, value)?,
+            Clock => $handler.handle_clock($writer)?,
+            Comment(c) => $handler.handle_comment($writer, c)?,
+            FixedWidth(f) => $handler.handle_fixed_width($writer, f)?,
+            TableStart => $handler.handle_table_start($writer)?,
+            TableEnd => $handler.handle_table_end($writer)?,
+            TableCell => $handler.handle_table_cell($writer)?,
+            LatexEnv => $handler.handle_latex_env($writer)?,
+            FnDef { label, cont } => $handler.handle_fn_def($writer, label, cont)?,
+            Keyword { key, value } => $handler.handle_keyword($writer, key, value)?,
+            Rule => $handler.handle_rule($writer)?,
+            Cookie(cookie) => $handler.handle_cookie($writer, cookie)?,
+            FnRef { label, def } => $handler.handle_fn_ref($writer, label, def)?,
+            InlineSrc { lang, option, body } => {
+                $handler.handle_inline_src($writer, lang, option, body)?
             }
-
-            #[inline]
-            pub fn render(&mut self) -> Result<()> {
-                self.0.render()
-            }
-        }
-
-        pub struct $render<'a, W: Write, H: $handler<W>> {
-            pub parser: Parser<'a>,
-            handler: H,
-            writer: &'a mut W,
-        }
-
-        impl<'a, W: Write, H: $handler<W>> $render<'a, W, H> {
-            pub fn new(handler: H, writer: &'a mut W, text: &'a str) -> Self {
-                $render {
-                    parser: Parser::new(text),
-                    handler,
-                    writer,
-                }
-            }
-
-            pub fn render(&mut self) -> Result<()> {
-                use crate::parser::Event::*;
-
-                let w = &mut self.writer;
-                let h = &mut self.handler;
-
-                for event in &mut self.parser {
-                    match event {
-                        HeadlineBeg(hdl) => h.handle_headline_beg(w, hdl)?,
-                        HeadlineEnd => h.handle_headline_end(w)?,
-                        SectionBeg => h.handle_section_beg(w)?,
-                        SectionEnd => h.handle_section_end(w)?,
-                        ParagraphBeg => h.handle_paragraph_beg(w)?,
-                        ParagraphEnd => h.handle_paragraph_end(w)?,
-                        CtrBlockBeg => h.handle_ctr_block_beg(w)?,
-                        CtrBlockEnd => h.handle_ctr_block_end(w)?,
-                        QteBlockBeg => h.handle_qte_block_beg(w)?,
-                        QteBlockEnd => h.handle_qte_block_end(w)?,
-                        SplBlockBeg { name, args } => h.handle_spl_block_beg(w, name, args)?,
-                        SplBlockEnd => h.handle_spl_block_end(w)?,
-                        CommentBlock { cont, args } => h.handle_comment_block(w, cont, args)?,
-                        ExampleBlock { cont, args } => h.handle_example_block(w, cont, args)?,
-                        ExportBlock { cont, args } => h.handle_export_block(w, cont, args)?,
-                        SrcBlock { cont, args } => h.handle_src_block(w, cont, args)?,
-                        VerseBlock { cont, args } => h.handle_verse_block(w, cont, args)?,
-                        DynBlockBeg { name, args } => h.handle_dyn_block_beg(w, name, args)?,
-                        DynBlockEnd => h.handle_dyn_block_end(w)?,
-                        ListBeg { ordered } => h.handle_list_beg(w, ordered)?,
-                        ListEnd { ordered } => h.handle_list_end(w, ordered)?,
-                        ListItemBeg { bullet } => h.handle_list_beg_item(w, bullet)?,
-                        ListItemEnd => h.handle_list_end_item(w)?,
-                        Call { value } => h.handle_call(w, value)?,
-                        Clock => h.handle_clock(w)?,
-                        Comment(c) => h.handle_comment(w, c)?,
-                        FixedWidth(f) => h.handle_fixed_width(w, f)?,
-                        TableStart => h.handle_table_start(w)?,
-                        TableEnd => h.handle_table_end(w)?,
-                        TableCell => h.handle_table_cell(w)?,
-                        LatexEnv => h.handle_latex_env(w)?,
-                        FnDef { label, cont } => h.handle_fn_def(w, label, cont)?,
-                        Keyword { key, value } => h.handle_keyword(w, key, value)?,
-                        Rule => h.handle_rule(w)?,
-                        Cookie(cookie) => h.handle_cookie(w, cookie)?,
-                        FnRef { label, def } => h.handle_fn_ref(w, label, def)?,
-                        InlineSrc { lang, option, body } => {
-                            h.handle_inline_src(w, lang, option, body)?
-                        }
-                        InlineCall {
-                            name,
-                            args,
-                            inside_header,
-                            end_header,
-                        } => h.handle_inline_call(w, name, args, inside_header, end_header)?,
-                        Link { path, desc } => h.handle_link(w, path, desc)?,
-                        Macros { name, args } => h.handle_macros(w, name, args)?,
-                        RadioTarget { target } => h.handle_radio_target(w, target)?,
-                        Snippet { name, value } => h.handle_snippet(w, name, value)?,
-                        Target { target } => h.handle_target(w, target)?,
-                        BoldBeg => h.handle_bold_beg(w)?,
-                        BoldEnd => h.handle_bold_end(w)?,
-                        ItalicBeg => h.handle_italic_beg(w)?,
-                        ItalicEnd => h.handle_italic_end(w)?,
-                        StrikeBeg => h.handle_strike_beg(w)?,
-                        StrikeEnd => h.handle_strike_end(w)?,
-                        UnderlineBeg => h.handle_underline_beg(w)?,
-                        UnderlineEnd => h.handle_underline_end(w)?,
-                        Verbatim(cont) => h.handle_verbatim(w, cont)?,
-                        Code(cont) => h.handle_code(w, cont)?,
-                        Text(cont) => h.handle_text(w, cont)?,
-                    }
-                }
-
-                Ok(())
-            }
+            InlineCall {
+                name,
+                args,
+                inside_header,
+                end_header,
+            } => $handler.handle_inline_call($writer, name, args, inside_header, end_header)?,
+            Link { path, desc } => $handler.handle_link($writer, path, desc)?,
+            Macros { name, args } => $handler.handle_macros($writer, name, args)?,
+            RadioTarget { target } => $handler.handle_radio_target($writer, target)?,
+            Snippet { name, value } => $handler.handle_snippet($writer, name, value)?,
+            Target { target } => $handler.handle_target($writer, target)?,
+            BoldBeg => $handler.handle_bold_beg($writer)?,
+            BoldEnd => $handler.handle_bold_end($writer)?,
+            ItalicBeg => $handler.handle_italic_beg($writer)?,
+            ItalicEnd => $handler.handle_italic_end($writer)?,
+            StrikeBeg => $handler.handle_strike_beg($writer)?,
+            StrikeEnd => $handler.handle_strike_end($writer)?,
+            UnderlineBeg => $handler.handle_underline_beg($writer)?,
+            UnderlineEnd => $handler.handle_underline_end($writer)?,
+            Verbatim(cont) => $handler.handle_verbatim($writer, cont)?,
+            Code(cont) => $handler.handle_code($writer, cont)?,
+            Text(cont) => $handler.handle_text($writer, cont)?,
         }
     };
 }
 
-create_render!(
-    HtmlHandler,
-    DefaultHtmlHandller,
-    HtmlRender,
-    DefaultHtmlRender
-);
+mod html;
+
+pub use html::*;

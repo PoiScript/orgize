@@ -24,7 +24,7 @@
 //! Alternatively, you can use the built-in render directly:
 //!
 //! ```rust
-//! use orgize::export::DefaultHtmlRender;
+//! use orgize::export::HtmlRender;
 //! use std::io::Cursor;
 //!
 //! let contents = r"* Title 1
@@ -37,7 +37,7 @@
 //! =Section 4=";
 //!
 //! let mut cursor = Cursor::new(Vec::new());
-//! let mut render = DefaultHtmlRender::new(&mut cursor, &contents);
+//! let mut render = HtmlRender::default(&mut cursor, &contents);
 //!
 //! render
 //!     .render()
@@ -50,7 +50,7 @@
 //! add an anchor to every headline.
 //!
 //! ```rust
-//! use std::io::{Cursor, Result, Write};
+//! use std::io::{Cursor, Error, Result, Write};
 //!
 //! use orgize::export::*;
 //! use orgize::headline::Headline;
@@ -58,7 +58,7 @@
 //!
 //! struct CustomHtmlHandler;
 //!
-//! impl<W: Write> HtmlHandler<W> for CustomHtmlHandler {
+//! impl<W: Write> HtmlHandler<W, Error> for CustomHtmlHandler {
 //!     fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
 //!         write!(
 //!             w,
