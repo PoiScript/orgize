@@ -1,6 +1,6 @@
 //! Headline
 
-use memchr::memchr2;
+use memchr::{memchr, memchr2, memrchr};
 
 const HEADLINE_DEFAULT_KEYWORDS: &[&str] =
     &["TODO", "DONE", "NEXT", "WAITING", "LATER", "CANCELLED"];
@@ -21,47 +21,6 @@ pub struct Headline<'a> {
 }
 
 impl<'a> Headline<'a> {
-    #[inline]
-    fn parse_priority(src: &str) -> Option<char> {
-        let bytes = src.as_bytes();
-        if bytes.len() > 4
-            && bytes[0] == b'['
-            && bytes[1] == b'#'
-            && bytes[2].is_ascii_uppercase()
-            && bytes[3] == b']'
-            && bytes[4] == b' '
-        {
-            Some(bytes[2] as char)
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    fn parse_keyword(src: &'a str, keywords: &'a [&'a str]) -> Option<(&'a str, usize)> {
-        let pos = memchr2(b' ', b'\n', src.as_bytes()).unwrap_or_else(|| src.len());
-        let word = &src[0..pos];
-        if keywords.contains(&word) {
-            Some((word, pos))
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    fn parse_tags(src: &'a str) -> (Option<&'a str>, usize) {
-        if let Some(last) = src.split_whitespace().last() {
-            if last.len() > 2 && last.starts_with(':') && last.ends_with(':') {
-                return (
-                    Some(last),
-                    memchr::memrchr(b':', src.as_bytes()).unwrap() - last.len(),
-                );
-            }
-        }
-
-        (None, src.len())
-    }
-
     /// parsing the input string and returning the parsed headline
     /// and the content-begin and the end of headline container.
     ///
@@ -76,58 +35,93 @@ impl<'a> Headline<'a> {
     /// assert_eq!(hdl.title, "COMMENT Title");
     /// assert_eq!(hdl.keyword, Some("DONE"));
     /// ```
-    pub fn parse(src: &'a str) -> (Headline<'a>, usize, usize) {
-        Self::parse_with_keywords(src, HEADLINE_DEFAULT_KEYWORDS)
+    pub fn parse(text: &'a str) -> (Headline<'a>, usize, usize) {
+        Self::parse_with_keywords(text, HEADLINE_DEFAULT_KEYWORDS)
     }
 
     pub fn parse_with_keywords(
-        src: &'a str,
+        text: &'a str,
         keywords: &'a [&'a str],
     ) -> (Headline<'a>, usize, usize) {
-        let level = memchr2(b'\n', b' ', src.as_bytes()).unwrap_or_else(|| src.len());
+        let level = memchr2(b'\n', b' ', text.as_bytes()).unwrap_or_else(|| text.len());
 
         debug_assert!(level > 0);
-        debug_assert!(src.as_bytes()[0..level].iter().all(|&c| c == b'*'));
+        debug_assert!(text.as_bytes()[0..level].iter().all(|&c| c == b'*'));
 
-        let (eol, end) = memchr::memchr(b'\n', src.as_bytes())
-            .map(|i| (i, Headline::find_level(&src[i..], level) + i))
-            .unwrap_or_else(|| (src.len(), src.len()));
+        let (off, end) = memchr(b'\n', text.as_bytes())
+            .map(|i| (i, Headline::find_level(&text[i..], level) + i))
+            .unwrap_or_else(|| (text.len(), text.len()));
 
-        let mut title_start = skip_space!(src, level);
+        if level == off {
+            return (
+                Headline {
+                    level,
+                    keyword: None,
+                    priority: None,
+                    title: "",
+                    tags: None,
+                },
+                off,
+                end,
+            );
+        }
 
-        let keyword = Headline::parse_keyword(&src[title_start..eol], keywords).map(|(k, l)| {
-            title_start += l;
-            k
-        });
+        let tail = text[level + 1..off].trim();
 
-        title_start = skip_space!(src, title_start);
+        let (keyword, tail) = {
+            let (word, off) = memchr(b' ', tail.as_bytes())
+                .map(|i| (&tail[0..i], i + 1))
+                .unwrap_or_else(|| (tail, tail.len()));
+            if keywords.contains(&word) {
+                (Some(word), &tail[off..])
+            } else {
+                (None, tail)
+            }
+        };
 
-        let priority = Headline::parse_priority(&src[title_start..eol]).map(|p| {
-            title_start += 4;
-            p
-        });
+        let (priority, tail) = {
+            let bytes = tail.as_bytes();
+            if bytes.len() > 4
+                && bytes[0] == b'['
+                && bytes[1] == b'#'
+                && bytes[2].is_ascii_uppercase()
+                && bytes[3] == b']'
+                && bytes[4] == b' '
+            {
+                (Some(bytes[2] as char), tail[4..].trim_start())
+            } else {
+                (None, tail)
+            }
+        };
 
-        title_start = skip_space!(src, title_start);
-
-        let (tags, title_off) = Headline::parse_tags(&src[title_start..eol]);
+        let (title, tags) = if let Some(i) = memrchr(b' ', tail.as_bytes()) {
+            let last = &tail[i + 1..];
+            if last.len() > 2 && last.starts_with(':') && last.ends_with(':') {
+                (tail[..i].trim(), Some(last))
+            } else {
+                (tail, None)
+            }
+        } else {
+            (tail, None)
+        };
 
         (
             Headline {
                 level,
                 keyword,
                 priority,
-                title: &src[title_start..title_start + title_off],
+                title,
                 tags,
             },
-            eol,
+            off,
             end,
         )
     }
 
-    pub fn find_level(src: &str, level: usize) -> usize {
+    pub fn find_level(text: &str, level: usize) -> usize {
         use jetscii::ByteSubstring;
 
-        let bytes = src.as_bytes();
+        let bytes = text.as_bytes();
         if bytes[0] == b'*' {
             if let Some(stars) = memchr2(b'\n', b' ', bytes) {
                 if stars <= level && bytes[0..stars].iter().all(|&c| c == b'*') {
@@ -147,7 +141,7 @@ impl<'a> Headline<'a> {
             }
         }
 
-        src.len()
+        text.len()
     }
 
     /// checks if this headline is "commented"

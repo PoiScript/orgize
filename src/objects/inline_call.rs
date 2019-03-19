@@ -1,47 +1,39 @@
 use memchr::{memchr, memchr2};
 
-/// returns (name, args, inside_header, end_header)
+// returns (name, args, inside_header, end_header)
 #[inline]
-pub fn parse(src: &str) -> Option<(&str, &str, Option<&str>, Option<&str>, usize)> {
-    debug_assert!(src.starts_with("call_"));
+pub fn parse(text: &str) -> Option<(&str, &str, Option<&str>, Option<&str>, usize)> {
+    debug_assert!(text.starts_with("call_"));
 
-    // TODO: refactor
-    let bytes = src.as_bytes();
-    let mut pos =
-        memchr2(b'[', b'(', bytes).filter(|&i| bytes[5..i].iter().all(|c| c.is_ascii_graphic()))?;
-    let mut pos_;
+    let bytes = text.as_bytes();
 
-    let name = &src[5..pos];
+    let (name, off) = memchr2(b'[', b'(', bytes)
+        .map(|i| (&text[5..i], i))
+        .filter(|(name, _)| name.as_bytes().iter().all(u8::is_ascii_graphic))?;
 
-    let inside_header = if bytes[pos] == b'[' {
-        pos_ = pos;
-        pos = memchr(b']', &bytes[pos..])
-            .map(|i| i + pos)
-            .filter(|&i| bytes[pos..i].iter().all(|&c| c != b'\n'))?
-            + 1;
-        expect!(src, pos, b'(')?;
-        Some(&src[pos_ + 1..pos - 1])
+    let (inside_header, off) = if bytes[off] == b'[' {
+        memchr(b']', &bytes[off..])
+            .filter(|&i| {
+                bytes[off + i + 1] == b'(' && bytes[off + 1..off + i].iter().all(|&c| c != b'\n')
+            })
+            .map(|i| (Some(&text[off + 1..off + i]), off + i + 1))?
     } else {
-        None
+        (None, off)
     };
 
-    pos_ = pos;
-    pos = memchr(b')', &bytes[pos..])
-        .map(|i| i + pos)
-        .filter(|&i| bytes[pos..i].iter().all(|&c| c != b'\n'))?;
-    let args = &src[pos_ + 1..pos];
+    let (args, off) = memchr(b')', &bytes[off..])
+        .map(|i| (&text[off + 1..off + i], off + i + 1))
+        .filter(|(args, _)| args.as_bytes().iter().all(|&c| c != b'\n'))?;
 
-    let end_header = if src.len() > pos + 1 && src.as_bytes()[pos + 1] == b'[' {
-        pos_ = pos;
-        pos = memchr(b']', &bytes[pos_ + 1..])
-            .map(|i| i + pos_ + 1)
-            .filter(|&i| bytes[pos_ + 1..i].iter().all(|&c| c != b'\n' && c != b')'))?;
-        Some(&src[pos_ + 2..pos])
+    let (end_header, off) = if text.len() > off && text.as_bytes()[off] == b'[' {
+        memchr(b']', &bytes[off..])
+            .filter(|&i| bytes[off + 1..off + i].iter().all(|&c| c != b'\n'))
+            .map(|i| (Some(&text[off + 1..off + i]), off + i + 1))?
     } else {
-        None
+        (None, off)
     };
 
-    Some((name, args, inside_header, end_header, pos + 1))
+    Some((name, args, inside_header, end_header, off))
 }
 
 #[cfg(test)]

@@ -5,20 +5,19 @@ use jetscii::Substring;
 pub fn parse(src: &str) -> Option<(&str, usize)> {
     debug_assert!(src.starts_with("<<<"));
 
-    expect!(src, 3, |c| c != b' ')?;
-
     let bytes = src.as_bytes();
-    let end = Substring::new(">>>").find(src).filter(|&i| {
-        bytes[3..i]
-            .iter()
-            .all(|&c| c != b'<' && c != b'\n' && c != b'>')
-    })?;
+    let (target, off) = Substring::new(">>>")
+        .find(src)
+        .filter(|&i| {
+            bytes[3] != b' '
+                && bytes[i - 1] != b' '
+                && bytes[3..i]
+                    .iter()
+                    .all(|&c| c != b'<' && c != b'\n' && c != b'>')
+        })
+        .map(|i| (&src[3..i], i + 3 /* >>> */))?;
 
-    if bytes[end - 1] == b' ' {
-        return None;
-    }
-
-    Some((&src[3..end], end + 3))
+    Some((target, off))
 }
 
 #[cfg(test)]

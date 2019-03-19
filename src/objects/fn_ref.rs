@@ -2,51 +2,35 @@ use memchr::{memchr2, memchr2_iter};
 
 /// returns (footnote reference label, footnote reference definition, offset)
 #[inline]
-pub fn parse(src: &str) -> Option<(Option<&str>, Option<&str>, usize)> {
-    debug_assert!(src.starts_with("[fn:"));
+pub fn parse(text: &str) -> Option<(Option<&str>, Option<&str>, usize)> {
+    debug_assert!(text.starts_with("[fn:"));
 
-    let bytes = src.as_bytes();
-    let label = memchr2(b']', b':', &bytes[4..])
-        .map(|i| i + 4)
+    let bytes = text.as_bytes();
+    let (label, off) = memchr2(b']', b':', &bytes[4..])
         .filter(|&i| {
-            bytes[4..i]
+            bytes[4..i + 4]
                 .iter()
                 .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-        })?;
+        })
+        .map(|i| (if i == 0 { None } else { Some(&text[4..i + 4]) }, i + 4))?;
 
-    if bytes[label] == b':' {
+    let (def, off) = if bytes[off] == b':' {
         let mut pairs = 1;
-        let def = memchr2_iter(b'[', b']', &bytes[label..])
-            .map(|i| i + label)
+        memchr2_iter(b'[', b']', &bytes[off..])
             .find(|&i| {
-                if bytes[i] == b'[' {
+                if bytes[i + off] == b'[' {
                     pairs += 1;
                 } else {
                     pairs -= 1;
                 }
                 pairs == 0
-            })?;
-
-        Some((
-            if label == 4 {
-                None
-            } else {
-                Some(&src[4..label])
-            },
-            Some(&src[label + 1..def]),
-            def + 1,
-        ))
+            })
+            .map(|i| (Some(&text[off + 1..off + i]), i + off + 1))?
     } else {
-        Some((
-            if label == 4 {
-                None
-            } else {
-                Some(&src[4..label])
-            },
-            None,
-            label + 1,
-        ))
-    }
+        (None, off + 1)
+    };
+
+    Some((label, def, off))
 }
 
 #[cfg(test)]

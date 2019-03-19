@@ -1,22 +1,23 @@
 use jetscii::Substring;
 
 #[inline]
-pub fn parse(src: &str) -> Option<(&str, usize)> {
-    debug_assert!(src.starts_with("<<"));
+pub fn parse(text: &str) -> Option<(&str, usize)> {
+    debug_assert!(text.starts_with("<<"));
 
-    expect!(src, 2, |c| c != b' ')?;
+    let bytes = text.as_bytes();
 
-    let end = Substring::new(">>").find(src).filter(|&i| {
-        src.as_bytes()[2..i]
-            .iter()
-            .all(|&c| c != b'<' && c != b'\n' && c != b'>')
-    })?;
+    let (target, off) = Substring::new(">>")
+        .find(text)
+        .filter(|&i| {
+            bytes[2] != b' '
+                && bytes[i - 1] != b' '
+                && bytes[2..i]
+                    .iter()
+                    .all(|&c| c != b'<' && c != b'\n' && c != b'>')
+        })
+        .map(|i| (&text[2..i], i + 2 /* >> */))?;
 
-    if src.as_bytes()[end - 1] == b' ' {
-        return None;
-    }
-
-    Some((&src[2..end], end + 2))
+    Some((target, off))
 }
 
 #[cfg(test)]

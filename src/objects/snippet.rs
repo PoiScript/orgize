@@ -3,21 +3,23 @@ use memchr::memchr;
 
 /// returns (snippet name, snippet value, offset)
 #[inline]
-pub fn parse(src: &str) -> Option<(&str, &str, usize)> {
-    debug_assert!(src.starts_with("@@"));
+pub fn parse(text: &str) -> Option<(&str, &str, usize)> {
+    debug_assert!(text.starts_with("@@"));
 
-    let name = memchr(b':', src.as_bytes()).filter(|&i| {
-        i != 2
-            && src.as_bytes()[2..i]
-                .iter()
-                .all(|&c| c.is_ascii_alphanumeric() || c == b'-')
-    })?;
+    let (name, off) = memchr(b':', text.as_bytes())
+        .filter(|&i| {
+            i != 2
+                && text.as_bytes()[2..i]
+                    .iter()
+                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-')
+        })
+        .map(|i| (&text[2..i], i + 1))?;
 
-    let end = Substring::new("@@")
-        .find(&src[name + 1..])
-        .map(|i| i + name + 1)?;
+    let (value, off) = Substring::new("@@")
+        .find(&text[off..])
+        .map(|i| (&text[off..off + i], off + i + 2 /* @@ */))?;
 
-    Some((&src[2..name], &src[name + 1..end], end + 2))
+    Some((name, value, off))
 }
 
 #[cfg(test)]

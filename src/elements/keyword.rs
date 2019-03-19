@@ -22,32 +22,35 @@ pub enum Key<'a> {
     Call,
 }
 
-pub fn parse(src: &str) -> Option<(Key<'_>, &str, usize)> {
-    debug_assert!(src.starts_with("#+"));
+pub fn parse(text: &str) -> Option<(Key<'_>, &str, usize)> {
+    debug_assert!(text.starts_with("#+"));
 
-    let bytes = src.as_bytes();
-    let key_end = memchr2(b':', b'[', bytes).filter(|&i| {
-        bytes[2..i]
-            .iter()
-            .all(|&c| c.is_ascii_alphabetic() || c == b'_')
-    })?;
+    let bytes = text.as_bytes();
 
-    let option = if bytes[key_end] == b'[' {
-        let option =
-            memchr(b']', bytes).filter(|&i| bytes[key_end..i].iter().all(|&c| c != b'\n'))?;
-        expect!(src, option + 1, b':')?;
-        option + 1
+    let (key, off) = memchr2(b':', b'[', bytes)
+        .filter(|&i| {
+            bytes[2..i]
+                .iter()
+                .all(|&c| c.is_ascii_alphabetic() || c == b'_')
+        })
+        .map(|i| (&text[2..i], i + 1))?;
+
+    let (option, off) = if bytes[off - 1] == b'[' {
+        memchr(b']', bytes)
+            .filter(|&i| {
+                bytes[off..i].iter().all(|&c| c != b'\n') && i < text.len() && bytes[i + 1] == b':'
+            })
+            .map(|i| (Some(&text[off..i]), i + 2 /* ]: */))?
     } else {
-        key_end
+        (None, off)
     };
 
-    // includes the eol character
-    let end = memchr::memchr(b'\n', src.as_bytes())
-        .map(|i| i + 1)
-        .unwrap_or_else(|| src.len());
+    let (value, off) = memchr(b'\n', bytes)
+        .map(|i| (&text[off..i], i + 1))
+        .unwrap_or_else(|| (&text[off..], text.len()));
 
     Some((
-        match &*src[2..key_end].to_uppercase() {
+        match &*key.to_uppercase() {
             "AUTHOR" => Key::Author,
             "CALL" => Key::Call,
             "DATE" => Key::Date,
@@ -55,27 +58,15 @@ pub fn parse(src: &str) -> Option<(Key<'_>, &str, usize)> {
             "NAME" => Key::Name,
             "PLOT" => Key::Plot,
             "TITLE" => Key::Title,
-            "RESULTS" => Key::Results {
-                option: if key_end == option {
-                    None
-                } else {
-                    Some(&src[key_end + 1..option - 1])
-                },
+            "RESULTS" => Key::Results { option },
+            "CAPTION" => Key::Caption { option },
+            k if k.starts_with("ATTR_") => Key::Attr {
+                backend: &key["ATTR_".len()..],
             },
-            "CAPTION" => Key::Caption {
-                option: if key_end == option {
-                    None
-                } else {
-                    Some(&src[key_end + 1..option - 1])
-                },
-            },
-            key if key.starts_with("ATTR_") => Key::Attr {
-                backend: &src["#+ATTR_".len()..key_end],
-            },
-            _ => Key::Custom(&src[2..key_end]),
+            _ => Key::Custom(key),
         },
-        &src[option + 1..end].trim(),
-        end,
+        value.trim(),
+        off,
     ))
 }
 
