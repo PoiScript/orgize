@@ -32,7 +32,7 @@ impl From<FromUtf8Error> for Error {
 type Result = std::result::Result<(), Error>;
 
 impl<W: Write> HtmlHandler<W, Error> for CustomHtmlHandler {
-    fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result {
+    fn headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result {
         if hdl.level > 6 {
             Err(Error::Heading)
         } else {

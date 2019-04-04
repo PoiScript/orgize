@@ -59,7 +59,7 @@
 //! struct CustomHtmlHandler;
 //!
 //! impl<W: Write> HtmlHandler<W, Error> for CustomHtmlHandler {
-//!     fn handle_headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
+//!     fn headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<()> {
 //!         write!(
 //!             w,
 //!             r##"<h{0}><a class="anchor" href="#{1}">{2}</a></h{0}>"##,
@@ -89,9 +89,6 @@
 //!
 //! let result = String::from_utf8(cursor.into_inner()).expect("invalid utf-8");
 //! ```
-
-#[macro_use]
-mod utils;
 
 pub mod elements;
 pub mod export;

@@ -2,7 +2,7 @@
 
 use memchr::{memchr, memchr2, memrchr};
 
-const HEADLINE_DEFAULT_KEYWORDS: &[&str] =
+pub(crate) const DEFAULT_KEYWORDS: &[&str] =
     &["TODO", "DONE", "NEXT", "WAITING", "LATER", "CANCELLED"];
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -21,28 +21,7 @@ pub struct Headline<'a> {
 }
 
 impl<'a> Headline<'a> {
-    /// parsing the input string and returning the parsed headline
-    /// and the content-begin and the end of headline container.
-    ///
-    /// ```rust
-    /// use orgize::headline::Headline;
-    ///
-    /// let (hdl, _, _) = Headline::parse("* DONE [#A] COMMENT Title :tag:a2%:");
-    ///
-    /// assert_eq!(hdl.level, 1);
-    /// assert_eq!(hdl.priority, Some('A'));
-    /// assert_eq!(hdl.tags, Some(":tag:a2%:"));
-    /// assert_eq!(hdl.title, "COMMENT Title");
-    /// assert_eq!(hdl.keyword, Some("DONE"));
-    /// ```
-    pub fn parse(text: &'a str) -> (Headline<'a>, usize, usize) {
-        Self::parse_with_keywords(text, HEADLINE_DEFAULT_KEYWORDS)
-    }
-
-    pub fn parse_with_keywords(
-        text: &'a str,
-        keywords: &'a [&'a str],
-    ) -> (Headline<'a>, usize, usize) {
+    pub(crate) fn parse(text: &'a str, keywords: &'a [&'a str]) -> (Headline<'a>, usize, usize) {
         let level = memchr2(b'\n', b' ', text.as_bytes()).unwrap_or_else(|| text.len());
 
         debug_assert!(level > 0);
@@ -118,7 +97,7 @@ impl<'a> Headline<'a> {
         )
     }
 
-    pub fn find_level(text: &str, level: usize) -> usize {
+    pub(crate) fn find_level(text: &str, level: usize) -> usize {
         use jetscii::ByteSubstring;
 
         let bytes = text.as_bytes();
@@ -159,12 +138,12 @@ impl<'a> Headline<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::Headline;
+    use super::*;
 
     #[test]
     fn parse() {
         assert_eq!(
-            Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%:").0,
+            Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%:", DEFAULT_KEYWORDS).0,
             Headline {
                 level: 4,
                 priority: Some('A'),
@@ -174,7 +153,7 @@ mod tests {
             },
         );
         assert_eq!(
-            Headline::parse("**** ToDO [#A] COMMENT Title :tag:a2%:").0,
+            Headline::parse("**** ToDO [#A] COMMENT Title :tag:a2%:", DEFAULT_KEYWORDS).0,
             Headline {
                 level: 4,
                 priority: None,
@@ -184,7 +163,7 @@ mod tests {
             },
         );
         assert_eq!(
-            Headline::parse("**** T0DO [#A] COMMENT Title :tag:a2%:").0,
+            Headline::parse("**** T0DO [#A] COMMENT Title :tag:a2%:", DEFAULT_KEYWORDS).0,
             Headline {
                 level: 4,
                 priority: None,
@@ -194,7 +173,7 @@ mod tests {
             },
         );
         assert_eq!(
-            Headline::parse("**** TODO [#1] COMMENT Title :tag:a2%:").0,
+            Headline::parse("**** TODO [#1] COMMENT Title :tag:a2%:", DEFAULT_KEYWORDS).0,
             Headline {
                 level: 4,
                 priority: None,
@@ -204,7 +183,7 @@ mod tests {
             },
         );
         assert_eq!(
-            Headline::parse("**** TODO [#a] COMMENT Title :tag:a2%:").0,
+            Headline::parse("**** TODO [#a] COMMENT Title :tag:a2%:", DEFAULT_KEYWORDS).0,
             Headline {
                 level: 4,
                 priority: None,
@@ -214,7 +193,7 @@ mod tests {
             },
         );
         assert_eq!(
-            Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%").0,
+            Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%", DEFAULT_KEYWORDS).0,
             Headline {
                 level: 4,
                 priority: Some('A'),
@@ -224,7 +203,7 @@ mod tests {
             },
         );
         assert_eq!(
-            Headline::parse("**** TODO [#A] COMMENT Title tag:a2%:").0,
+            Headline::parse("**** TODO [#A] COMMENT Title tag:a2%:", DEFAULT_KEYWORDS).0,
             Headline {
                 level: 4,
                 priority: Some('A'),
@@ -234,7 +213,7 @@ mod tests {
             },
         );
         assert_eq!(
-            Headline::parse("**** COMMENT Title tag:a2%:").0,
+            Headline::parse("**** COMMENT Title tag:a2%:", DEFAULT_KEYWORDS).0,
             Headline {
                 level: 4,
                 priority: None,
@@ -245,7 +224,7 @@ mod tests {
         );
 
         assert_eq!(
-            Headline::parse_with_keywords("**** TODO [#A] COMMENT Title :tag:a2%:", &[]).0,
+            Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%:", &[]).0,
             Headline {
                 level: 4,
                 priority: None,
@@ -255,7 +234,7 @@ mod tests {
             },
         );
         assert_eq!(
-            Headline::parse_with_keywords("**** TASK [#A] COMMENT Title :tag:a2%:", &["TASK"]).0,
+            Headline::parse("**** TASK [#A] COMMENT Title :tag:a2%:", &["TASK"]).0,
             Headline {
                 level: 4,
                 priority: Some('A'),
@@ -268,21 +247,43 @@ mod tests {
 
     #[test]
     fn is_commented() {
-        assert!(Headline::parse("* COMMENT Title").0.is_commented());
-        assert!(!Headline::parse("* Title").0.is_commented());
-        assert!(!Headline::parse("* C0MMENT Title").0.is_commented());
-        assert!(!Headline::parse("* comment Title").0.is_commented());
+        assert!(Headline::parse("* COMMENT Title", DEFAULT_KEYWORDS)
+            .0
+            .is_commented());
+        assert!(!Headline::parse("* Title", DEFAULT_KEYWORDS)
+            .0
+            .is_commented());
+        assert!(!Headline::parse("* C0MMENT Title", DEFAULT_KEYWORDS)
+            .0
+            .is_commented());
+        assert!(!Headline::parse("* comment Title", DEFAULT_KEYWORDS)
+            .0
+            .is_commented());
     }
 
     #[test]
     fn is_archived() {
-        assert!(Headline::parse("* Title :ARCHIVE:").0.is_archived());
-        assert!(Headline::parse("* Title :tag:ARCHIVE:").0.is_archived());
-        assert!(Headline::parse("* Title :ARCHIVE:tag:").0.is_archived());
-        assert!(!Headline::parse("* Title").0.is_commented());
-        assert!(!Headline::parse("* Title :ARCHIVED:").0.is_archived());
-        assert!(!Headline::parse("* Title :ARCHIVES:").0.is_archived());
-        assert!(!Headline::parse("* Title :archive:").0.is_archived());
+        assert!(Headline::parse("* Title :ARCHIVE:", DEFAULT_KEYWORDS)
+            .0
+            .is_archived());
+        assert!(Headline::parse("* Title :tag:ARCHIVE:", DEFAULT_KEYWORDS)
+            .0
+            .is_archived());
+        assert!(Headline::parse("* Title :ARCHIVE:tag:", DEFAULT_KEYWORDS)
+            .0
+            .is_archived());
+        assert!(!Headline::parse("* Title", DEFAULT_KEYWORDS)
+            .0
+            .is_commented());
+        assert!(!Headline::parse("* Title :ARCHIVED:", DEFAULT_KEYWORDS)
+            .0
+            .is_archived());
+        assert!(!Headline::parse("* Title :ARCHIVES:", DEFAULT_KEYWORDS)
+            .0
+            .is_archived());
+        assert!(!Headline::parse("* Title :archive:", DEFAULT_KEYWORDS)
+            .0
+            .is_archived());
     }
 
     #[test]

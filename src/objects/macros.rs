@@ -6,9 +6,11 @@ use memchr::memchr2;
 pub fn parse(text: &str) -> Option<(&str, Option<&str>, usize)> {
     debug_assert!(text.starts_with("{{{"));
 
-    expect!(text, 3, |c: u8| c.is_ascii_alphabetic())?;
-
     let bytes = text.as_bytes();
+    if text.len() <= 3 || !bytes[3].is_ascii_alphabetic() {
+        return None;
+    }
+
     let (name, off) = memchr2(b'}', b'(', bytes)
         .filter(|&i| {
             bytes[3..i]
@@ -18,8 +20,9 @@ pub fn parse(text: &str) -> Option<(&str, Option<&str>, usize)> {
         .map(|i| (&text[3..i], i))?;
 
     let (args, off) = if bytes[off] == b'}' {
-        expect!(text, off + 1, b'}')?;
-        expect!(text, off + 2, b'}')?;
+        if text.len() <= off + 2 || bytes[off + 1] != b'}' || bytes[off + 2] != b'}' {
+            return None;
+        }
         (None, off + 3 /* }}} */)
     } else {
         Substring::new(")}}}")
