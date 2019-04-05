@@ -23,13 +23,13 @@ impl<'a> Iterator for Lines<'a> {
     #[inline]
     fn next(&mut self) -> Option<(usize, usize, &'a str)> {
         self.iter.next().map(|i| {
-            let (line, cont_end) = if i != self.src.len() && self.src.as_bytes()[i - 1] == b'\r' {
+            let (line, limit) = if i != self.src.len() && self.src.as_bytes()[i - 1] == b'\r' {
                 (&self.src[self.start..i - 1], i - 1)
             } else {
                 (&self.src[self.start..i], i)
             };
             self.start = if i != self.src.len() { i + 1 } else { i };
-            (cont_end, self.start, line)
+            (limit, self.start, line)
         })
     }
 

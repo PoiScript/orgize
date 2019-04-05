@@ -11,9 +11,9 @@ pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
     }
 
     let mut lines = Lines::new(src);
-    let (mut pre_cont_end, _, _) = lines.next()?;
+    let (mut pre_limit, _, _) = lines.next()?;
 
-    for (cont_end, end, line) in lines {
+    for (limit, end, line) in lines {
         if line.trim().eq_ignore_ascii_case("#+END:") {
             let bytes = src.as_bytes();
 
@@ -23,21 +23,15 @@ pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
             let name = &src[8..i].trim();
 
             return Some(if bytes[i] == b'\n' {
-                (name, None, i, pre_cont_end, end)
+                (name, None, i, pre_limit, end)
             } else {
-                let cont_beg = memchr(b'\n', bytes)
+                let begin = memchr(b'\n', bytes)
                     .map(|i| i + 1)
                     .unwrap_or_else(|| src.len());
-                (
-                    name,
-                    Some(&src[i..cont_beg].trim()),
-                    cont_beg,
-                    pre_cont_end,
-                    end,
-                )
+                (name, Some(&src[i..begin].trim()), begin, pre_limit, end)
             });
         }
-        pre_cont_end = cont_end;
+        pre_limit = limit;
     }
 
     None

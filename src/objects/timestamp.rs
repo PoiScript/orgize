@@ -151,7 +151,10 @@ pub fn parse_inactive(text: &str) -> Option<(Timestamp<'_>, usize)> {
 }
 
 fn parse_datetime(bytes: &[u8]) -> Option<(Datetime, Option<Datetime>)> {
-    if !bytes[0].is_ascii_digit() || !bytes[bytes.len() - 1].is_ascii_alphanumeric() {
+    if bytes.is_empty()
+        || !bytes[0].is_ascii_digit()
+        || !bytes[bytes.len() - 1].is_ascii_alphanumeric()
+    {
         return None;
     }
 

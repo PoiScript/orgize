@@ -213,35 +213,56 @@ impl<'a> Parser<'a> {
     }
 
     fn next_ele(&mut self, text: &'a str) -> Event<'a> {
+        fn skip_empty_lines(text: &str) -> usize {
+            let mut i = 0;
+            for pos in memchr_iter(b'\n', text.as_bytes()) {
+                if text.as_bytes()[i..pos].iter().all(u8::is_ascii_whitespace) {
+                    i = pos + 1;
+                } else {
+                    return i;
+                }
+            }
+            if text.as_bytes()[i..].iter().all(u8::is_ascii_whitespace) {
+                text.len()
+            } else {
+                i
+            }
+        }
+
+        let start = skip_empty_lines(text);
+        if start == text.len() {
+            self.off += text.len();
+            return self.end();
+        };
+        let tail = &text[start..];
+
         let (ele, off, limit, end) = self
             .ele_buf
             .take()
-            .or_else(|| self.real_next_ele(text))
+            .or_else(|| self.real_next_ele(tail))
             .unwrap_or_else(|| {
-                let len = text.len();
-                let start = text.find(|c| c != '\n').unwrap_or(0);
-                if start == len - 1 {
-                    (self.end(), len, 0, 0)
-                } else {
-                    let mut pos = start;
-                    for off in memchr_iter(b'\n', &text.as_bytes()[start..]) {
-                        if text[pos..off + start].trim().is_empty() {
-                            return (Event::ParagraphBeg, start, pos, off + start);
-                        } else {
-                            pos = off + start;
-                            if let Some(buf) = self.real_next_ele(&text[pos + 1..]) {
-                                self.ele_buf = Some(buf);
-                                return (Event::ParagraphBeg, start, pos, pos);
-                            }
+                let mut pos = 0;
+                for off in memchr_iter(b'\n', tail.as_bytes()) {
+                    if tail.as_bytes()[pos + 1..off]
+                        .iter()
+                        .all(u8::is_ascii_whitespace)
+                    {
+                        return (Event::ParagraphBeg, 0, pos + start, off + start);
+                    } else {
+                        if let Some(buf) = self.real_next_ele(&tail[pos + 1..]) {
+                            self.ele_buf = Some(buf);
+                            return (Event::ParagraphBeg, 0, pos + start, pos + start);
                         }
                     }
-                    (
-                        Event::ParagraphBeg,
-                        start,
-                        if text.ends_with('\n') { len - 1 } else { len },
-                        len,
-                    )
+                    pos = off;
                 }
+                let len = text.len();
+                (
+                    Event::ParagraphBeg,
+                    0,
+                    if text.ends_with('\n') { len - 1 } else { len },
+                    len,
+                )
             });
 
         debug_assert!(off <= text.len() && limit <= text.len() && end <= text.len());
@@ -259,13 +280,15 @@ impl<'a> Parser<'a> {
             _ => (),
         }
 
-        self.off += off;
+        self.off += off + start;
 
         ele
     }
 
     // returns (event, offset, container limit, container end)
-    fn real_next_ele(&mut self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
+    fn real_next_ele(&self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
+        debug_assert!(!text.starts_with('\n'));
+
         if text.starts_with("[fn:") {
             if let Some((label, cont, off)) = fn_def::parse(text) {
                 return Some((Event::FnDef { label, cont }, off + 1, 0, 0));
@@ -277,8 +300,7 @@ impl<'a> Parser<'a> {
             .map(|off| (&text[off..], off))
             .unwrap_or((text, 0));
 
-        let (is_item, ordered) = list::is_item(tail);
-        if is_item {
+        if let Some(ordered) = list::is_item(tail) {
             return Some((Event::ListBeg { ordered }, 0, line_begin, text.len()));
         }
 
@@ -567,7 +589,6 @@ fn parse() {
         }),
         SectionBeg,
         ParagraphBeg,
-        Text("test "),
         BoldBeg,
         Text("Section 1"),
         BoldEnd,
@@ -621,10 +642,14 @@ fn parse() {
 
     assert_eq!(
         Parser::new(
-            r#"#+OPTIONS:    H:3 num:nil toc:t \n:nil ::t |:t ^:t -:t f:t *:t tex:t d:(HIDE) tags:not-in-toc
-
-* Definitions
-"#
+            r#"* Title 1
+*Section 1*
+** Title 2
+_Section 2_
+* Title 3
+/Section 3/
+* Title 4
+=Section 4="#
         )
         .collect::<Vec<_>>(),
         expected
