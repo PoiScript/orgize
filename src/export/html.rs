@@ -1,14 +1,18 @@
 #![allow(unused_variables)]
 
-use crate::elements::Key;
-use crate::headline::Headline;
-use crate::objects::{Cookie, Timestamp};
-use crate::parser::Parser;
+use crate::{
+    elements::{Key, Planning},
+    headline::Headline,
+    objects::{Cookie, Timestamp},
+    parser::Parser,
+};
 use jetscii::ascii_chars;
-use std::convert::From;
-use std::fmt;
-use std::io::{Error, Write};
-use std::marker::PhantomData;
+use std::{
+    convert::From,
+    fmt,
+    io::{Error, Write},
+    marker::PhantomData,
+};
 
 pub trait HtmlHandler<W: Write, E: From<Error>> {
     fn headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<(), E> {
@@ -215,6 +219,9 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     }
     fn text(&mut self, w: &mut W, cont: &str) -> Result<(), E> {
         Ok(write!(w, "{}", Escape(cont))?)
+    }
+    fn planning(&mut self, w: &mut W, planning: Planning) -> Result<(), E> {
+        Ok(())
     }
 }
 

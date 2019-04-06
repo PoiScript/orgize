@@ -28,6 +28,7 @@ macro_rules! handle_event {
             ListItemBeg { bullet } => $handler.list_beg_item($writer, bullet)?,
             ListItemEnd => $handler.list_end_item($writer)?,
             Call { value } => $handler.call($writer, value)?,
+            Planning(p) => $handler.planning($writer, p)?,
             Clock => $handler.clock($writer)?,
             Timestamp(t) => $handler.timestamp($writer, t)?,
             Comment(c) => $handler.comment($writer, c)?,

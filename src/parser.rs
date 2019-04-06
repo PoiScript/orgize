@@ -8,7 +8,7 @@ use memchr::memchr_iter;
 #[derive(Copy, Clone, Debug)]
 enum Container {
     Headline(usize),
-    Section,
+    Section(usize),
     Paragraph,
     CtrBlock,
     QteBlock,
@@ -89,6 +89,8 @@ pub enum Event<'a> {
 
     Comment(&'a str),
     FixedWidth(&'a str),
+
+    Planning(Planning<'a>),
 
     TableStart,
     TableEnd,
@@ -197,7 +199,7 @@ impl<'a> Parser<'a> {
         let end = Headline::find_level(&self.text[self.off..], std::usize::MAX);
         debug_assert!(end <= self.text[self.off..].len());
         if end != 0 {
-            self.push_stack(Container::Section, end, end);
+            self.push_stack(Container::Section(self.off), end, end);
             Event::SectionBeg
         } else {
             self.next_headline()
@@ -207,8 +209,8 @@ impl<'a> Parser<'a> {
     fn next_headline(&mut self) -> Event<'a> {
         let (hdl, off, end) = Headline::parse(&self.text[self.off..], self.keywords);
         debug_assert!(end <= self.text[self.off..].len());
-        self.push_stack(Container::Headline(self.off + off), end, end);
         self.off += off;
+        self.push_stack(Container::Headline(self.off), end, end);
         Event::HeadlineBeg(hdl)
     }
 
@@ -520,7 +522,7 @@ impl<'a> Parser<'a> {
             Container::ListItem => Event::ListItemEnd,
             Container::Paragraph => Event::ParagraphEnd,
             Container::QteBlock => Event::QteBlockEnd,
-            Container::Section => Event::SectionEnd,
+            Container::Section(_) => Event::SectionEnd,
             Container::SplBlock => Event::SplBlockEnd,
             Container::Strike => Event::StrikeEnd,
             Container::Underline => Event::UnderlineEnd,
@@ -551,8 +553,20 @@ impl<'a> Iterator for Parser<'a> {
                     | Container::CtrBlock
                     | Container::QteBlock
                     | Container::SplBlock
-                    | Container::ListItem
-                    | Container::Section => self.next_ele(&self.text[self.off..limit]),
+                    | Container::ListItem => self.next_ele(&self.text[self.off..limit]),
+                    Container::Section(beg) => {
+                        let tail = &self.text[self.off..limit];
+                        if self.off == beg {
+                            if let Some((planning, off)) = Planning::parse(tail) {
+                                self.off += off;
+                                Event::Planning(planning)
+                            } else {
+                                self.next_ele(tail)
+                            }
+                        } else {
+                            self.next_ele(tail)
+                        }
+                    }
                     Container::List(ident, _) => {
                         if self.list_more_item {
                             self.next_list_item(ident, &self.text[self.off..limit])
