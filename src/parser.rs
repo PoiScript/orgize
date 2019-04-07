@@ -9,6 +9,7 @@ use memchr::memchr_iter;
 enum Container {
     Headline(usize),
     Section(usize),
+    Drawer,
     Paragraph,
     CtrBlock,
     QteBlock,
@@ -91,6 +92,9 @@ pub enum Event<'a> {
     FixedWidth(&'a str),
 
     Planning(Planning<'a>),
+
+    DrawerBeg(&'a str),
+    DrawerEnd,
 
     TableStart,
     TableEnd,
@@ -243,16 +247,16 @@ impl<'a> Parser<'a> {
             .unwrap_or_else(|| {
                 let mut pos = 0;
                 for off in memchr_iter(b'\n', tail.as_bytes()) {
-                    if tail.as_bytes()[pos + 1..off]
+                    if tail.as_bytes()[pos..off]
                         .iter()
                         .all(u8::is_ascii_whitespace)
                     {
                         return (Event::ParagraphBeg, 0, pos + start, off + start);
-                    } else if let Some(buf) = self.real_next_ele(&tail[pos + 1..]) {
+                    } else if let Some(buf) = self.real_next_ele(&tail[pos..]) {
                         self.ele_buf = Some(buf);
                         return (Event::ParagraphBeg, 0, pos + start, pos + start);
                     }
-                    pos = off;
+                    pos = off + 1;
                 }
                 let len = text.len();
                 (
@@ -263,9 +267,17 @@ impl<'a> Parser<'a> {
                 )
             });
 
-        debug_assert!(off <= text.len() && limit <= text.len() && end <= text.len());
+        debug_assert!(
+            (limit == 0 && end == 0) || (off <= limit && limit <= end && end <= text.len()),
+            "{} <= {} <= {} <= {}",
+            off,
+            limit,
+            end,
+            text.len()
+        );
 
         match ele {
+            Event::DrawerBeg(_) => self.push_stack(Container::Drawer, limit, end),
             Event::ParagraphBeg => self.push_stack(Container::Paragraph, limit, end),
             Event::QteBlockBeg => self.push_stack(Container::QteBlock, limit, end),
             Event::CtrBlockBeg => self.push_stack(Container::CtrBlock, limit, end),
@@ -309,7 +321,18 @@ impl<'a> Parser<'a> {
         if tail.starts_with("-----") {
             let off = rule::parse(tail);
             if off != 0 {
-                return Some((Event::Rule, off, 0, 0));
+                return Some((Event::Rule, off + line_begin, 0, 0));
+            }
+        }
+
+        if tail.starts_with(':') {
+            if let Some((name, off, limit, end)) = drawer::parse(tail) {
+                return Some((
+                    Event::DrawerBeg(name),
+                    off + line_begin,
+                    limit + line_begin,
+                    end + line_begin,
+                ));
             }
         }
 
@@ -344,27 +367,47 @@ impl<'a> Parser<'a> {
                 .map(|(name, args, begin, limit, end)| {
                     let cont = &tail[begin..limit];
                     match &*name.to_uppercase() {
-                        "COMMENT" => (Event::CommentBlock { args, cont }, end, 0, 0),
-                        "EXAMPLE" => (Event::ExampleBlock { args, cont }, end, 0, 0),
-                        "EXPORT" => (Event::ExportBlock { args, cont }, end, 0, 0),
-                        "SRC" => (Event::SrcBlock { args, cont }, end, 0, 0),
-                        "VERSE" => (Event::VerseBlock { args, cont }, end, 0, 0),
-                        "CENTER" => (Event::CtrBlockBeg, begin, limit, end),
-                        "QUOTE" => (Event::QteBlockBeg, begin, limit, end),
-                        _ => (Event::SplBlockBeg { name, args }, begin, limit, end),
+                        "COMMENT" => (Event::CommentBlock { args, cont }, end + line_begin, 0, 0),
+                        "EXAMPLE" => (Event::ExampleBlock { args, cont }, end + line_begin, 0, 0),
+                        "EXPORT" => (Event::ExportBlock { args, cont }, end + line_begin, 0, 0),
+                        "SRC" => (Event::SrcBlock { args, cont }, end + line_begin, 0, 0),
+                        "VERSE" => (Event::VerseBlock { args, cont }, end + line_begin, 0, 0),
+                        "CENTER" => (
+                            Event::CtrBlockBeg,
+                            begin + line_begin,
+                            limit + line_begin,
+                            end + line_begin,
+                        ),
+                        "QUOTE" => (
+                            Event::QteBlockBeg,
+                            begin + line_begin,
+                            limit + line_begin,
+                            end + line_begin,
+                        ),
+                        _ => (
+                            Event::SplBlockBeg { name, args },
+                            begin + line_begin,
+                            limit + line_begin,
+                            end + line_begin,
+                        ),
                     }
                 })
                 .or_else(|| {
                     dyn_block::parse(tail).map(|(name, args, begin, limit, end)| {
-                        (Event::DynBlockBeg { name, args }, begin, limit, end)
+                        (
+                            Event::DynBlockBeg { name, args },
+                            begin + line_begin,
+                            limit + line_begin,
+                            end + line_begin,
+                        )
                     })
                 })
                 .or_else(|| {
                     keyword::parse(tail).map(|(key, value, off)| {
                         if let Key::Call = key {
-                            (Event::Call { value }, off, 0, 0)
+                            (Event::Call { value }, off + line_begin, 0, 0)
                         } else {
-                            (Event::Keyword { key, value }, off, 0, 0)
+                            (Event::Keyword { key, value }, off + line_begin, 0, 0)
                         }
                     })
                 })
@@ -510,6 +553,7 @@ impl<'a> Parser<'a> {
         let (container, _, _) = self.stack.pop().unwrap();
         match container {
             Container::Bold => Event::BoldEnd,
+            Container::Drawer => Event::DrawerEnd,
             Container::CtrBlock => Event::CtrBlockEnd,
             Container::DynBlock => Event::DynBlockEnd,
             Container::Headline(_) => Event::HeadlineEnd,
@@ -553,7 +597,8 @@ impl<'a> Iterator for Parser<'a> {
                             self.next_headline(tail)
                         }
                     }
-                    Container::DynBlock
+                    Container::Drawer
+                    | Container::DynBlock
                     | Container::CtrBlock
                     | Container::QteBlock
                     | Container::SplBlock

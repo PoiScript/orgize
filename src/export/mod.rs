@@ -10,6 +10,8 @@ macro_rules! handle_event {
             SectionEnd => $handler.section_end($writer)?,
             ParagraphBeg => $handler.paragraph_beg($writer)?,
             ParagraphEnd => $handler.paragraph_end($writer)?,
+            DrawerBeg(n) => $handler.drawer_beg($writer, n)?,
+            DrawerEnd => $handler.drawer_end($writer)?,
             CtrBlockBeg => $handler.ctr_block_beg($writer)?,
             CtrBlockEnd => $handler.ctr_block_end($writer)?,
             QteBlockBeg => $handler.qte_block_beg($writer)?,

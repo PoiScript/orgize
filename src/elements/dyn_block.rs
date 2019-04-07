@@ -1,40 +1,41 @@
-use crate::lines::Lines;
-use memchr::{memchr, memchr2};
+use memchr::{memchr, memchr_iter};
 
-/// return (name, parameters, contents-begin, contents-end, end)
+// return (name, parameters, offset, limit, end)
 #[inline]
-pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
-    debug_assert!(src.starts_with("#+"));
+pub fn parse(text: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
+    debug_assert!(text.starts_with("#+"));
 
-    if src.len() <= 9 || !src[2..9].eq_ignore_ascii_case("BEGIN: ") {
+    if text.len() <= 9 || !text[2..9].eq_ignore_ascii_case("BEGIN: ") {
         return None;
     }
 
-    let mut lines = Lines::new(src);
-    let (mut pre_limit, _, _) = lines.next()?;
+    let bytes = text.as_bytes();
+    let mut lines = memchr_iter(b'\n', bytes);
 
-    for (limit, end, line) in lines {
-        if line.trim().eq_ignore_ascii_case("#+END:") {
-            let bytes = src.as_bytes();
+    let (name, para, off) = lines
+        .next()
+        .map(|i| {
+            memchr(b' ', &bytes[9..i])
+                .map(|x| (&text[9..9 + x], Some(text[9 + x..i].trim()), i + 1))
+                .unwrap_or((&text[9..i], None, i + 1))
+        })
+        .filter(|(name, _, _)| name.as_bytes().iter().all(|&c| c.is_ascii_alphabetic()))?;
 
-            let i = memchr2(b' ', b'\n', &bytes[9..])
-                .map(|i| i + 9)
-                .filter(|&i| bytes[9..i].iter().all(|&c| c.is_ascii_alphabetic()))?;
-            let name = &src[8..i].trim();
+    let mut pos = off;
 
-            return Some(if bytes[i] == b'\n' {
-                (name, None, i, pre_limit, end)
-            } else {
-                let begin = memchr(b'\n', bytes)
-                    .map(|i| i + 1)
-                    .unwrap_or_else(|| src.len());
-                (name, Some(&src[i..begin].trim()), begin, pre_limit, end)
-            });
+    for i in lines {
+        if text[pos..i].trim().eq_ignore_ascii_case("#+END:") {
+            return Some((name, para, off, pos, i + 1));
         }
-        pre_limit = limit;
+
+        pos = i + 1;
     }
 
-    None
+    if text[pos..].trim().eq_ignore_ascii_case("#+END:") {
+        Some((name, para, off, pos, text.len()))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -45,13 +46,14 @@ mod tests {
 
         // TODO: testing
         assert_eq!(
-            parse(
-                r"#+BEGIN: clocktable :scope file
-CONTENTS
-#+END:
-"
-            ),
-            Some(("clocktable", Some(":scope file"), 32, 40, 48))
+            parse("#+BEGIN: clocktable :scope file\nCONTENTS\n#+END:\n"),
+            Some((
+                "clocktable",
+                Some(":scope file"),
+                "#+BEGIN: clocktable :scope file\n".len(),
+                "#+BEGIN: clocktable :scope file\nCONTENTS\n".len(),
+                "#+BEGIN: clocktable :scope file\nCONTENTS\n#+END:\n".len(),
+            ))
         );
     }
 }

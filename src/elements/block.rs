@@ -1,37 +1,42 @@
-use crate::lines::Lines;
-use memchr::memchr2;
+use memchr::{memchr, memchr_iter};
 
 // return (name, args, contents-begin, contents-end, end)
 #[inline]
-pub fn parse(src: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
-    debug_assert!(src.starts_with("#+"));
+pub fn parse(text: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
+    debug_assert!(text.starts_with("#+"));
 
-    if src.len() <= 8 || src[2..8].to_uppercase() != "BEGIN_" {
+    if text.len() <= 8 || text[2..8].to_uppercase() != "BEGIN_" {
         return None;
     }
 
-    let name = memchr2(b' ', b'\n', src.as_bytes())
-        .filter(|&i| src.as_bytes()[8..i].iter().all(u8::is_ascii_alphabetic))?;
-    let mut lines = Lines::new(src);
-    let (pre_limit, begin, _) = lines.next()?;
-    let args = if pre_limit == name {
-        None
-    } else {
-        Some(&src[name..pre_limit])
-    };
-    let name = &src[8..name];
-    let end_line = format!(r"#+END_{}", name.to_uppercase());
-    let mut pre_end = begin;
+    let bytes = text.as_bytes();
+    let mut lines = memchr_iter(b'\n', text.as_bytes());
 
-    for (_, end, line) in lines {
-        if line.trim() == end_line {
-            return Some((name, args, begin, pre_end, end));
-        } else {
-            pre_end = end;
+    let (name, para, off) = lines
+        .next()
+        .map(|i| {
+            memchr(b' ', &bytes[8..i])
+                .map(|x| (&text[8..8 + x], Some(text[8 + x..i].trim()), i + 1))
+                .unwrap_or((&text[8..i], None, i + 1))
+        })
+        .filter(|(name, _, _)| name.as_bytes().iter().all(|&c| c.is_ascii_alphabetic()))?;
+
+    let mut pos = off;
+    let end = format!(r"#+END_{}", name.to_uppercase());
+
+    for i in lines {
+        if text[pos..i].trim().eq_ignore_ascii_case(&end) {
+            return Some((name, para, off, pos, i + 1));
         }
+
+        pos = i + 1;
     }
 
-    None
+    if text[pos..].trim().eq_ignore_ascii_case(&end) {
+        Some((name, para, off, pos, text.len()))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -42,19 +47,23 @@ mod tests {
 
         assert_eq!(
             parse("#+BEGIN_SRC\n#+END_SRC"),
-            Some(("SRC", None, 12, 12, 21))
+            Some((
+                "SRC",
+                None,
+                "#+BEGIN_SRC\n".len(),
+                "#+BEGIN_SRC\n".len(),
+                "#+BEGIN_SRC\n#+END_SRC".len()
+            ))
         );
         assert_eq!(
-            parse(
-                r#"#+BEGIN_SRC rust
-fn main() {
-    // print "Hello World!" to the console
-    println!("Hello World!");
-}
-#+END_SRC
-"#
-            ),
-            Some(("SRC", Some(" rust"), 17, 104, 114))
+            parse("#+BEGIN_SRC javascript  \nconsole.log('Hello World!');\n#+END_SRC\n"),
+            Some((
+                "SRC",
+                Some("javascript"),
+                "#+BEGIN_SRC javascript  \n".len(),
+                "#+BEGIN_SRC javascript  \nconsole.log('Hello World!');\n".len(),
+                "#+BEGIN_SRC javascript  \nconsole.log('Hello World!');\n#+END_SRC\n".len()
+            ))
         );
         // TODO: more testing
     }

@@ -28,6 +28,12 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     fn section_end(&mut self, w: &mut W) -> Result<(), E> {
         Ok(write!(w, "</section>")?)
     }
+    fn drawer_beg(&mut self, w: &mut W, name: &str) -> Result<(), E> {
+        Ok(())
+    }
+    fn drawer_end(&mut self, w: &mut W) -> Result<(), E> {
+        Ok(())
+    }
     fn paragraph_beg(&mut self, w: &mut W) -> Result<(), E> {
         Ok(write!(w, "<p>")?)
     }

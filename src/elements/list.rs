@@ -1,4 +1,5 @@
 use crate::lines::Lines;
+use memchr::memchr;
 
 #[inline]
 pub fn is_item(text: &str) -> Option<bool> {
@@ -33,7 +34,7 @@ pub fn is_item(text: &str) -> Option<bool> {
     }
 }
 
-// returns (bullets, contents begin, contents end, end, has more)
+// return (bullets, offset, limit, end, has more)
 #[inline]
 pub fn parse(src: &str, ident: usize) -> (&str, usize, usize, usize, bool) {
     debug_assert!(
@@ -50,7 +51,7 @@ pub fn parse(src: &str, ident: usize) -> (&str, usize, usize, usize, bool) {
 
     let mut lines = Lines::new(src);
     let (mut pre_limit, mut pre_end, first_line) = lines.next().unwrap();
-    let begin = match memchr::memchr(b' ', &first_line.as_bytes()[ident..]) {
+    let begin = match memchr(b' ', &first_line.as_bytes()[ident..]) {
         Some(i) => i + ident + 1,
         None => {
             let len = first_line.len();
