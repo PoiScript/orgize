@@ -260,7 +260,7 @@ impl<'a, W: Write, E: From<Error>, H: HtmlHandler<W, E>> HtmlRender<'a, W, E, H>
 
     pub fn render(&mut self) -> Result<(), E> {
         for event in &mut self.parser {
-            handle_event!(event, &mut self.handler, &mut self.writer);
+            handle_event!(event, &mut self.handler, self.writer);
         }
 
         Ok(())
