@@ -28,7 +28,7 @@ impl<'a> Headline<'a> {
         debug_assert!(text.as_bytes()[0..level].iter().all(|&c| c == b'*'));
 
         let (off, end) = memchr(b'\n', text.as_bytes())
-            .map(|i| (i, Headline::find_level(&text[i..], level) + i))
+            .map(|i| (i + 1, Headline::find_level(&text[i + 1..], level) + i + 1))
             .unwrap_or_else(|| (text.len(), text.len()));
 
         if level == off {

@@ -1,14 +1,14 @@
 use memchr::memchr;
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Datetime {
     pub date: (u16, u8, u8),
     pub time: Option<(u8, u8)>,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RepeaterType {
     Cumulate,
     CatchUp,
@@ -16,14 +16,14 @@ pub enum RepeaterType {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum DelayType {
     All,
     First,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum TimeUnit {
     Hour,
     Day,
@@ -33,7 +33,7 @@ pub enum TimeUnit {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Repeater {
     pub ty: RepeaterType,
     pub value: usize,
@@ -41,7 +41,7 @@ pub struct Repeater {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Delay {
     pub ty: DelayType,
     pub value: usize,

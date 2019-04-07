@@ -195,22 +195,20 @@ impl<'a> Parser<'a> {
         self.keywords = keywords;
     }
 
-    fn next_section_or_headline(&mut self) -> Event<'a> {
-        let end = Headline::find_level(&self.text[self.off..], std::usize::MAX);
-        debug_assert!(end <= self.text[self.off..].len());
+    fn next_section_or_headline(&mut self, text: &'a str) -> Event<'a> {
+        let end = Headline::find_level(text, std::usize::MAX);
         if end != 0 {
             self.push_stack(Container::Section(self.off), end, end);
             Event::SectionBeg
         } else {
-            self.next_headline()
+            self.next_headline(text)
         }
     }
 
-    fn next_headline(&mut self) -> Event<'a> {
-        let (hdl, off, end) = Headline::parse(&self.text[self.off..], self.keywords);
-        debug_assert!(end <= self.text[self.off..].len());
+    fn next_headline(&mut self, text: &'a str) -> Event<'a> {
+        let (hdl, off, end) = Headline::parse(text, self.keywords);
+        self.push_stack(Container::Headline(self.off + off), end, end);
         self.off += off;
-        self.push_stack(Container::Headline(self.off), end, end);
         Event::HeadlineBeg(hdl)
     }
 
@@ -250,11 +248,9 @@ impl<'a> Parser<'a> {
                         .all(u8::is_ascii_whitespace)
                     {
                         return (Event::ParagraphBeg, 0, pos + start, off + start);
-                    } else {
-                        if let Some(buf) = self.real_next_ele(&tail[pos + 1..]) {
-                            self.ele_buf = Some(buf);
-                            return (Event::ParagraphBeg, 0, pos + start, pos + start);
-                        }
+                    } else if let Some(buf) = self.real_next_ele(&tail[pos + 1..]) {
+                        self.ele_buf = Some(buf);
+                        return (Event::ParagraphBeg, 0, pos + start, pos + start);
                     }
                     pos = off;
                 }
@@ -535,27 +531,35 @@ impl<'a> Iterator for Parser<'a> {
 
     fn next(&mut self) -> Option<Event<'a>> {
         if let Some(&(container, limit, end)) = self.stack.last() {
+            debug_assert!(
+                self.off <= limit && limit <= end && end <= self.text.len(),
+                "{} <= {} <= {} <= {}",
+                self.off,
+                limit,
+                end,
+                self.text.len()
+            );
             Some(if self.off >= limit {
-                debug_assert!(self.off <= limit && self.off <= end);
                 self.off = end;
                 self.end()
             } else {
+                let tail = &self.text[self.off..limit];
                 match container {
                     Container::Headline(beg) => {
                         debug_assert!(self.off >= beg);
                         if self.off == beg {
-                            self.next_section_or_headline()
+                            self.next_section_or_headline(tail)
                         } else {
-                            self.next_headline()
+                            self.next_headline(tail)
                         }
                     }
                     Container::DynBlock
                     | Container::CtrBlock
                     | Container::QteBlock
                     | Container::SplBlock
-                    | Container::ListItem => self.next_ele(&self.text[self.off..limit]),
+                    | Container::ListItem => self.next_ele(tail),
                     Container::Section(beg) => {
-                        let tail = &self.text[self.off..limit];
+                        // planning should be the first line of section
                         if self.off == beg {
                             if let Some((planning, off)) = Planning::parse(tail) {
                                 self.off += off;
@@ -569,7 +573,7 @@ impl<'a> Iterator for Parser<'a> {
                     }
                     Container::List(ident, _) => {
                         if self.list_more_item {
-                            self.next_list_item(ident, &self.text[self.off..limit])
+                            self.next_list_item(ident, tail)
                         } else {
                             self.end()
                         }
@@ -578,11 +582,11 @@ impl<'a> Iterator for Parser<'a> {
                     | Container::Bold
                     | Container::Underline
                     | Container::Italic
-                    | Container::Strike => self.next_obj(&self.text[self.off..limit]),
+                    | Container::Strike => self.next_obj(tail),
                 }
             })
         } else if self.off < self.text.len() {
-            Some(self.next_section_or_headline())
+            Some(self.next_section_or_headline(&self.text[self.off..]))
         } else {
             None
         }
