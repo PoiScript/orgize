@@ -28,8 +28,6 @@ impl<'a> Clock<'a> {
             .filter(|&i| &text[0..i] == "CLOCK:")
             .map(|i| text[i..].trim_start())?;
 
-        dbg!(tail);
-
         if !tail.starts_with('[') {
             return None;
         }
