@@ -93,7 +93,6 @@
 pub mod elements;
 pub mod export;
 pub mod headline;
-mod lines;
 pub mod objects;
 mod parser;
 pub mod tools;

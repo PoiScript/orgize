@@ -1,7 +1,7 @@
 use memchr::memchr_iter;
 
 // return (name, offset, limit, end)
-pub(crate) fn parse<'a>(text: &'a str) -> Option<(&'a str, usize, usize, usize)> {
+pub(crate) fn parse(text: &str) -> Option<(&str, usize, usize, usize)> {
     debug_assert!(text.starts_with(':'));
 
     let mut lines = memchr_iter(b'\n', text.as_bytes());

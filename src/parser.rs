@@ -164,11 +164,11 @@ pub enum Event<'a> {
 pub struct Parser<'a> {
     text: &'a str,
     stack: Vec<(Container, usize, usize)>,
+    next_item: Vec<Option<&'a str>>,
     off: usize,
     ele_buf: Option<(Event<'a>, usize, usize, usize)>,
     obj_buf: Option<(Event<'a>, usize, usize, usize)>,
     keywords: &'a [&'a str],
-    list_more_item: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -177,10 +177,10 @@ impl<'a> Parser<'a> {
         Parser {
             text,
             stack: Vec::new(),
+            next_item: Vec::new(),
             off: 0,
             ele_buf: None,
             obj_buf: None,
-            list_more_item: false,
             keywords: DEFAULT_KEYWORDS,
         }
     }
@@ -197,6 +197,15 @@ impl<'a> Parser<'a> {
 
     pub fn set_keywords(&mut self, keywords: &'a [&'a str]) {
         self.keywords = keywords;
+    }
+
+    pub fn set_text(&mut self, text: &'a str) {
+        self.off = 0;
+        self.stack.clear();
+        self.next_item.clear();
+        self.ele_buf = None;
+        self.obj_buf = None;
+        self.text = text;
     }
 
     fn next_section_or_headline(&mut self, text: &'a str) -> Event<'a> {
@@ -246,17 +255,14 @@ impl<'a> Parser<'a> {
             .or_else(|| self.real_next_ele(tail))
             .unwrap_or_else(|| {
                 let mut pos = 0;
-                for off in memchr_iter(b'\n', tail.as_bytes()) {
-                    if tail.as_bytes()[pos..off]
-                        .iter()
-                        .all(u8::is_ascii_whitespace)
-                    {
-                        return (Event::ParagraphBeg, 0, pos + start, off + start);
+                for i in memchr_iter(b'\n', tail.as_bytes()) {
+                    if tail.as_bytes()[pos..i].iter().all(u8::is_ascii_whitespace) {
+                        return (Event::ParagraphBeg, 0, pos - 1 + start, i + 1 + start);
                     } else if let Some(buf) = self.real_next_ele(&tail[pos..]) {
                         self.ele_buf = Some(buf);
-                        return (Event::ParagraphBeg, 0, pos + start, pos + start);
+                        return (Event::ParagraphBeg, 0, pos - 1 + start, pos + start);
                     }
-                    pos = off + 1;
+                    pos = i + 1;
                 }
                 let len = text.len();
                 (
@@ -284,8 +290,7 @@ impl<'a> Parser<'a> {
             Event::SplBlockBeg { .. } => self.push_stack(Container::SplBlock, limit, end),
             Event::DynBlockBeg { .. } => self.push_stack(Container::DynBlock, limit, end),
             Event::ListBeg { ordered, .. } => {
-                self.push_stack(Container::List(limit, ordered), end, end);
-                self.list_more_item = true;
+                self.push_stack(Container::List(limit, ordered), end, end)
             }
             _ => (),
         }
@@ -296,7 +301,7 @@ impl<'a> Parser<'a> {
     }
 
     // returns (event, offset, container limit, container end)
-    fn real_next_ele(&self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
+    fn real_next_ele(&mut self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
         debug_assert!(!text.starts_with('\n'));
 
         if text.starts_with("[fn:") {
@@ -310,7 +315,8 @@ impl<'a> Parser<'a> {
             .map(|off| (&text[off..], off))
             .unwrap_or((text, 0));
 
-        if let Some(ordered) = list::is_item(tail) {
+        if let Some((ordered, bullet)) = list::is_item(tail) {
+            self.next_item.push(Some(bullet));
             return Some((Event::ListBeg { ordered }, 0, line_begin, text.len()));
         }
 
@@ -438,7 +444,14 @@ impl<'a> Parser<'a> {
                 (Event::Text(text), text.len(), 0, 0)
             });
 
-        debug_assert!(off <= text.len() && limit <= text.len() && end <= text.len());
+        debug_assert!(
+            off <= text.len() && limit <= text.len() && end <= text.len(),
+            "{} <= {} <= {} <= {}",
+            off,
+            limit,
+            end,
+            text.len()
+        );
 
         self.off += off;
 
@@ -534,14 +547,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn next_list_item(&mut self, ident: usize, text: &'a str) -> Event<'a> {
-        let (bullet, off, limit, end, has_more) = list::parse(text, ident);
-        self.push_stack(Container::ListItem, limit, end);
-        self.off += off;
-        self.list_more_item = has_more;
-        Event::ListItemBeg { bullet }
-    }
-
     #[inline]
     fn push_stack(&mut self, container: Container, limit: usize, end: usize) {
         self.stack
@@ -575,6 +580,14 @@ impl<'a> Iterator for Parser<'a> {
 
     fn next(&mut self) -> Option<Event<'a>> {
         if let Some(&(container, limit, end)) = self.stack.last() {
+            // eprintln!(
+            //     "{:width$} {:?} {:?}",
+            //     ' ',
+            //     container,
+            //     &self.text[self.off..limit],
+            //     width = self.stack_depth(),
+            // );
+
             debug_assert!(
                 self.off <= limit && limit <= end && end <= self.text.len(),
                 "{} <= {} <= {} <= {}",
@@ -583,51 +596,76 @@ impl<'a> Iterator for Parser<'a> {
                 end,
                 self.text.len()
             );
-            Some(if self.off >= limit {
-                self.off = end;
-                self.end()
-            } else {
-                let tail = &self.text[self.off..limit];
-                match container {
-                    Container::Headline(beg) => {
-                        debug_assert!(self.off >= beg);
-                        if self.off == beg {
-                            self.next_section_or_headline(tail)
-                        } else {
-                            self.next_headline(tail)
-                        }
+
+            let tail = &self.text[self.off..limit];
+
+            Some(match container {
+                Container::Headline(beg) => {
+                    debug_assert!(self.off >= beg);
+                    if self.off >= limit {
+                        self.off = end;
+                        self.stack.pop();
+                        Event::HeadlineEnd
+                    } else if self.off == beg {
+                        self.next_section_or_headline(tail)
+                    } else {
+                        self.next_headline(tail)
                     }
-                    Container::Drawer
-                    | Container::DynBlock
-                    | Container::CtrBlock
-                    | Container::QteBlock
-                    | Container::SplBlock
-                    | Container::ListItem => self.next_ele(tail),
-                    Container::Section(beg) => {
-                        // planning should be the first line of section
-                        if self.off == beg {
-                            if let Some((planning, off)) = Planning::parse(tail) {
-                                self.off += off;
-                                Event::Planning(planning)
-                            } else {
-                                self.next_ele(tail)
-                            }
+                }
+                Container::Drawer
+                | Container::DynBlock
+                | Container::CtrBlock
+                | Container::QteBlock
+                | Container::SplBlock
+                | Container::ListItem => {
+                    if self.off >= limit {
+                        self.off = end;
+                        self.end()
+                    } else {
+                        self.next_ele(tail)
+                    }
+                }
+                Container::Section(beg) => {
+                    // planning should be the first line of section
+                    if self.off >= limit {
+                        self.off = end;
+                        self.stack.pop();
+                        Event::SectionEnd
+                    } else if self.off == beg {
+                        if let Some((planning, off)) = Planning::parse(tail) {
+                            self.off += off;
+                            Event::Planning(planning)
                         } else {
                             self.next_ele(tail)
                         }
+                    } else {
+                        self.next_ele(tail)
                     }
-                    Container::List(ident, _) => {
-                        if self.list_more_item {
-                            self.next_list_item(ident, tail)
-                        } else {
-                            self.end()
-                        }
+                }
+                Container::List(ident, ordered) => {
+                    if let Some(bullet) = self.next_item.pop().unwrap() {
+                        self.off += bullet.len() + ident;
+                        let (limit, end, next) = list::parse(&self.text[self.off..limit], ident);
+                        self.push_stack(Container::ListItem, limit, end);
+                        self.next_item.push(next);
+                        Event::ListItemBeg { bullet }
+                    } else {
+                        self.off = end;
+                        self.stack.pop();
+                        Event::ListEnd { ordered }
                     }
-                    Container::Paragraph
-                    | Container::Bold
-                    | Container::Underline
-                    | Container::Italic
-                    | Container::Strike => self.next_obj(tail),
+                }
+                Container::Paragraph
+                | Container::Bold
+                | Container::Underline
+                | Container::Italic
+                | Container::Strike => {
+                    if self.off >= limit {
+                        self.off = end;
+                        self.end()
+                    } else {
+                        self.next_obj(tail)
+                    }
                 }
             })
         } else if self.off < self.text.len() {

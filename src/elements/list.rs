@@ -1,8 +1,7 @@
-use crate::lines::Lines;
-use memchr::memchr;
+use memchr::memchr_iter;
 
 #[inline]
-pub fn is_item(text: &str) -> Option<bool> {
+pub fn is_item(text: &str) -> Option<(bool, &str)> {
     if text.is_empty() {
         return None;
     }
@@ -11,7 +10,7 @@ pub fn is_item(text: &str) -> Option<bool> {
     match bytes[0] {
         b'*' | b'-' | b'+' => {
             if text.len() > 1 && (bytes[1] == b' ' || bytes[1] == b'\n') {
-                Some(false)
+                Some((false, &text[0..2]))
             } else {
                 None
             }
@@ -25,7 +24,7 @@ pub fn is_item(text: &str) -> Option<bool> {
                 && i + 1 < text.len()
                 && (bytes[i + 1] == b' ' || bytes[i + 1] == b'\n')
             {
-                Some(true)
+                Some((true, &text[0..i + 2]))
             } else {
                 None
             }
@@ -34,84 +33,72 @@ pub fn is_item(text: &str) -> Option<bool> {
     }
 }
 
-// return (bullets, offset, limit, end, has more)
+// check if list item ends at this line
 #[inline]
-pub fn parse(src: &str, ident: usize) -> (&str, usize, usize, usize, bool) {
-    debug_assert!(
-        is_item(&src[ident..]).is_some(),
-        "{:?} is not a list item",
-        src
-    );
-    debug_assert!(
-        src[..ident].chars().all(|c| c == ' ' || c == '\t'),
-        "{:?} doesn't starts with indentation {}",
-        src,
-        ident
-    );
+fn is_item_ends(line: &str, ident: usize) -> Option<&str> {
+    debug_assert!(!line.is_empty());
 
-    let mut lines = Lines::new(src);
-    let (mut pre_limit, mut pre_end, first_line) = lines.next().unwrap();
-    let begin = match memchr(b' ', &first_line.as_bytes()[ident..]) {
-        Some(i) => i + ident + 1,
-        None => {
-            let len = first_line.len();
-            return (
-                first_line,
-                len,
-                len,
-                len,
-                is_item(lines.next().unwrap().2).is_some(),
-            );
-        }
-    };
-    let bullet = &src[0..begin];
-
-    while let Some((mut limit, mut end, mut line)) = lines.next() {
-        // this line is emtpy
-        if line.is_empty() {
-            if let Some((next_limit, next_end, next_line)) = lines.next() {
-                // next line is emtpy, too
-                if next_line.is_empty() {
-                    return (bullet, begin, pre_limit, next_end, false);
-                } else {
-                    // move to next line
-                    pre_end = end;
-                    limit = next_limit;
-                    end = next_end;
-                    line = next_line;
-                }
-            } else {
-                return (bullet, begin, pre_limit, end, false);
-            }
-        }
-
-        let line_ident = count_ident(line);
-
-        if line_ident < ident {
-            return (bullet, begin, pre_limit, pre_end, false);
-        } else if line_ident == ident {
-            return (
-                bullet,
-                begin,
-                pre_limit,
-                pre_end,
-                is_item(&line[ident..]).is_some(),
-            );
-        }
-
-        pre_end = end;
-        pre_limit = limit;
-    }
-
-    (bullet, begin, src.len(), src.len(), false)
-}
-
-#[inline]
-fn count_ident(src: &str) -> usize {
-    src.as_bytes()
+    let line_ident = line
+        .as_bytes()
         .iter()
         .position(|&c| c != b' ' && c != b'\t')
-        .unwrap_or(0)
+        .unwrap_or(0);
+
+    debug_assert!(line_ident >= ident, "{} >= {}", line_ident, ident);
+
+    if line_ident == ident {
+        is_item(&line[ident..]).map(|(_, bullet)| bullet)
+    } else {
+        None
+    }
+}
+
+// return (limit, end, next item bullet)
+#[inline]
+pub fn parse(text: &str, ident: usize) -> (usize, usize, Option<&str>) {
+    let bytes = text.as_bytes();
+    let mut lines = memchr_iter(b'\n', bytes);
+    let mut pos = if let Some(i) = lines.next() {
+        i + 1
+    } else {
+        return (text.len(), text.len(), None);
+    };
+
+    while let Some(i) = lines.next() {
+        return if bytes[pos..i].iter().all(u8::is_ascii_whitespace) {
+            if let Some(nexti) = lines.next() {
+                if bytes[i + 1..nexti].iter().all(u8::is_ascii_whitespace) {
+                    // two consecutive empty lines
+                    (pos - 1, nexti + 1, None)
+                } else if let Some(next) = is_item_ends(&text[i + 1..nexti], ident) {
+                    (pos - 1, i + 1, Some(next))
+                } else {
+                    pos = nexti + 1;
+                    continue;
+                }
+            } else if bytes[i + 1..].iter().all(u8::is_ascii_whitespace) {
+                // two consecutive empty lines
+                (pos - 1, text.len(), None)
+            } else if let Some(next) = is_item_ends(&text[i + 1..], ident) {
+                (pos - 1, i + 1, Some(next))
+            } else {
+                (text.len(), text.len(), None)
+            }
+        } else if let Some(next) = is_item_ends(&text[pos..i], ident) {
+            (pos - 1, pos, Some(next))
+        } else {
+            pos = i + 1;
+            continue;
+        };
+    }
+
+    if bytes[pos..].iter().all(u8::is_ascii_whitespace) {
+        (pos - 1, text.len(), None)
+    } else if let Some(next) = is_item_ends(&text[pos..], ident) {
+        (pos - 1, pos, Some(next))
+    } else {
+        (text.len(), text.len(), None)
+    }
 }
 
 #[cfg(test)]
@@ -120,14 +107,14 @@ mod tests {
     fn is_item() {
         use super::is_item;
 
-        assert_eq!(is_item("+ item"), Some(false));
-        assert_eq!(is_item("- item"), Some(false));
-        assert_eq!(is_item("10. item"), Some(true));
-        assert_eq!(is_item("10) item"), Some(true));
-        assert_eq!(is_item("1. item"), Some(true));
-        assert_eq!(is_item("1) item"), Some(true));
-        assert_eq!(is_item("10. "), Some(true));
-        assert_eq!(is_item("10.\n"), Some(true));
+        assert_eq!(is_item("+ item"), Some((false, "+ ")));
+        assert_eq!(is_item("- item"), Some((false, "- ")));
+        assert_eq!(is_item("10. item"), Some((true, "10. ")));
+        assert_eq!(is_item("10) item"), Some((true, "10) ")));
+        assert_eq!(is_item("1. item"), Some((true, "1. ")));
+        assert_eq!(is_item("1) item"), Some((true, "1) ")));
+        assert_eq!(is_item("10. "), Some((true, "10. ")));
+        assert_eq!(is_item("10.\n"), Some((true, "10.\n")));
         assert_eq!(is_item("10."), None);
         assert_eq!(is_item("+"), None);
         assert_eq!(is_item("-item"), None);
@@ -138,30 +125,49 @@ mod tests {
     fn parse() {
         use super::parse;
 
-        assert_eq!(parse("+ item1\n+ item2\n+ item3", 0), ("+ ", 2, 7, 8, true));
         assert_eq!(
-            parse("* item1\n\n* item2\n* item3", 0),
-            ("* ", 2, 7, 9, true)
+            parse("item1\n+ item2", 0),
+            ("item1".len(), "item1\n".len(), Some("+ "))
         );
         assert_eq!(
-            parse("- item1\n\n\n- item2\n- item3", 0),
-            ("- ", 2, 7, 10, false)
+            parse("item1\n  \n* item2", 0),
+            ("item1".len(), "item1\n  \n".len(), Some("* "))
         );
         assert_eq!(
-            parse("1. item1\n\n\n\n2. item2\n3. item3", 0),
-            ("1. ", 3, 8, 11, false)
+            parse("item1\n  \n   \n* item2", 0),
+            ("item1".len(), "item1\n  \n   \n".len(), None)
         );
         assert_eq!(
-            parse("  + item1\n    + item2\n+ item3", 2),
-            ("  + ", 4, 21, 22, false)
+            parse("item1\n  \n   ", 0),
+            ("item1".len(), "item1\n  \n   ".len(), None)
         );
         assert_eq!(
-            parse("  + item1\n  + item2\n  + item3", 2),
-            ("  + ", 4, 9, 10, true)
+            parse("item1\n  + item2\n   ", 0),
+            (
+                "item1\n  + item2".len(),
+                "item1\n  + item2\n   ".len(),
+                None
+            )
         );
-        assert_eq!(parse("+\n", 0), ("+", 1, 1, 1, false));
-        assert_eq!(parse("+\n+ item2\n+ item3", 0), ("+", 1, 1, 1, true));
-        assert_eq!(parse("1) item1", 0), ("1) ", 3, 8, 8, false));
-        assert_eq!(parse("1) item1\n", 0), ("1) ", 3, 8, 9, false));
+        assert_eq!(
+            parse("item1\n  \n  + item2\n   \n+ item 3", 0),
+            (
+                "item1\n  \n  + item2".len(),
+                "item1\n  \n  + item2\n   \n".len(),
+                Some("+ ")
+            )
+        );
+        assert_eq!(
+            parse("item1\n  \n  + item2", 2),
+            ("item1".len(), "item1\n  \n".len(), Some("+ "))
+        );
+        assert_eq!(
+            parse("1\n\n  - 2\n\n  - 3\n\n+ 4", 0),
+            (
+                "1\n\n  - 2\n\n  - 3".len(),
+                "1\n\n  - 2\n\n  - 3\n\n".len(),
+                Some("+ ")
+            )
+        );
     }
 }
