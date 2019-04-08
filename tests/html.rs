@@ -32,3 +32,25 @@ _Section 2_
         )
     )
 }
+
+#[test]
+fn list() {
+    parse_assert!(
+        r#"+ 1
+
++ 2
+
+  - 3
+
+  - 4
+
++ 5"#,
+        concat!(
+            "<section><ul>",
+            "<li><p>1</p></li>",
+            "<li><p>2</p><ul><li><p>3</p></li><li><p>4</p></li></ul></li>",
+            "<li><p>5</p></li>",
+            "</ul></section>"
+        )
+    )
+}
