@@ -33,9 +33,9 @@ impl<'a> Headline<'a> {
                 (
                     i + 1,
                     if i + 1 == text.len() {
-                        Headline::find_level(&text[i + 1..], level) + i + 1
-                    } else {
                         i + 1
+                    } else {
+                        Headline::find_level(&text[i + 1..], level) + i + 1
                     },
                 )
             })
