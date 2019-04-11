@@ -485,10 +485,10 @@ impl<'a> Parser<'a> {
                     target::parse(text).map(|(target, off)| (Event::Target { target }, off, 0, 0))
                 }
             }
-            b'<' => timestamp::parse_active(text)
+            b'<' => Timestamp::parse_active(text)
                 .map(|(timestamp, off)| (Event::Timestamp(timestamp), off, 0, 0))
                 .or_else(|| {
-                    timestamp::parse_diary(text)
+                    Timestamp::parse_diary(text)
                         .map(|(timestamp, off)| (Event::Timestamp(timestamp), off, 0, 0))
                 }),
             b'[' => {
@@ -502,7 +502,7 @@ impl<'a> Parser<'a> {
                     cookie::parse(text)
                         .map(|(cookie, off)| (Event::Cookie(cookie), off, 0, 0))
                         .or_else(|| {
-                            timestamp::parse_inactive(text)
+                            Timestamp::parse_inactive(text)
                                 .map(|(timestamp, off)| (Event::Timestamp(timestamp), off, 0, 0))
                         })
                 }
@@ -601,7 +601,6 @@ impl<'a> Iterator for Parser<'a> {
 
             Some(match container {
                 Container::Headline(beg) => {
-                    debug_assert!(self.off >= beg);
                     if self.off >= limit {
                         self.off = end;
                         self.stack.pop();
@@ -645,7 +644,7 @@ impl<'a> Iterator for Parser<'a> {
                 Container::List(ident, ordered) => {
                     if let Some(bullet) = self.next_item.pop().unwrap() {
                         self.off += bullet.len() + ident;
-                        let (limit, end, next) = list::parse(&self.text[self.off..limit], ident);
+                        let (limit, end, next) = list::parse(tail, ident);
                         self.push_stack(Container::ListItem, limit, end);
                         self.next_item.push(next);
                         Event::ListItemBeg { bullet }

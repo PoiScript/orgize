@@ -1,4 +1,4 @@
-use crate::objects::timestamp::{self, Datetime, Delay, Repeater, Timestamp};
+use crate::objects::timestamp::{Datetime, Delay, Repeater, Timestamp};
 use memchr::memchr;
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -32,7 +32,7 @@ impl<'a> Clock<'a> {
             return None;
         }
 
-        match timestamp::parse_inactive(tail).map(|(t, off)| (t, tail[off..].trim_start())) {
+        match Timestamp::parse_inactive(tail).map(|(t, off)| (t, tail[off..].trim_start())) {
             Some((
                 Timestamp::InactiveRange {
                     start,

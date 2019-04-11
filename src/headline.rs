@@ -1,5 +1,6 @@
 //! Headline
 
+use jetscii::ByteSubstring;
 use memchr::{memchr, memchr2, memrchr};
 
 pub(crate) const DEFAULT_KEYWORDS: &[&str] =
@@ -28,7 +29,16 @@ impl<'a> Headline<'a> {
         debug_assert!(text.as_bytes()[0..level].iter().all(|&c| c == b'*'));
 
         let (off, end) = memchr(b'\n', text.as_bytes())
-            .map(|i| (i + 1, Headline::find_level(&text[i + 1..], level) + i + 1))
+            .map(|i| {
+                (
+                    i + 1,
+                    if i + 1 == text.len() {
+                        Headline::find_level(&text[i + 1..], level) + i + 1
+                    } else {
+                        i + 1
+                    },
+                )
+            })
             .unwrap_or_else(|| (text.len(), text.len()));
 
         if level == off {
@@ -98,8 +108,6 @@ impl<'a> Headline<'a> {
     }
 
     pub(crate) fn find_level(text: &str, level: usize) -> usize {
-        use jetscii::ByteSubstring;
-
         let bytes = text.as_bytes();
         if bytes[0] == b'*' {
             if let Some(stars) = memchr2(b'\n', b' ', bytes) {
