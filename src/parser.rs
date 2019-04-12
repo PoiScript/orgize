@@ -580,13 +580,10 @@ impl<'a> Iterator for Parser<'a> {
 
     fn next(&mut self) -> Option<Event<'a>> {
         if let Some(&(container, limit, end)) = self.stack.last() {
-            // eprintln!(
-            //     "{:width$} {:?} {:?}",
-            //     ' ',
-            //     container,
-            //     &self.text[self.off..limit],
-            //     width = self.stack_depth(),
-            // );
+            let tail = &self.text[self.off..limit];
+
+            // eprint!("{:1$}", ' ', self.stack_depth());
+            // eprintln!("{:?} {:?} {:?}", container, tail, self.next_item);
 
             debug_assert!(
                 self.off <= limit && limit <= end && end <= self.text.len(),
@@ -596,8 +593,6 @@ impl<'a> Iterator for Parser<'a> {
                 end,
                 self.text.len()
             );
-
-            let tail = &self.text[self.off..limit];
 
             Some(match container {
                 Container::Headline(beg) => {
@@ -643,8 +638,9 @@ impl<'a> Iterator for Parser<'a> {
                 }
                 Container::List(ident, ordered) => {
                     if let Some(bullet) = self.next_item.pop().unwrap() {
-                        self.off += bullet.len() + ident;
-                        let (limit, end, next) = list::parse(tail, ident);
+                        let off = bullet.len() + ident;
+                        self.off += off;
+                        let (limit, end, next) = list::parse(&tail[off..], ident);
                         self.push_stack(Container::ListItem, limit, end);
                         self.next_item.push(next);
                         Event::ListItemBeg { bullet }
