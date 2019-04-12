@@ -185,6 +185,19 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// creates a new parser from string, with the specified keywords
+    pub fn with_keywrods(text: &'a str, keywords: &'a [&'a str]) -> Parser<'a> {
+        Parser {
+            text,
+            stack: Vec::new(),
+            next_item: Vec::new(),
+            off: 0,
+            ele_buf: None,
+            obj_buf: None,
+            keywords,
+        }
+    }
+
     /// returns current offset
     pub fn offset(&self) -> usize {
         self.off
@@ -195,10 +208,12 @@ impl<'a> Parser<'a> {
         self.stack.len()
     }
 
+    /// set keywords
     pub fn set_keywords(&mut self, keywords: &'a [&'a str]) {
         self.keywords = keywords;
     }
 
+    /// set text
     pub fn set_text(&mut self, text: &'a str) {
         self.off = 0;
         self.stack.clear();

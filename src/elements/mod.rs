@@ -1,3 +1,6 @@
+/// elements
+///
+/// elements means some syntactical parts that have the same level with paragraph.
 pub(crate) mod block;
 pub(crate) mod clock;
 pub(crate) mod drawer;

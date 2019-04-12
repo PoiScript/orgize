@@ -6,7 +6,7 @@ pub fn parse(text: &str) -> Option<(&str, usize)> {
 
     let bytes = text.as_bytes();
 
-    let (target, off) = Substring::new(">>")
+    Substring::new(">>")
         .find(text)
         .filter(|&i| {
             bytes[2] != b' '
@@ -15,9 +15,7 @@ pub fn parse(text: &str) -> Option<(&str, usize)> {
                     .iter()
                     .all(|&c| c != b'<' && c != b'\n' && c != b'>')
         })
-        .map(|i| (&text[2..i], i + 2 /* >> */))?;
-
-    Some((target, off))
+        .map(|i| (&text[2..i], i + 2 /* >> */))
 }
 
 #[cfg(test)]

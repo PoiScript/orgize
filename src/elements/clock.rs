@@ -1,18 +1,23 @@
 use crate::objects::timestamp::{Datetime, Delay, Repeater, Timestamp};
 use memchr::memchr;
 
+/// clock elements
+///
+/// there are two types of clock: *closed* clock and *running* clock.
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub enum Clock<'a> {
+    /// closed Clock
     Closed {
-        start: Datetime,
-        end: Datetime,
+        start: Datetime<'a>,
+        end: Datetime<'a>,
         repeater: Option<Repeater>,
         delay: Option<Delay>,
         duration: &'a str,
     },
+    /// running Clock
     Running {
-        start: Datetime,
+        start: Datetime<'a>,
         repeater: Option<Repeater>,
         delay: Option<Delay>,
     },
@@ -88,6 +93,7 @@ impl<'a> Clock<'a> {
         None
     }
 
+    /// returns `true` if the clock is running
     pub fn is_running(&self) -> bool {
         match self {
             Clock::Closed { .. } => false,
@@ -95,6 +101,7 @@ impl<'a> Clock<'a> {
         }
     }
 
+    /// returns `true` if the clock is closed
     pub fn is_closed(&self) -> bool {
         match self {
             Clock::Closed { .. } => true,
@@ -102,6 +109,7 @@ impl<'a> Clock<'a> {
         }
     }
 
+    /// returns `Some` if the clock is closed, `None` if running
     pub fn duration(&self) -> Option<&'a str> {
         match self {
             Clock::Closed { duration, .. } => Some(duration),
@@ -109,6 +117,7 @@ impl<'a> Clock<'a> {
         }
     }
 
+    /// constructs a new timestamp object from the clock
     pub fn value(&self) -> Timestamp<'_> {
         match *self {
             Clock::Closed {
@@ -150,7 +159,8 @@ mod tests {
                 Clock::Running {
                     start: Datetime {
                         date: (2003, 9, 16),
-                        time: Some((9, 39))
+                        time: Some((9, 39)),
+                        dayname: "Tue"
                     },
                     repeater: None,
                     delay: None,
@@ -164,11 +174,13 @@ mod tests {
                 Clock::Closed {
                     start: Datetime {
                         date: (2003, 9, 16),
-                        time: Some((9, 39))
+                        time: Some((9, 39)),
+                        dayname: "Tue"
                     },
                     end: Datetime {
                         date: (2003, 9, 16),
-                        time: Some((10, 39))
+                        time: Some((10, 39)),
+                        dayname: "Tue"
                     },
                     repeater: None,
                     delay: None,

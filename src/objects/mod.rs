@@ -1,3 +1,6 @@
+/// objects
+///
+/// objects is something that included in an element.
 pub(crate) mod cookie;
 pub(crate) mod emphasis;
 pub(crate) mod fn_ref;

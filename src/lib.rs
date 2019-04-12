@@ -90,6 +90,7 @@
 //! let result = String::from_utf8(cursor.into_inner()).expect("invalid utf-8");
 //! ```
 
+#[warn(missing_docs)]
 pub mod elements;
 pub mod export;
 pub mod headline;

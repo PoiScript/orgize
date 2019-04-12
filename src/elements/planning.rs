@@ -1,11 +1,15 @@
 use crate::objects::timestamp::Timestamp;
 use memchr::memchr;
 
+/// palnning elements
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Planning<'a> {
+    /// the date when the task should be done
     pub deadline: Option<Timestamp<'a>>,
+    /// the date when you should start working on the task
     pub scheduled: Option<Timestamp<'a>>,
+    /// the date when the task is closed
     pub closed: Option<Timestamp<'a>>,
 }
 
@@ -22,18 +26,9 @@ impl<'a> Planning<'a> {
             macro_rules! set_timestamp {
                 ($timestamp:expr) => {
                     if $timestamp.is_none() {
-                        if next.starts_with('<') {
-                            let (timestamp, off) = Timestamp::parse_active(next)
-                                .or_else(|| Timestamp::parse_diary(next))?;
-                            $timestamp = Some(timestamp);
-                            tail = &next[off..].trim_start();
-                        } else if next.starts_with('<') {
-                            let (timestamp, off) = Timestamp::parse_active(next)?;
-                            $timestamp = Some(timestamp);
-                            tail = &next[off..].trim_start();
-                        } else {
-                            return None;
-                        }
+                        let (timestamp, off) = Timestamp::parse(next)?;
+                        $timestamp = Some(timestamp);
+                        tail = &next[off..].trim_start();
                     } else {
                         return None;
                     }
@@ -77,7 +72,8 @@ mod tests {
                     scheduled: Some(Timestamp::Active {
                         start: Datetime {
                             date: (2019, 4, 8),
-                            time: None
+                            time: None,
+                            dayname: "Mon"
                         },
                         repeater: None,
                         delay: None

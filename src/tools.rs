@@ -7,9 +7,7 @@ type Keywords<'a> = Vec<(Key<'a>, &'a str)>;
 type Footnotes<'a> = Vec<&'a str>;
 
 pub fn metadata(src: &str) -> (Headlines<'_>, Keywords<'_>, Footnotes<'_>) {
-    let mut headlines = Vec::new();
-    let mut keywords = Vec::new();
-    let mut footnotes = Vec::new();
+    let (mut headlines, mut keywords, mut footnotes) = (Vec::new(), Vec::new(), Vec::new());
 
     for line in src.lines().filter(|l| !l.is_empty()) {
         if line.starts_with('*') {
