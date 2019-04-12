@@ -6,18 +6,40 @@ use crate::{
     objects::{Cookie, Timestamp},
     parser::Parser,
 };
-use jetscii::ascii_chars;
+use jetscii::bytes;
 use std::{
     convert::From,
-    fmt,
     io::{Error, Write},
     marker::PhantomData,
 };
 
 pub trait HtmlHandler<W: Write, E: From<Error>> {
+    fn escape(&mut self, w: &mut W, text: &str) -> Result<(), E> {
+        let mut pos = 0;
+        let bytes = text.as_bytes();
+        while let Some(off) = bytes!(b'<', b'>', b'&', b'\'', b'"').find(&bytes[pos..]) {
+            w.write_all(&bytes[pos..pos + off])?;
+
+            pos += off + 1;
+
+            match text.as_bytes()[pos - 1] {
+                b'<' => w.write_all(b"&lt;")?,
+                b'>' => w.write_all(b"&gt;")?,
+                b'&' => w.write_all(b"&amp;")?,
+                b'\'' => w.write_all(b"&#39;")?,
+                b'"' => w.write_all(b"&quot;")?,
+                _ => unreachable!(),
+            }
+        }
+
+        Ok(w.write_all(&bytes[pos..])?)
+    }
     fn headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<(), E> {
         let level = if hdl.level <= 6 { hdl.level } else { 6 };
-        Ok(write!(w, "<h{0}>{1}</h{0}>", level, Escape(hdl.title))?)
+        write!(w, "<h{}>", level)?;
+        self.escape(w, hdl.title)?;
+        write!(w, "</h{}>", level)?;
+        Ok(())
     }
     fn headline_end(&mut self, w: &mut W) -> Result<(), E> {
         Ok(())
@@ -62,13 +84,19 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
         Ok(())
     }
     fn example_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<(), E> {
-        Ok(write!(w, "<pre><code>{}</code></pre>", Escape(cont))?)
+        write!(w, "<pre><code>")?;
+        self.escape(w, cont)?;
+        write!(w, "</pre></code>")?;
+        Ok(())
     }
     fn export_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<(), E> {
         Ok(())
     }
     fn src_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<(), E> {
-        Ok(write!(w, "<pre><code>{}</code></pre>", Escape(cont))?)
+        write!(w, "<pre><code>")?;
+        self.escape(w, cont)?;
+        write!(w, "</pre></code>")?;
+        Ok(())
     }
     fn verse_block(&mut self, w: &mut W, cont: &str, args: Option<&str>) -> Result<(), E> {
         Ok(())
@@ -111,9 +139,10 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     fn fixed_width(&mut self, w: &mut W, cont: &str) -> Result<(), E> {
         for line in cont.lines() {
             // remove leading colon
-            write!(w, "<pre>{}</pre>", Escape(&line[1..]))?;
+            write!(w, "<pre>")?;
+            self.escape(w, &line[1..])?;
+            write!(w, "</pre>")?;
         }
-
         Ok(())
     }
     fn table_start(&mut self, w: &mut W) -> Result<(), E> {
@@ -153,26 +182,19 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     ) -> Result<(), E> {
         Ok(())
     }
-    fn inline_src(
-        &mut self,
-        w: &mut W,
-        lang: &str,
-        option: Option<&str>,
-        body: &str,
-    ) -> Result<(), E> {
-        Ok(write!(w, "<code>{}</code>", Escape(body))?)
+    fn inline_src(&mut self, w: &mut W, _: &str, _: Option<&str>, body: &str) -> Result<(), E> {
+        write!(w, "<code>")?;
+        self.escape(w, body)?;
+        write!(w, "</code>")?;
+        Ok(())
     }
     fn link(&mut self, w: &mut W, path: &str, desc: Option<&str>) -> Result<(), E> {
-        if let Some(desc) = desc {
-            Ok(write!(
-                w,
-                r#"<a href="{}">{}</a>"#,
-                Escape(path),
-                Escape(desc)
-            )?)
-        } else {
-            Ok(write!(w, r#"<a href="{0}">{0}</a>"#, Escape(path))?)
-        }
+        write!(w, r#"<a href=""#)?;
+        self.escape(w, path)?;
+        write!(w, r#"">"#)?;
+        self.escape(w, desc.unwrap_or(path))?;
+        write!(w, "</a>")?;
+        Ok(())
     }
     fn macros(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<(), E> {
         Ok(())
@@ -218,13 +240,20 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
         Ok(write!(w, "</u>")?)
     }
     fn verbatim(&mut self, w: &mut W, cont: &str) -> Result<(), E> {
-        Ok(write!(w, "<code>{}</code>", Escape(cont))?)
+        write!(w, "<code>")?;
+        self.escape(w, cont)?;
+        write!(w, "</code>")?;
+        Ok(())
     }
     fn code(&mut self, w: &mut W, cont: &str) -> Result<(), E> {
-        Ok(write!(w, "<code>{}</code>", Escape(cont))?)
+        write!(w, "<code>")?;
+        self.escape(w, cont)?;
+        write!(w, "</code>")?;
+        Ok(())
     }
     fn text(&mut self, w: &mut W, cont: &str) -> Result<(), E> {
-        Ok(write!(w, "{}", Escape(cont))?)
+        self.escape(w, cont)?;
+        Ok(())
     }
     fn planning(&mut self, w: &mut W, planning: Planning) -> Result<(), E> {
         Ok(())
@@ -264,41 +293,5 @@ impl<'a, W: Write, E: From<Error>, H: HtmlHandler<W, E>> HtmlRender<'a, W, E, H>
         }
 
         Ok(())
-    }
-}
-
-pub struct Escape<'a>(pub &'a str);
-
-impl<'a> fmt::Display for Escape<'a> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        let mut pos = 0;
-        while let Some(off) = ascii_chars!('<', '>', '&', '\'', '"').find(&self.0[pos..]) {
-            fmt.write_str(&self.0[pos..pos + off])?;
-
-            pos += off + 1;
-
-            match &self.0.as_bytes()[pos - 1] {
-                b'"' => fmt.write_str("&quot;")?,
-                b'&' => fmt.write_str("&amp;")?,
-                b'<' => fmt.write_str("&lt;")?,
-                b'>' => fmt.write_str("&gt;")?,
-                b'\'' => fmt.write_str("&#39;")?,
-                b'\n' => fmt.write_str(" ")?,
-                _ => unreachable!(),
-            }
-        }
-
-        fmt.write_str(&self.0[pos..])
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn escape() {
-        assert_eq!(format!("{}", Escape("<<<<<<")), "&lt;&lt;&lt;&lt;&lt;&lt;");
-        assert_eq!(format!("{}", Escape(" <> <> ")), " &lt;&gt; &lt;&gt; ");
     }
 }
