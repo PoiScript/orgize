@@ -8,6 +8,39 @@ pub struct Datetime<'a> {
     pub dayname: &'a str,
 }
 
+#[cfg(feature = "chrono")]
+mod chrono {
+    use super::Datetime;
+    use chrono::*;
+
+    impl<'a> Datetime<'a> {
+        pub fn naive_date(&self) -> NaiveDate {
+            let (y, m, d) = self.date;
+            NaiveDate::from_ymd(y.into(), m.into(), d.into())
+        }
+
+        pub fn naive_time(&self) -> NaiveTime {
+            if let Some((h, m)) = self.time {
+                NaiveTime::from_hms(h.into(), m.into(), 0)
+            } else {
+                NaiveTime::from_hms(0, 0, 0)
+            }
+        }
+
+        pub fn naive_date_time(&self) -> NaiveDateTime {
+            NaiveDateTime::new(self.naive_date(), self.naive_time())
+        }
+
+        pub fn date_time<Tz: TimeZone>(&self, offset: Tz::Offset) -> DateTime<Tz> {
+            DateTime::from_utc(self.naive_date_time(), offset)
+        }
+
+        pub fn date<Tz: TimeZone>(&self, offset: Tz::Offset) -> Date<Tz> {
+            Date::from_utc(self.naive_date(), offset)
+        }
+    }
+}
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone, Copy)]
 pub enum RepeaterType {
