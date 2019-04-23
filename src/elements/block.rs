@@ -9,13 +9,12 @@ pub fn parse(text: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
         return None;
     }
 
-    let bytes = text.as_bytes();
     let mut lines = memchr_iter(b'\n', text.as_bytes());
 
     let (name, para, off) = lines
         .next()
         .map(|i| {
-            memchr(b' ', &bytes[8..i])
+            memchr(b' ', &text.as_bytes()[8..i])
                 .map(|x| (&text[8..8 + x], Some(text[8 + x..i].trim()), i + 1))
                 .unwrap_or((&text[8..i], None, i + 1))
         })

@@ -31,7 +31,7 @@ macro_rules! handle_event {
             ListItemEnd => $handler.list_end_item($writer)?,
             Call { value } => $handler.call($writer, value)?,
             Planning(p) => $handler.planning($writer, p)?,
-            Clock => $handler.clock($writer)?,
+            Clock(c) => $handler.clock($writer, c)?,
             Timestamp(t) => $handler.timestamp($writer, t)?,
             Comment(c) => $handler.comment($writer, c)?,
             FixedWidth(f) => $handler.fixed_width($writer, f)?,

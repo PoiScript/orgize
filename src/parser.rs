@@ -86,7 +86,7 @@ pub enum Event<'a> {
         value: &'a str,
     },
 
-    Clock,
+    Clock(Clock<'a>),
 
     Comment(&'a str),
     FixedWidth(&'a str),
@@ -333,6 +333,12 @@ impl<'a> Parser<'a> {
         if let Some((ordered, bullet)) = list::is_item(tail) {
             self.next_item.push(Some(bullet));
             return Some((Event::ListBeg { ordered }, 0, line_begin, text.len()));
+        }
+
+        if tail.starts_with("CLOCK:") {
+            if let Some((clock, off)) = Clock::parse(tail) {
+                return Some((Event::Clock(clock), off + line_begin, 0, 0));
+            }
         }
 
         // TODO: LaTeX environment

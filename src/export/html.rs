@@ -1,11 +1,6 @@
 #![allow(unused_variables)]
 
-use crate::{
-    elements::{Key, Planning},
-    headline::Headline,
-    objects::{Cookie, Timestamp},
-    parser::Parser,
-};
+use crate::{elements::*, headline::Headline, objects::*, Parser};
 use jetscii::bytes;
 use std::{
     convert::From,
@@ -130,7 +125,7 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     fn call(&mut self, w: &mut W, value: &str) -> Result<(), E> {
         Ok(())
     }
-    fn clock(&mut self, w: &mut W) -> Result<(), E> {
+    fn clock(&mut self, w: &mut W, clock: Clock<'_>) -> Result<(), E> {
         Ok(())
     }
     fn comment(&mut self, w: &mut W, cont: &str) -> Result<(), E> {
