@@ -32,7 +32,7 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     fn headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<(), E> {
         let level = if hdl.level <= 6 { hdl.level } else { 6 };
         write!(w, "<h{}>", level)?;
-        self.escape(w, hdl.title)?;
+        self.text(w, hdl.title)?;
         write!(w, "</h{}>", level)?;
         Ok(())
     }
@@ -155,7 +155,7 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     fn fn_def(&mut self, w: &mut W, label: &str, cont: &str) -> Result<(), E> {
         Ok(())
     }
-    fn keyword(&mut self, w: &mut W, key: Key<'_>, value: &str) -> Result<(), E> {
+    fn keyword(&mut self, w: &mut W, keyword: Keyword<'_>) -> Result<(), E> {
         Ok(())
     }
     fn rule(&mut self, w: &mut W) -> Result<(), E> {
@@ -164,42 +164,35 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     fn cookie(&mut self, w: &mut W, cookie: Cookie) -> Result<(), E> {
         Ok(())
     }
-    fn fn_ref(&mut self, w: &mut W, label: Option<&str>, def: Option<&str>) -> Result<(), E> {
+    fn fn_ref(&mut self, w: &mut W, fn_ref: FnRef<'_>) -> Result<(), E> {
         Ok(())
     }
-    fn inline_call(
-        &mut self,
-        w: &mut W,
-        name: &str,
-        args: &str,
-        inside_header: Option<&str>,
-        end_header: Option<&str>,
-    ) -> Result<(), E> {
+    fn inline_call(&mut self, w: &mut W, call: InlineCall<'_>) -> Result<(), E> {
         Ok(())
     }
-    fn inline_src(&mut self, w: &mut W, _: &str, _: Option<&str>, body: &str) -> Result<(), E> {
+    fn inline_src(&mut self, w: &mut W, src: InlineSrc<'_>) -> Result<(), E> {
         write!(w, "<code>")?;
-        self.escape(w, body)?;
+        self.text(w, src.body)?;
         write!(w, "</code>")?;
         Ok(())
     }
-    fn link(&mut self, w: &mut W, path: &str, desc: Option<&str>) -> Result<(), E> {
+    fn link(&mut self, w: &mut W, link: Link<'_>) -> Result<(), E> {
         write!(w, r#"<a href=""#)?;
-        self.escape(w, path)?;
+        self.text(w, link.path)?;
         write!(w, r#"">"#)?;
-        self.escape(w, desc.unwrap_or(path))?;
+        self.text(w, link.desc.unwrap_or(link.path))?;
         write!(w, "</a>")?;
         Ok(())
     }
-    fn macros(&mut self, w: &mut W, name: &str, args: Option<&str>) -> Result<(), E> {
+    fn macros(&mut self, w: &mut W, macros: Macros<'_>) -> Result<(), E> {
         Ok(())
     }
     fn radio_target(&mut self, w: &mut W, target: &str) -> Result<(), E> {
         Ok(())
     }
-    fn snippet(&mut self, w: &mut W, name: &str, value: &str) -> Result<(), E> {
-        if name.eq_ignore_ascii_case("HTML") {
-            Ok(write!(w, "{}", value)?)
+    fn snippet(&mut self, w: &mut W, snippet: Snippet<'_>) -> Result<(), E> {
+        if snippet.name.eq_ignore_ascii_case("HTML") {
+            Ok(write!(w, "{}", snippet.value)?)
         } else {
             Ok(())
         }
@@ -236,13 +229,13 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     }
     fn verbatim(&mut self, w: &mut W, cont: &str) -> Result<(), E> {
         write!(w, "<code>")?;
-        self.escape(w, cont)?;
+        self.text(w, cont)?;
         write!(w, "</code>")?;
         Ok(())
     }
     fn code(&mut self, w: &mut W, cont: &str) -> Result<(), E> {
         write!(w, "<code>")?;
-        self.escape(w, cont)?;
+        self.text(w, cont)?;
         write!(w, "</code>")?;
         Ok(())
     }

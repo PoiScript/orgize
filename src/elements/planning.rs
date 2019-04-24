@@ -1,4 +1,4 @@
-use crate::objects::timestamp::Timestamp;
+use crate::objects::Timestamp;
 use memchr::memchr;
 
 /// palnning elements
@@ -58,31 +58,27 @@ impl<'a> Planning<'a> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn prase() {
-        use super::Planning;
-        use crate::objects::timestamp::{Datetime, Timestamp};
+#[test]
+fn prase() {
+    use crate::objects::Datetime;
 
-        assert_eq!(
-            Planning::parse("SCHEDULED: <2019-04-08 Mon>\n"),
-            Some((
-                Planning {
-                    scheduled: Some(Timestamp::Active {
-                        start: Datetime {
-                            date: (2019, 4, 8),
-                            time: None,
-                            dayname: "Mon"
-                        },
-                        repeater: None,
-                        delay: None
-                    }),
-                    closed: None,
-                    deadline: None,
-                },
-                "SCHEDULED: <2019-04-08 Mon>\n".len()
-            ))
-        )
-    }
+    assert_eq!(
+        Planning::parse("SCHEDULED: <2019-04-08 Mon>\n"),
+        Some((
+            Planning {
+                scheduled: Some(Timestamp::Active {
+                    start: Datetime {
+                        date: "2019-04-08",
+                        time: None,
+                        dayname: "Mon"
+                    },
+                    repeater: None,
+                    delay: None
+                }),
+                closed: None,
+                deadline: None,
+            },
+            "SCHEDULED: <2019-04-08 Mon>\n".len()
+        ))
+    )
 }

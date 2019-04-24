@@ -1,9 +1,9 @@
-use crate::elements::{fn_def, keyword, Key};
+use crate::elements::{fn_def, Keyword};
 use crate::headline::{Headline, DEFAULT_KEYWORDS};
 use memchr::memchr;
 
 type Headlines<'a> = Vec<Headline<'a>>;
-type Keywords<'a> = Vec<(Key<'a>, &'a str)>;
+type Keywords<'a> = Vec<(&'a str, &'a str)>;
 type Footnotes<'a> = Vec<&'a str>;
 
 pub fn metadata(src: &str) -> (Headlines<'_>, Keywords<'_>, Footnotes<'_>) {
@@ -16,7 +16,7 @@ pub fn metadata(src: &str) -> (Headlines<'_>, Keywords<'_>, Footnotes<'_>) {
                 headlines.push(Headline::parse(line, DEFAULT_KEYWORDS).0)
             }
         } else if line.starts_with("#+") {
-            if let Some((key, value, _)) = keyword::parse(line) {
+            if let Some((key, _, value, _)) = Keyword::parse(line) {
                 keywords.push((key, value))
             }
         } else if line.starts_with("[fn:") {

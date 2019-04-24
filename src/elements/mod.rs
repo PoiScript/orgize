@@ -12,5 +12,5 @@ pub(crate) mod planning;
 pub(crate) mod rule;
 
 pub use self::clock::Clock;
-pub use self::keyword::Key;
+pub use self::keyword::{Key, Keyword};
 pub use self::planning::Planning;

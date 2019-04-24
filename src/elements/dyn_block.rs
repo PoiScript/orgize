@@ -5,7 +5,7 @@ use memchr::{memchr, memchr_iter};
 pub fn parse(text: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
     debug_assert!(text.starts_with("#+"));
 
-    if text.len() <= 9 || !text[2..9].eq_ignore_ascii_case("BEGIN: ") {
+    if text.len() <= "#+BEGIN: ".len() || !text[2..9].eq_ignore_ascii_case("BEGIN: ") {
         return None;
     }
 
@@ -15,9 +15,15 @@ pub fn parse(text: &str) -> Option<(&str, Option<&str>, usize, usize, usize)> {
     let (name, para, off) = lines
         .next()
         .map(|i| {
-            memchr(b' ', &bytes[9..i])
-                .map(|x| (&text[9..9 + x], Some(text[9 + x..i].trim()), i + 1))
-                .unwrap_or((&text[9..i], None, i + 1))
+            memchr(b' ', &bytes["#+BEGIN: ".len()..i])
+                .map(|x| {
+                    (
+                        &text["#+BEGIN: ".len().."#+BEGIN: ".len() + x],
+                        Some(text["#+BEGIN: ".len() + x..i].trim()),
+                        i + 1,
+                    )
+                })
+                .unwrap_or((&text["#+BEGIN: ".len()..i], None, i + 1))
         })
         .filter(|(name, _, _)| name.as_bytes().iter().all(|&c| c.is_ascii_alphabetic()))?;
 

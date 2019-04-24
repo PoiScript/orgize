@@ -15,7 +15,7 @@ pub fn parse(text: &str) -> Option<(&str, usize)> {
                     .iter()
                     .all(|&c| c != b'<' && c != b'\n' && c != b'>')
         })
-        .map(|i| (&text[2..i], i + 2 /* >> */))
+        .map(|i| (&text[2..i], i + ">>".len()))
 }
 
 #[cfg(test)]

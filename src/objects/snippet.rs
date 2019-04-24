@@ -1,48 +1,68 @@
 use jetscii::Substring;
 use memchr::memchr;
 
-/// returns (snippet name, snippet value, offset)
-#[inline]
-pub fn parse(text: &str) -> Option<(&str, &str, usize)> {
-    debug_assert!(text.starts_with("@@"));
-
-    let (name, off) = memchr(b':', text.as_bytes())
-        .filter(|&i| {
-            i != 2
-                && text.as_bytes()[2..i]
-                    .iter()
-                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-')
-        })
-        .map(|i| (&text[2..i], i + 1))?;
-
-    let (value, off) = Substring::new("@@")
-        .find(&text[off..])
-        .map(|i| (&text[off..off + i], off + i + 2 /* @@ */))?;
-
-    Some((name, value, off))
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
+pub struct Snippet<'a> {
+    pub name: &'a str,
+    pub value: &'a str,
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn parse() {
-        use super::parse;
+impl<'a> Snippet<'a> {
+    #[inline]
+    pub(crate) fn parse(text: &str) -> Option<(Snippet<'_>, usize)> {
+        debug_assert!(text.starts_with("@@"));
 
-        assert_eq!(
-            parse("@@html:<b>@@"),
-            Some(("html", "<b>", "@@html:<b>@@".len()))
-        );
-        assert_eq!(
-            parse("@@latex:any arbitrary LaTeX code@@"),
-            Some((
-                "latex",
-                "any arbitrary LaTeX code",
-                "@@latex:any arbitrary LaTeX code@@".len()
-            ))
-        );
-        assert_eq!(parse("@@html:@@"), Some(("html", "", "@@html:@@".len())));
-        assert_eq!(parse("@@html:<b>@"), None);
-        assert_eq!(parse("@@html<b>@@"), None);
-        assert_eq!(parse("@@:<b>@@"), None);
+        let (name, off) = memchr(b':', text.as_bytes())
+            .filter(|&i| {
+                i != 2
+                    && text.as_bytes()[2..i]
+                        .iter()
+                        .all(|&c| c.is_ascii_alphanumeric() || c == b'-')
+            })
+            .map(|i| (&text[2..i], i + 1))?;
+
+        let (value, off) = Substring::new("@@")
+            .find(&text[off..])
+            .map(|i| (&text[off..off + i], off + i + "@@".len()))?;
+
+        Some((Snippet { name, value }, off))
     }
+}
+
+#[test]
+fn parse() {
+    assert_eq!(
+        Snippet::parse("@@html:<b>@@"),
+        Some((
+            Snippet {
+                name: "html",
+                value: "<b>"
+            },
+            "@@html:<b>@@".len()
+        ))
+    );
+    assert_eq!(
+        Snippet::parse("@@latex:any arbitrary LaTeX code@@"),
+        Some((
+            Snippet {
+                name: "latex",
+                value: "any arbitrary LaTeX code",
+            },
+            "@@latex:any arbitrary LaTeX code@@".len()
+        ))
+    );
+    assert_eq!(
+        Snippet::parse("@@html:@@"),
+        Some((
+            Snippet {
+                name: "html",
+                value: "",
+            },
+            "@@html:@@".len()
+        ))
+    );
+    assert_eq!(Snippet::parse("@@html:<b>@"), None);
+    assert_eq!(Snippet::parse("@@html<b>@@"), None);
+    assert_eq!(Snippet::parse("@@:<b>@@"), None);
 }

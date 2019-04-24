@@ -1,11 +1,11 @@
 #[inline]
-pub fn parse(src: &str) -> usize {
-    let end = memchr::memchr(b'\n', src.as_bytes())
-        .map(|i| i + 1)
-        .unwrap_or_else(|| src.len());
-    let rules = &src[0..end].trim();
-    if rules.len() >= 5 && rules.chars().all(|c| c == '-') {
-        end
+pub fn parse(text: &str) -> usize {
+    let (text, off) = memchr::memchr(b'\n', text.as_bytes())
+        .map(|i| (text[..i].trim(), i + 1))
+        .unwrap_or_else(|| (text.trim(), text.len()));
+
+    if text.len() >= 5 && text.as_bytes().iter().all(|&c| c == b'-') {
+        off
     } else {
         0
     }

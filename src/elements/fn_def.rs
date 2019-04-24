@@ -7,11 +7,11 @@ pub fn parse(text: &str) -> Option<(&str, &str, usize)> {
     let (label, off) = memchr(b']', text.as_bytes())
         .filter(|&i| {
             i != 4
-                && text.as_bytes()[4..i]
+                && text.as_bytes()["[fn:".len()..i]
                     .iter()
                     .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
         })
-        .map(|i| (&text[4..i], i + 1))?;
+        .map(|i| (&text["[fn:".len()..i], i + 1))?;
 
     let (content, off) = memchr(b'\n', text.as_bytes())
         .map(|i| (&text[off..i], i))

@@ -17,112 +17,124 @@ pub enum Key<'a> {
     Date,
     Title,
     Custom(&'a str),
-
-    // Babel Call
-    Call,
 }
 
-pub fn parse(text: &str) -> Option<(Key<'_>, &str, usize)> {
-    debug_assert!(text.starts_with("#+"));
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
+pub struct Keyword<'a> {
+    pub key: Key<'a>,
+    pub value: &'a str,
+}
 
-    let bytes = text.as_bytes();
-
-    let (key, off) = memchr2(b':', b'[', bytes)
-        .filter(|&i| {
-            bytes[2..i]
-                .iter()
-                .all(|&c| c.is_ascii_alphabetic() || c == b'_')
-        })
-        .map(|i| (&text[2..i], i + 1))?;
-
-    let (option, off) = if bytes[off - 1] == b'[' {
-        memchr(b']', bytes)
-            .filter(|&i| {
-                bytes[off..i].iter().all(|&c| c != b'\n') && i < text.len() && bytes[i + 1] == b':'
-            })
-            .map(|i| (Some(&text[off..i]), i + 2 /* ]: */))?
-    } else {
-        (None, off)
-    };
-
-    let (value, off) = memchr(b'\n', bytes)
-        .map(|i| (&text[off..i], i + 1))
-        .unwrap_or_else(|| (&text[off..], text.len()));
-
-    Some((
-        match &*key.to_uppercase() {
-            "AUTHOR" => Key::Author,
-            "CALL" => Key::Call,
-            "DATE" => Key::Date,
-            "HEADER" => Key::Header,
-            "NAME" => Key::Name,
-            "PLOT" => Key::Plot,
-            "TITLE" => Key::Title,
-            "RESULTS" => Key::Results { option },
-            "CAPTION" => Key::Caption { option },
-            k if k.starts_with("ATTR_") => Key::Attr {
-                backend: &key["ATTR_".len()..],
+impl<'a> Keyword<'a> {
+    #[inline]
+    pub(crate) fn new(key: &'a str, option: Option<&'a str>, value: &'a str) -> Keyword<'a> {
+        Keyword {
+            key: match &*key.to_uppercase() {
+                "AUTHOR" => Key::Author,
+                "DATE" => Key::Date,
+                "HEADER" => Key::Header,
+                "NAME" => Key::Name,
+                "PLOT" => Key::Plot,
+                "TITLE" => Key::Title,
+                "RESULTS" => Key::Results { option },
+                "CAPTION" => Key::Caption { option },
+                k => {
+                    if k.starts_with("ATTR_") {
+                        Key::Attr {
+                            backend: &key["ATTR_".len()..],
+                        }
+                    } else {
+                        Key::Custom(key)
+                    }
+                }
             },
-            _ => Key::Custom(key),
-        },
-        value.trim(),
-        off,
-    ))
+            value,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn parse(text: &str) -> Option<(&str, Option<&str>, &str, usize)> {
+        debug_assert!(text.starts_with("#+"));
+
+        let bytes = text.as_bytes();
+
+        let (key, off) = memchr2(b':', b'[', bytes)
+            .filter(|&i| {
+                bytes[2..i]
+                    .iter()
+                    .all(|&c| c.is_ascii_alphabetic() || c == b'_')
+            })
+            .map(|i| (&text[2..i], i + 1))?;
+
+        let (option, off) = if bytes[off - 1] == b'[' {
+            memchr(b']', bytes)
+                .filter(|&i| {
+                    bytes[off..i].iter().all(|&c| c != b'\n')
+                        && i < text.len()
+                        && bytes[i + 1] == b':'
+                })
+                .map(|i| (Some(&text[off..i]), i + "]:".len()))?
+        } else {
+            (None, off)
+        };
+
+        let (value, off) = memchr(b'\n', bytes)
+            .map(|i| (&text[off..i], i + 1))
+            .unwrap_or_else(|| (&text[off..], text.len()));
+
+        Some((key, option, value.trim(), off))
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn parse() {
-        use super::*;
+#[test]
+fn parse() {
+    assert_eq!(
+        Keyword::parse("#+KEY:"),
+        Some(("KEY", None, "", "#+KEY:".len()))
+    );
+    assert_eq!(
+        Keyword::parse("#+KEY: VALUE"),
+        Some(("KEY", None, "VALUE", "#+KEY: VALUE".len()))
+    );
+    assert_eq!(
+        Keyword::parse("#+K_E_Y: VALUE"),
+        Some(("K_E_Y", None, "VALUE", "#+K_E_Y: VALUE".len()))
+    );
+    assert_eq!(
+        Keyword::parse("#+KEY:VALUE\n"),
+        Some(("KEY", None, "VALUE", "#+KEY:VALUE\n".len()))
+    );
+    assert_eq!(Keyword::parse("#+KE Y: VALUE"), None);
+    assert_eq!(Keyword::parse("#+ KEY: VALUE"), None);
 
-        assert_eq!(
-            parse("#+KEY:"),
-            Some((Key::Custom("KEY"), "", "#+KEY:".len()))
-        );
-        assert_eq!(
-            parse("#+KEY: VALUE"),
-            Some((Key::Custom("KEY"), "VALUE", "#+KEY: VALUE".len()))
-        );
-        assert_eq!(
-            parse("#+K_E_Y: VALUE"),
-            Some((Key::Custom("K_E_Y"), "VALUE", "#+K_E_Y: VALUE".len()))
-        );
-        assert_eq!(
-            parse("#+KEY:VALUE\n"),
-            Some((Key::Custom("KEY"), "VALUE", "#+KEY:VALUE\n".len()))
-        );
-        assert_eq!(parse("#+KE Y: VALUE"), None);
-        assert_eq!(parse("#+ KEY: VALUE"), None);
+    assert_eq!(
+        Keyword::parse("#+RESULTS:"),
+        Some(("RESULTS", None, "", "#+RESULTS:".len()))
+    );
 
-        assert_eq!(
-            parse("#+RESULTS:"),
-            Some((Key::Results { option: None }, "", "#+RESULTS:".len()))
-        );
+    assert_eq!(
+        Keyword::parse("#+ATTR_LATEX: :width 5cm"),
+        Some((
+            "ATTR_LATEX",
+            None,
+            ":width 5cm",
+            "#+ATTR_LATEX: :width 5cm".len()
+        ))
+    );
 
-        assert_eq!(
-            parse("#+ATTR_LATEX: :width 5cm"),
-            Some((
-                Key::Attr { backend: "LATEX" },
-                ":width 5cm",
-                "#+ATTR_LATEX: :width 5cm".len()
-            ))
-        );
+    assert_eq!(
+        Keyword::parse("#+CALL: double(n=4)"),
+        Some(("CALL", None, "double(n=4)", "#+CALL: double(n=4)".len()))
+    );
 
-        assert_eq!(
-            parse("#+CALL: double(n=4)"),
-            Some((Key::Call, "double(n=4)", "#+CALL: double(n=4)".len()))
-        );
-
-        assert_eq!(
-            parse("#+CAPTION[Short caption]: Longer caption."),
-            Some((
-                Key::Caption {
-                    option: Some("Short caption")
-                },
-                "Longer caption.",
-                "#+CAPTION[Short caption]: Longer caption.".len()
-            ))
-        );
-    }
+    assert_eq!(
+        Keyword::parse("#+CAPTION[Short caption]: Longer caption."),
+        Some((
+            "CAPTION",
+            Some("Short caption"),
+            "Longer caption.",
+            "#+CAPTION[Short caption]: Longer caption.".len()
+        ))
+    );
 }

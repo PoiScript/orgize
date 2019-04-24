@@ -14,4 +14,10 @@ pub(crate) mod target;
 pub(crate) mod timestamp;
 
 pub use self::cookie::Cookie;
+pub use self::fn_ref::FnRef;
+pub use self::inline_call::InlineCall;
+pub use self::inline_src::InlineSrc;
+pub use self::link::Link;
+pub use self::macros::Macros;
+pub use self::snippet::Snippet;
 pub use self::timestamp::*;

@@ -15,7 +15,7 @@ pub fn parse(src: &str) -> Option<(&str, usize)> {
                     .iter()
                     .all(|&c| c != b'<' && c != b'\n' && c != b'>')
         })
-        .map(|i| (&src[3..i], i + 3 /* >>> */))?;
+        .map(|i| (&src[3..i], i + ">>>".len()))?;
 
     Some((target, off))
 }

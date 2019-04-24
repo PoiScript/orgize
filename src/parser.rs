@@ -105,44 +105,20 @@ pub enum Event<'a> {
         label: &'a str,
         cont: &'a str,
     },
-    Keyword {
-        key: Key<'a>,
-        value: &'a str,
-    },
+    Keyword(Keyword<'a>),
     Rule,
 
     Timestamp(Timestamp<'a>),
     Cookie(Cookie<'a>),
-    FnRef {
-        label: Option<&'a str>,
-        def: Option<&'a str>,
-    },
-    InlineCall {
-        name: &'a str,
-        args: &'a str,
-        inside_header: Option<&'a str>,
-        end_header: Option<&'a str>,
-    },
-    InlineSrc {
-        lang: &'a str,
-        option: Option<&'a str>,
-        body: &'a str,
-    },
-    Link {
-        path: &'a str,
-        desc: Option<&'a str>,
-    },
-    Macros {
-        name: &'a str,
-        args: Option<&'a str>,
-    },
+    FnRef(FnRef<'a>),
+    InlineCall(InlineCall<'a>),
+    InlineSrc(InlineSrc<'a>),
+    Link(Link<'a>),
+    Macros(Macros<'a>),
     RadioTarget {
         target: &'a str,
     },
-    Snippet {
-        name: &'a str,
-        value: &'a str,
-    },
+    Snippet(Snippet<'a>),
     Target {
         target: &'a str,
     },
@@ -430,12 +406,17 @@ impl<'a> Parser<'a> {
                     })
                 })
                 .or_else(|| {
-                    keyword::parse(tail).map(|(key, value, off)| {
-                        if let Key::Call = key {
-                            (Event::Call { value }, off + line_begin, 0, 0)
-                        } else {
-                            (Event::Keyword { key, value }, off + line_begin, 0, 0)
-                        }
+                    Keyword::parse(tail).map(|(key, option, value, off)| {
+                        (
+                            if key.eq_ignore_ascii_case("CALL") {
+                                Event::Call { value }
+                            } else {
+                                Event::Keyword(Keyword::new(key, option, value))
+                            },
+                            off + line_begin,
+                            0,
+                            0,
+                        )
                     })
                 })
         } else {
@@ -494,10 +475,12 @@ impl<'a> Parser<'a> {
 
         let bytes = text.as_bytes();
         match bytes[0] {
-            b'@' if bytes[1] == b'@' => snippet::parse(text)
-                .map(|(name, value, off)| (Event::Snippet { name, value }, off, 0, 0)),
-            b'{' if bytes[1] == b'{' && bytes[2] == b'{' => macros::parse(text)
-                .map(|(name, args, off)| (Event::Macros { name, args }, off, 0, 0)),
+            b'@' if bytes[1] == b'@' => {
+                Snippet::parse(text).map(|(snippet, off)| (Event::Snippet(snippet), off, 0, 0))
+            }
+            b'{' if bytes[1] == b'{' && bytes[2] == b'{' => {
+                Macros::parse(text).map(|(macros, off)| (Event::Macros(macros), off, 0, 0))
+            }
             b'<' if bytes[1] == b'<' => {
                 if bytes[2] == b'<' {
                     radio_target::parse(text)
@@ -514,13 +497,11 @@ impl<'a> Parser<'a> {
                 }),
             b'[' => {
                 if text[1..].starts_with("fn:") {
-                    fn_ref::parse(text)
-                        .map(|(label, def, off)| (Event::FnRef { label, def }, off, 0, 0))
+                    FnRef::parse(text).map(|(fn_ref, off)| (Event::FnRef(fn_ref), off, 0, 0))
                 } else if bytes[1] == b'[' {
-                    link::parse(text)
-                        .map(|(path, desc, off)| (Event::Link { path, desc }, off, 0, 0))
+                    Link::parse(text).map(|(link, off)| (Event::Link(link), off, 0, 0))
                 } else {
-                    cookie::parse(text)
+                    Cookie::parse(text)
                         .map(|(cookie, off)| (Event::Cookie(cookie), off, 0, 0))
                         .or_else(|| {
                             Timestamp::parse_inactive(text)
@@ -545,24 +526,10 @@ impl<'a> Parser<'a> {
                 emphasis::parse(text, b'~').map(|end| (Event::Code(&text[1..end]), end + 1, 0, 0))
             }
             b's' if text.starts_with("src_") => {
-                inline_src::parse(text).map(|(lang, option, body, off)| {
-                    (Event::InlineSrc { lang, option, body }, off, 0, 0)
-                })
+                InlineSrc::parse(text).map(|(src, off)| (Event::InlineSrc(src), off, 0, 0))
             }
             b'c' if text.starts_with("call_") => {
-                inline_call::parse(text).map(|(name, args, inside_header, end_header, off)| {
-                    (
-                        Event::InlineCall {
-                            name,
-                            args,
-                            inside_header,
-                            end_header,
-                        },
-                        off,
-                        0,
-                        0,
-                    )
-                })
+                InlineCall::parse(text).map(|(call, off)| (Event::InlineCall(call), off, 0, 0))
             }
             _ => None,
         }
