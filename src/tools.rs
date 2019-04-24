@@ -1,5 +1,5 @@
 use crate::elements::{fn_def, Keyword};
-use crate::headline::{Headline, DEFAULT_KEYWORDS};
+use crate::headline::{Headline, DEFAULT_TODO_KEYWORDS};
 use memchr::memchr;
 
 type Headlines<'a> = Vec<Headline<'a>>;
@@ -13,7 +13,7 @@ pub fn metadata(src: &str) -> (Headlines<'_>, Keywords<'_>, Footnotes<'_>) {
         if line.starts_with('*') {
             let level = memchr(b' ', line.as_bytes()).unwrap_or_else(|| line.len());
             if line.as_bytes()[0..level].iter().all(|&c| c == b'*') {
-                headlines.push(Headline::parse(line, DEFAULT_KEYWORDS).0)
+                headlines.push(Headline::parse(line, DEFAULT_TODO_KEYWORDS).0)
             }
         } else if line.starts_with("#+") {
             if let Some((key, _, value, _)) = Keyword::parse(line) {

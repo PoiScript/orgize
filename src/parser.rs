@@ -144,7 +144,7 @@ pub struct Parser<'a> {
     off: usize,
     ele_buf: Option<(Event<'a>, usize, usize, usize)>,
     obj_buf: Option<(Event<'a>, usize, usize, usize)>,
-    keywords: &'a [&'a str],
+    todo_keywords: &'a [&'a str],
 }
 
 impl<'a> Parser<'a> {
@@ -157,12 +157,12 @@ impl<'a> Parser<'a> {
             off: 0,
             ele_buf: None,
             obj_buf: None,
-            keywords: DEFAULT_KEYWORDS,
+            todo_keywords: DEFAULT_TODO_KEYWORDS,
         }
     }
 
     /// creates a new parser from string, with the specified keywords
-    pub fn with_keywrods(text: &'a str, keywords: &'a [&'a str]) -> Parser<'a> {
+    pub fn with_todo_keywrods(text: &'a str, todo_keywords: &'a [&'a str]) -> Parser<'a> {
         Parser {
             text,
             stack: Vec::new(),
@@ -170,7 +170,7 @@ impl<'a> Parser<'a> {
             off: 0,
             ele_buf: None,
             obj_buf: None,
-            keywords,
+            todo_keywords,
         }
     }
 
@@ -184,9 +184,9 @@ impl<'a> Parser<'a> {
         self.stack.len()
     }
 
-    /// set keywords
-    pub fn set_keywords(&mut self, keywords: &'a [&'a str]) {
-        self.keywords = keywords;
+    /// set todo keywords
+    pub fn set_todo_keywords(&mut self, todo_keywords: &'a [&'a str]) {
+        self.todo_keywords = todo_keywords;
     }
 
     /// set text
@@ -210,7 +210,7 @@ impl<'a> Parser<'a> {
     }
 
     fn next_headline(&mut self, text: &'a str) -> Event<'a> {
-        let (hdl, off, end) = Headline::parse(text, self.keywords);
+        let (hdl, off, end) = Headline::parse(text, self.todo_keywords);
         self.push_stack(Container::Headline(self.off + off), end, end);
         self.off += off;
         Event::HeadlineBeg(hdl)
