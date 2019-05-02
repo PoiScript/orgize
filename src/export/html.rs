@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 
-use crate::{elements::*, headline::Headline, objects::*, Parser};
+use crate::{elements::*, headline::Headline, objects::*, Event, Parser};
 use jetscii::bytes;
 use std::{
     convert::From,
@@ -28,6 +28,10 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
         }
 
         Ok(w.write_all(&bytes[pos..])?)
+    }
+    fn event(&mut self, w: &mut W, event: Event) -> Result<(), E> {
+        handle_event!(event, self, w);
+        Ok(())
     }
     fn headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<(), E> {
         let level = if hdl.level <= 6 { hdl.level } else { 6 };
@@ -277,7 +281,7 @@ impl<'a, W: Write, E: From<Error>, H: HtmlHandler<W, E>> HtmlRender<'a, W, E, H>
 
     pub fn render(&mut self) -> Result<(), E> {
         for event in &mut self.parser {
-            handle_event!(event, &mut self.handler, self.writer);
+            self.handler.event(self.writer, event)?;
         }
 
         Ok(())

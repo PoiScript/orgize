@@ -197,6 +197,28 @@ impl<'a> Parser<'a> {
         self.text = text;
     }
 
+    /// skip the current container if exists and return its Event
+    pub fn skip_container(&mut self) -> Option<Event<'a>> {
+        let (container, _, end) = self.stack.pop()?;
+        self.off = end;
+        Some(match container {
+            Container::Bold => Event::BoldEnd,
+            Container::Drawer => Event::DrawerEnd,
+            Container::CtrBlock => Event::CtrBlockEnd,
+            Container::DynBlock => Event::DynBlockEnd,
+            Container::Headline(_) => Event::HeadlineEnd,
+            Container::Italic => Event::ItalicEnd,
+            Container::List(_, ordered) => Event::ListEnd { ordered },
+            Container::ListItem => Event::ListItemEnd,
+            Container::Paragraph => Event::ParagraphEnd,
+            Container::QteBlock => Event::QteBlockEnd,
+            Container::Section(_) => Event::SectionEnd,
+            Container::SplBlock => Event::SplBlockEnd,
+            Container::Strike => Event::StrikeEnd,
+            Container::Underline => Event::UnderlineEnd,
+        })
+    }
+
     fn next_section_or_headline(&mut self, text: &'a str) -> Event<'a> {
         let end = Headline::find_level(text, std::usize::MAX);
         if end != 0 {
