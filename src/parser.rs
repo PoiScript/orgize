@@ -4,8 +4,7 @@ use crate::{elements::*, headline::*, objects::*};
 use jetscii::bytes;
 use memchr::memchr_iter;
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 enum Container {
     Headline(usize),
     Section(usize),
@@ -23,7 +22,6 @@ enum Container {
     Underline,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub enum Event<'a> {
     HeadlineBeg(Headline<'a>),
@@ -435,12 +433,12 @@ impl<'a> Parser<'a> {
                 let mut pos = 0;
 
                 while let Some(off) = bs.find(&bytes[pos..]) {
-                    pos += off + 1;
-
+                    pos += off;
                     if let Some(buf) = self.real_next_obj(&text[pos..]) {
                         self.obj_buf = Some(buf);
                         return (Event::Text(&text[0..pos]), pos, 0, 0);
                     }
+                    pos += 1;
                 }
 
                 (Event::Text(text), text.len(), 0, 0)
@@ -509,7 +507,9 @@ impl<'a> Parser<'a> {
                         })
                 }
             }
-            b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => self.next_inline(&text[1..]),
+            b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => self
+                .next_inline(&text[1..])
+                .map(|(event, off, limit, end)| (event, off + 1, limit + 1, end + 1)),
             _ => self.next_inline(text),
         }
     }
