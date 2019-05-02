@@ -4,7 +4,7 @@ use crate::{elements::*, headline::*, objects::*};
 use jetscii::bytes;
 use memchr::memchr_iter;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum Container {
     Headline(usize),
     Section(usize),
@@ -445,15 +445,15 @@ impl<'a> Parser<'a> {
             });
 
         debug_assert!(
-            off <= text.len() && limit <= text.len() && end <= text.len(),
+            (limit == 0 && end == 0)
+                || (limit == 1 && end == 1)
+                || (off <= limit && limit <= end && end <= text.len()),
             "{} <= {} <= {} <= {}",
             off,
             limit,
             end,
             text.len()
         );
-
-        self.off += off;
 
         match obj {
             Event::UnderlineBeg => self.push_stack(Container::Underline, limit, end),
@@ -462,6 +462,8 @@ impl<'a> Parser<'a> {
             Event::BoldBeg => self.push_stack(Container::Bold, limit, end),
             _ => (),
         }
+
+        self.off += off;
 
         obj
     }
@@ -488,11 +490,8 @@ impl<'a> Parser<'a> {
                 }
             }
             b'<' => Timestamp::parse_active(text)
-                .map(|(timestamp, off)| (Event::Timestamp(timestamp), off, 0, 0))
-                .or_else(|| {
-                    Timestamp::parse_diary(text)
-                        .map(|(timestamp, off)| (Event::Timestamp(timestamp), off, 0, 0))
-                }),
+                .or_else(|| Timestamp::parse_diary(text))
+                .map(|(timestamp, off)| (Event::Timestamp(timestamp), off, 0, 0)),
             b'[' => {
                 if text[1..].starts_with("fn:") {
                     FnRef::parse(text).map(|(fn_ref, off)| (Event::FnRef(fn_ref), off, 0, 0))
@@ -514,16 +513,16 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn next_inline(&mut self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
+    fn next_inline(&self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
         match text.as_bytes()[0] {
             b'*' => emphasis::parse(text, b'*').map(|end| (Event::BoldBeg, 1, end - 1, end)),
             b'+' => emphasis::parse(text, b'+').map(|end| (Event::StrikeBeg, 1, end - 1, end)),
             b'/' => emphasis::parse(text, b'/').map(|end| (Event::ItalicBeg, 1, end - 1, end)),
             b'_' => emphasis::parse(text, b'_').map(|end| (Event::UnderlineBeg, 1, end - 1, end)),
             b'=' => emphasis::parse(text, b'=')
-                .map(|end| (Event::Verbatim(&text[1..end]), end + 1, 0, 0)),
+                .map(|end| (Event::Verbatim(&text[1..end - 1]), end, 0, 0)),
             b'~' => {
-                emphasis::parse(text, b'~').map(|end| (Event::Code(&text[1..end]), end + 1, 0, 0))
+                emphasis::parse(text, b'~').map(|end| (Event::Code(&text[1..end - 1]), end, 0, 0))
             }
             b's' if text.starts_with("src_") => {
                 InlineSrc::parse(text).map(|(src, off)| (Event::InlineSrc(src), off, 0, 0))
@@ -568,10 +567,7 @@ impl<'a> Iterator for Parser<'a> {
 
     fn next(&mut self) -> Option<Event<'a>> {
         if let Some(&(container, limit, end)) = self.stack.last() {
-            let tail = &self.text[self.off..limit];
-
             // eprint!("{:1$}", ' ', self.stack_depth());
-            // eprintln!("{:?} {:?} {:?}", container, tail, self.next_item);
 
             debug_assert!(
                 self.off <= limit && limit <= end && end <= self.text.len(),
@@ -581,6 +577,10 @@ impl<'a> Iterator for Parser<'a> {
                 end,
                 self.text.len()
             );
+
+            let tail = &self.text[self.off..limit];
+
+            // eprintln!("{:?} {:?} {:?}", container, tail, self.next_item);
 
             Some(match container {
                 Container::Headline(beg) => {

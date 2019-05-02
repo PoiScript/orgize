@@ -3,24 +3,22 @@ use memchr::memchr;
 
 #[inline]
 /// returns offset
-pub fn parse(src: &str, marker: u8) -> Option<usize> {
-    debug_assert!(src.len() >= 3);
+pub fn parse(text: &str, marker: u8) -> Option<usize> {
+    debug_assert!(text.len() >= 3);
 
-    let bytes = src.as_bytes();
+    let bytes = text.as_bytes();
 
     if bytes[1].is_ascii_whitespace() {
         return None;
     }
 
-    let end = memchr(marker, &bytes[1..])
-        .map(|i| i + 1)
-        .filter(|&i| count(&bytes[1..i], b'\n') < 2)?;
+    let end = memchr(marker, &bytes[1..]).filter(|&i| count(&bytes[1..i + 1], b'\n') < 2)?;
 
-    if bytes[end - 1].is_ascii_whitespace() {
+    if bytes[end].is_ascii_whitespace() {
         return None;
     }
 
-    if let Some(&post) = bytes.get(end + 1) {
+    if let Some(&post) = bytes.get(end + 2) {
         if post == b' '
             || post == b'-'
             || post == b'.'
@@ -33,12 +31,12 @@ pub fn parse(src: &str, marker: u8) -> Option<usize> {
             || post == b')'
             || post == b'}'
         {
-            Some(end)
+            Some(end + 2)
         } else {
             None
         }
     } else {
-        Some(end)
+        Some(end + 2)
     }
 }
 
@@ -48,8 +46,8 @@ mod tests {
     fn parse() {
         use super::parse;
 
-        assert_eq!(parse("*bold*", b'*'), Some("*bold".len()));
-        assert_eq!(parse("*bo\nld*", b'*'), Some("*bo\nld".len()));
+        assert_eq!(parse("*bold*", b'*'), Some("*bold*".len()));
+        assert_eq!(parse("*bo\nld*", b'*'), Some("*bo\nld*".len()));
         assert_eq!(parse("*bold*a", b'*'), None);
         assert_eq!(parse("*bold*", b'/'), None);
         assert_eq!(parse("*bold *", b'*'), None);
