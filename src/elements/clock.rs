@@ -25,20 +25,23 @@ pub enum Clock<'a> {
 
 impl<'a> Clock<'a> {
     pub(crate) fn parse(text: &'a str) -> Option<(Clock<'a>, usize)> {
-        let (text, off) = memchr(b'\n', text.as_bytes())
+        let (text, eol) = memchr(b'\n', text.as_bytes())
             .map(|i| (text[..i].trim(), i + 1))
             .unwrap_or_else(|| (text.trim(), text.len()));
 
-        let tail = memchr(b' ', text.as_bytes())
-            .filter(|&i| &text[0..i] == "CLOCK:")
-            .map(|i| text[i..].trim_start())?;
+        if !text.starts_with("CLOCK:") {
+            return None;
+        }
+
+        let tail = &text["CLOCK:".len()..].trim_start();
 
         if !tail.starts_with('[') {
             return None;
         }
 
-        let (timestamp, tail) =
-            Timestamp::parse_inactive(tail).map(|(t, off)| (t, tail[off..].trim_start()))?;
+        let (timestamp, off) = Timestamp::parse_inactive(tail)?;
+
+        let tail = tail[off..].trim();
 
         match timestamp {
             Timestamp::InactiveRange {
@@ -62,7 +65,7 @@ impl<'a> Clock<'a> {
                             delay,
                             duration,
                         },
-                        off,
+                        eol,
                     ))
                 } else {
                     None
@@ -72,20 +75,14 @@ impl<'a> Clock<'a> {
                 start,
                 repeater,
                 delay,
-            } => {
-                if tail.as_bytes().iter().all(u8::is_ascii_whitespace) {
-                    Some((
-                        Clock::Running {
-                            start,
-                            repeater,
-                            delay,
-                        },
-                        off,
-                    ))
-                } else {
-                    None
-                }
-            }
+            } if tail.is_empty() => Some((
+                Clock::Running {
+                    start,
+                    repeater,
+                    delay,
+                },
+                eol,
+            )),
             _ => None,
         }
     }

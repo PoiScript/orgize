@@ -70,9 +70,11 @@ pub enum Event<'a> {
     },
 
     ListBeg {
+        indent: usize,
         ordered: bool,
     },
     ListEnd {
+        indent: usize,
         ordered: bool,
     },
     ListItemBeg {
@@ -138,7 +140,6 @@ pub enum Event<'a> {
 pub struct Parser<'a> {
     text: &'a str,
     stack: Vec<(Container, usize, usize)>,
-    next_item: Vec<Option<&'a str>>,
     off: usize,
     ele_buf: Option<(Event<'a>, usize, usize, usize)>,
     obj_buf: Option<(Event<'a>, usize, usize, usize)>,
@@ -151,7 +152,6 @@ impl<'a> Parser<'a> {
         Parser {
             text,
             stack: Vec::new(),
-            next_item: Vec::new(),
             off: 0,
             ele_buf: None,
             obj_buf: None,
@@ -164,7 +164,6 @@ impl<'a> Parser<'a> {
         Parser {
             text,
             stack: Vec::new(),
-            next_item: Vec::new(),
             off: 0,
             ele_buf: None,
             obj_buf: None,
@@ -191,7 +190,6 @@ impl<'a> Parser<'a> {
     pub fn set_text(&mut self, text: &'a str) {
         self.off = 0;
         self.stack.clear();
-        self.next_item.clear();
         self.ele_buf = None;
         self.obj_buf = None;
         self.text = text;
@@ -208,7 +206,7 @@ impl<'a> Parser<'a> {
             Container::DynBlock => Event::DynBlockEnd,
             Container::Headline(_) => Event::HeadlineEnd,
             Container::Italic => Event::ItalicEnd,
-            Container::List(_, ordered) => Event::ListEnd { ordered },
+            Container::List(indent, ordered) => Event::ListEnd { indent, ordered },
             Container::ListItem => Event::ListItemEnd,
             Container::Paragraph => Event::ParagraphEnd,
             Container::QteBlock => Event::QteBlockEnd,
@@ -300,8 +298,8 @@ impl<'a> Parser<'a> {
             Event::CtrBlockBeg => self.push_stack(Container::CtrBlock, limit, end),
             Event::SplBlockBeg { .. } => self.push_stack(Container::SplBlock, limit, end),
             Event::DynBlockBeg { .. } => self.push_stack(Container::DynBlock, limit, end),
-            Event::ListBeg { ordered, .. } => {
-                self.push_stack(Container::List(limit, ordered), end, end)
+            Event::ListBeg { ordered, indent } => {
+                self.push_stack(Container::List(indent, ordered), limit, end)
             }
             _ => (),
         }
@@ -315,10 +313,10 @@ impl<'a> Parser<'a> {
     fn real_next_ele(&mut self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
         debug_assert!(!text.starts_with('\n'));
 
-        if text.starts_with("[fn:") {
-            if let Some((label, cont, off)) = fn_def::parse(text) {
-                return Some((Event::FnDef { label, cont }, off + 1, 0, 0));
-            }
+        if let Some((label, cont, off)) = fn_def::parse(text) {
+            return Some((Event::FnDef { label, cont }, off + 1, 0, 0));
+        } else if let Some((indent, ordered, limit, end)) = list::parse(text) {
+            return Some((Event::ListBeg { indent, ordered }, 0, limit, end));
         }
 
         let (tail, line_begin) = text
@@ -326,15 +324,8 @@ impl<'a> Parser<'a> {
             .map(|off| (&text[off..], off))
             .unwrap_or((text, 0));
 
-        if let Some((ordered, bullet)) = list::is_item(tail) {
-            self.next_item.push(Some(bullet));
-            return Some((Event::ListBeg { ordered }, 0, line_begin, text.len()));
-        }
-
-        if tail.starts_with("CLOCK:") {
-            if let Some((clock, off)) = Clock::parse(tail) {
-                return Some((Event::Clock(clock), off + line_begin, 0, 0));
-            }
+        if let Some((clock, off)) = Clock::parse(tail) {
+            return Some((Event::Clock(clock), off + line_begin, 0, 0));
         }
 
         // TODO: LaTeX environment
@@ -556,6 +547,31 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn next_list_item(&self, text: &'a str, indent: usize) -> (&'a str, usize, usize, usize) {
+        use std::iter::once;
+
+        debug_assert!(&text[0..indent].trim().is_empty());
+        let off = &text[indent..].find(' ').unwrap() + 1 + indent;
+
+        let bytes = text.as_bytes();
+        let mut lines = memchr_iter(b'\n', bytes)
+            .map(|i| i + 1)
+            .chain(once(text.len()));
+        let mut pos = lines.next().unwrap();
+
+        while let Some(i) = lines.next() {
+            let line = &text[pos..i];
+            if let Some(line_indent) = line.find(|c: char| !c.is_whitespace()) {
+                if line_indent == indent {
+                    return (&text[indent..off], off, pos, pos);
+                }
+            }
+            pos = i;
+        }
+
+        (&text[indent..off], off, text.len(), text.len())
+    }
+
     #[inline]
     fn push_stack(&mut self, container: Container, limit: usize, end: usize) {
         self.stack
@@ -572,7 +588,7 @@ impl<'a> Parser<'a> {
             Container::DynBlock => Event::DynBlockEnd,
             Container::Headline(_) => Event::HeadlineEnd,
             Container::Italic => Event::ItalicEnd,
-            Container::List(_, ordered) => Event::ListEnd { ordered },
+            Container::List(indent, ordered) => Event::ListEnd { indent, ordered },
             Container::ListItem => Event::ListItemEnd,
             Container::Paragraph => Event::ParagraphEnd,
             Container::QteBlock => Event::QteBlockEnd,
@@ -602,7 +618,7 @@ impl<'a> Iterator for Parser<'a> {
 
             let tail = &self.text[self.off..limit];
 
-            // eprintln!("{:?} {:?} {:?}", container, tail, self.next_item);
+            // eprintln!("{:?} {:?}", container, tail);
 
             Some(match container {
                 Container::Headline(beg) => {
@@ -646,18 +662,16 @@ impl<'a> Iterator for Parser<'a> {
                         self.next_ele(tail)
                     }
                 }
-                Container::List(ident, ordered) => {
-                    if let Some(bullet) = self.next_item.pop().unwrap() {
-                        let off = bullet.len() + ident;
-                        self.off += off;
-                        let (limit, end, next) = list::parse(&tail[off..], ident);
+                Container::List(indent, ordered) => {
+                    if self.off < limit {
+                        let (bullet, off, limit, end) = self.next_list_item(tail, indent);
                         self.push_stack(Container::ListItem, limit, end);
-                        self.next_item.push(next);
+                        self.off += off;
                         Event::ListItemBeg { bullet }
                     } else {
                         self.off = end;
                         self.stack.pop();
-                        Event::ListEnd { ordered }
+                        Event::ListEnd { indent, ordered }
                     }
                 }
                 Container::Paragraph

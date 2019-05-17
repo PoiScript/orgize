@@ -2,22 +2,24 @@ use memchr::memchr;
 
 #[inline]
 pub fn parse(text: &str) -> Option<(&str, &str, usize)> {
-    debug_assert!(text.starts_with("[fn:"));
+    if text.starts_with("[fn:") {
+        let (label, off) = memchr(b']', text.as_bytes())
+            .filter(|&i| {
+                i != 4
+                    && text.as_bytes()["[fn:".len()..i]
+                        .iter()
+                        .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+            })
+            .map(|i| (&text["[fn:".len()..i], i + 1))?;
 
-    let (label, off) = memchr(b']', text.as_bytes())
-        .filter(|&i| {
-            i != 4
-                && text.as_bytes()["[fn:".len()..i]
-                    .iter()
-                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-        })
-        .map(|i| (&text["[fn:".len()..i], i + 1))?;
+        let (content, off) = memchr(b'\n', text.as_bytes())
+            .map(|i| (&text[off..i], i))
+            .unwrap_or_else(|| (&text[off..], text.len()));
 
-    let (content, off) = memchr(b'\n', text.as_bytes())
-        .map(|i| (&text[off..i], i))
-        .unwrap_or_else(|| (&text[off..], text.len()));
-
-    Some((label, content, off))
+        Some((label, content, off))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]

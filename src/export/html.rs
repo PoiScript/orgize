@@ -106,14 +106,14 @@ pub trait HtmlHandler<W: Write, E: From<Error>> {
     fn dyn_block_end(&mut self, w: &mut W) -> Result<(), E> {
         Ok(())
     }
-    fn list_beg(&mut self, w: &mut W, ordered: bool) -> Result<(), E> {
+    fn list_beg(&mut self, w: &mut W, _indent: usize, ordered: bool) -> Result<(), E> {
         if ordered {
             Ok(write!(w, "<ol>")?)
         } else {
             Ok(write!(w, "<ul>")?)
         }
     }
-    fn list_end(&mut self, w: &mut W, ordered: bool) -> Result<(), E> {
+    fn list_end(&mut self, w: &mut W, _indent: usize, ordered: bool) -> Result<(), E> {
         if ordered {
             Ok(write!(w, "</ol>")?)
         } else {
