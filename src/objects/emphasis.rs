@@ -2,7 +2,6 @@ use bytecount::count;
 use memchr::memchr;
 
 #[inline]
-/// returns offset
 pub fn parse(text: &str, marker: u8) -> Option<usize> {
     debug_assert!(text.len() >= 3);
 
@@ -12,7 +11,7 @@ pub fn parse(text: &str, marker: u8) -> Option<usize> {
         return None;
     }
 
-    let end = memchr(marker, &bytes[1..]).filter(|&i| count(&bytes[1..i + 1], b'\n') < 2)?;
+    let end = memchr(marker, &bytes[1..]).filter(|&i| count(&bytes[1..=i], b'\n') < 2)?;
 
     if bytes[end].is_ascii_whitespace() {
         return None;

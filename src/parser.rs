@@ -436,31 +436,47 @@ impl<'a> Parser<'a> {
     }
 
     fn next_obj(&mut self, text: &'a str) -> Event<'a> {
+        let bytes = text.as_bytes();
         let (obj, off, limit, end) = self
             .obj_buf
             .take()
-            .or_else(|| self.real_next_obj(text))
+            .or_else(|| match bytes[0] {
+                b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => {
+                    if let Some(buf) = self.real_next_obj(&text[1..]) {
+                        self.obj_buf = Some(buf);
+                        Some((Event::Text(&text[0..1]), 1, 0, 0))
+                    } else {
+                        None
+                    }
+                }
+                _ => self.real_next_obj(text),
+            })
             .unwrap_or_else(|| {
                 let bs = bytes!(b'@', b' ', b'"', b'(', b'\n', b'{', b'<', b'[');
-                let bytes = text.as_bytes();
                 let mut pos = 0;
-
                 while let Some(off) = bs.find(&bytes[pos..]) {
                     pos += off;
-                    if let Some(buf) = self.real_next_obj(&text[pos..]) {
-                        self.obj_buf = Some(buf);
-                        return (Event::Text(&text[0..pos]), pos, 0, 0);
+                    match bytes[pos] {
+                        b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => {
+                            if let Some(buf) = self.real_next_obj(&text[pos + 1..]) {
+                                self.obj_buf = Some(buf);
+                                return (Event::Text(&text[0..=pos]), pos + 1, 0, 0);
+                            }
+                        }
+                        _ => {
+                            if let Some(buf) = self.real_next_obj(&text[pos..]) {
+                                self.obj_buf = Some(buf);
+                                return (Event::Text(&text[0..pos]), pos, 0, 0);
+                            }
+                        }
                     }
                     pos += 1;
                 }
-
                 (Event::Text(text), text.len(), 0, 0)
             });
 
         debug_assert!(
-            (limit == 0 && end == 0)
-                || (limit == 1 && end == 1)
-                || (off <= limit && limit <= end && end <= text.len()),
+            (limit == 0 && end == 0) || (off <= limit && limit <= end && end <= text.len()),
             "{} <= {} <= {} <= {}",
             off,
             limit,
@@ -481,69 +497,60 @@ impl<'a> Parser<'a> {
         obj
     }
 
-    fn real_next_obj(&mut self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
+    fn real_next_obj(&self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
         if text.len() < 3 {
-            return None;
-        }
-
-        let bytes = text.as_bytes();
-        match bytes[0] {
-            b'@' if bytes[1] == b'@' => {
-                Snippet::parse(text).map(|(snippet, off)| (Event::Snippet(snippet), off, 0, 0))
-            }
-            b'{' if bytes[1] == b'{' && bytes[2] == b'{' => {
-                Macros::parse(text).map(|(macros, off)| (Event::Macros(macros), off, 0, 0))
-            }
-            b'<' if bytes[1] == b'<' => {
-                if bytes[2] == b'<' {
-                    radio_target::parse(text)
-                        .map(|(target, off)| (Event::RadioTarget { target }, off, 0, 0))
-                } else {
-                    target::parse(text).map(|(target, off)| (Event::Target { target }, off, 0, 0))
+            None
+        } else {
+            let bytes = text.as_bytes();
+            match bytes[0] {
+                b'@' if bytes[1] == b'@' => {
+                    Snippet::parse(text).map(|(snippet, off)| (Event::Snippet(snippet), off, 0, 0))
                 }
-            }
-            b'<' => Timestamp::parse_active(text)
-                .or_else(|| Timestamp::parse_diary(text))
-                .map(|(timestamp, off)| (Event::Timestamp(timestamp), off, 0, 0)),
-            b'[' => {
-                if text[1..].starts_with("fn:") {
-                    FnRef::parse(text).map(|(fn_ref, off)| (Event::FnRef(fn_ref), off, 0, 0))
-                } else if bytes[1] == b'[' {
-                    Link::parse(text).map(|(link, off)| (Event::Link(link), off, 0, 0))
-                } else {
-                    Cookie::parse(text)
-                        .map(|(cookie, off)| (Event::Cookie(cookie), off, 0, 0))
-                        .or_else(|| {
-                            Timestamp::parse_inactive(text)
-                                .map(|(timestamp, off)| (Event::Timestamp(timestamp), off, 0, 0))
-                        })
+                b'{' if bytes[1] == b'{' && bytes[2] == b'{' => {
+                    Macros::parse(text).map(|(macros, off)| (Event::Macros(macros), off, 0, 0))
                 }
+                b'<' if bytes[1] == b'<' => {
+                    if bytes[2] == b'<' {
+                        radio_target::parse(text)
+                            .map(|(target, off)| (Event::RadioTarget { target }, off, 0, 0))
+                    } else {
+                        target::parse(text)
+                            .map(|(target, off)| (Event::Target { target }, off, 0, 0))
+                    }
+                }
+                b'<' => Timestamp::parse_active(text)
+                    .or_else(|| Timestamp::parse_diary(text))
+                    .map(|(ts, off)| (Event::Timestamp(ts), off, 0, 0)),
+                b'[' => {
+                    if text[1..].starts_with("fn:") {
+                        FnRef::parse(text).map(|(fn_ref, off)| (Event::FnRef(fn_ref), off, 0, 0))
+                    } else if bytes[1] == b'[' {
+                        Link::parse(text).map(|(link, off)| (Event::Link(link), off, 0, 0))
+                    } else if let Some((cookie, off)) = Cookie::parse(text) {
+                        Some((Event::Cookie(cookie), off, 0, 0))
+                    } else {
+                        Timestamp::parse_inactive(text)
+                            .map(|(ts, off)| (Event::Timestamp(ts), off, 0, 0))
+                    }
+                }
+                b'*' => emphasis::parse(text, b'*').map(|end| (Event::BoldBeg, 1, end - 1, end)),
+                b'+' => emphasis::parse(text, b'+').map(|end| (Event::StrikeBeg, 1, end - 1, end)),
+                b'/' => emphasis::parse(text, b'/').map(|end| (Event::ItalicBeg, 1, end - 1, end)),
+                b'_' => {
+                    emphasis::parse(text, b'_').map(|end| (Event::UnderlineBeg, 1, end - 1, end))
+                }
+                b'=' => emphasis::parse(text, b'=')
+                    .map(|end| (Event::Verbatim(&text[1..end - 1]), end, 0, 0)),
+                b'~' => emphasis::parse(text, b'~')
+                    .map(|end| (Event::Code(&text[1..end - 1]), end, 0, 0)),
+                b's' if text.starts_with("src_") => {
+                    InlineSrc::parse(text).map(|(src, off)| (Event::InlineSrc(src), off, 0, 0))
+                }
+                b'c' if text.starts_with("call_") => {
+                    InlineCall::parse(text).map(|(call, off)| (Event::InlineCall(call), off, 0, 0))
+                }
+                _ => None,
             }
-            b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => self
-                .next_inline(&text[1..])
-                .map(|(event, off, limit, end)| (event, off + 1, limit + 1, end + 1)),
-            _ => self.next_inline(text),
-        }
-    }
-
-    fn next_inline(&self, text: &'a str) -> Option<(Event<'a>, usize, usize, usize)> {
-        match text.as_bytes()[0] {
-            b'*' => emphasis::parse(text, b'*').map(|end| (Event::BoldBeg, 1, end - 1, end)),
-            b'+' => emphasis::parse(text, b'+').map(|end| (Event::StrikeBeg, 1, end - 1, end)),
-            b'/' => emphasis::parse(text, b'/').map(|end| (Event::ItalicBeg, 1, end - 1, end)),
-            b'_' => emphasis::parse(text, b'_').map(|end| (Event::UnderlineBeg, 1, end - 1, end)),
-            b'=' => emphasis::parse(text, b'=')
-                .map(|end| (Event::Verbatim(&text[1..end - 1]), end, 0, 0)),
-            b'~' => {
-                emphasis::parse(text, b'~').map(|end| (Event::Code(&text[1..end - 1]), end, 0, 0))
-            }
-            b's' if text.starts_with("src_") => {
-                InlineSrc::parse(text).map(|(src, off)| (Event::InlineSrc(src), off, 0, 0))
-            }
-            b'c' if text.starts_with("call_") => {
-                InlineCall::parse(text).map(|(call, off)| (Event::InlineCall(call), off, 0, 0))
-            }
-            _ => None,
         }
     }
 
@@ -559,7 +566,7 @@ impl<'a> Parser<'a> {
             .chain(once(text.len()));
         let mut pos = lines.next().unwrap();
 
-        while let Some(i) = lines.next() {
+        for i in lines {
             let line = &text[pos..i];
             if let Some(line_indent) = line.find(|c: char| !c.is_whitespace()) {
                 if line_indent == indent {
