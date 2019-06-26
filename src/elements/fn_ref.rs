@@ -7,8 +7,9 @@ pub struct FnRef<'a> {
     pub definition: Option<&'a str>,
 }
 
-impl<'a> FnRef<'a> {
+impl FnRef<'_> {
     #[inline]
+    // return (fn_ref, offset)
     pub fn parse(text: &str) -> Option<(FnRef<'_>, usize)> {
         debug_assert!(text.starts_with("[fn:"));
 

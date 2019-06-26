@@ -12,11 +12,18 @@ keywords = ["orgmode","emacs","parser"]
 [badges]
 travis-ci = { repository = "PoiScript/orgize" }
 
+[features]
+default = ["serde", "chrono"]
+extra-serde-info = []
+
 [dependencies]
 bytecount = "0.5"
 chrono = { version = "0.4", optional = true }
+indextree = "3.2.0"
 jetscii = "0.4"
 memchr = "2"
+serde = { version = "1.0.93", features = ["derive"], optional = true }
+serde_json = "1.0.39"
 
 [dev-dependencies]
 slugify = "0.1.0"

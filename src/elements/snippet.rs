@@ -8,8 +8,9 @@ pub struct Snippet<'a> {
     pub value: &'a str,
 }
 
-impl<'a> Snippet<'a> {
+impl Snippet<'_> {
     #[inline]
+    // return (snippet offset)
     pub(crate) fn parse(text: &str) -> Option<(Snippet<'_>, usize)> {
         debug_assert!(text.starts_with("@@"));
 

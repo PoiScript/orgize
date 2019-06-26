@@ -1,4 +1,4 @@
-use crate::objects::Timestamp;
+use crate::elements::Timestamp;
 use memchr::memchr;
 
 /// palnning elements
@@ -13,8 +13,9 @@ pub struct Planning<'a> {
     pub closed: Option<Timestamp<'a>>,
 }
 
-impl<'a> Planning<'a> {
-    pub(crate) fn parse(text: &'a str) -> Option<(Planning<'a>, usize)> {
+impl Planning<'_> {
+    #[inline]
+    pub(crate) fn parse(text: &str) -> Option<(Planning<'_>, usize)> {
         let (mut deadline, mut scheduled, mut closed) = (None, None, None);
         let (mut tail, off) = memchr(b'\n', text.as_bytes())
             .map(|i| (text[..i].trim(), i + 1))
@@ -60,7 +61,7 @@ impl<'a> Planning<'a> {
 
 #[test]
 fn prase() {
-    use crate::objects::Datetime;
+    use crate::elements::Datetime;
 
     assert_eq!(
         Planning::parse("SCHEDULED: <2019-04-08 Mon>\n"),

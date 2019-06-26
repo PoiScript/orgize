@@ -9,7 +9,7 @@ pub struct Datetime<'a> {
     pub(crate) dayname: &'a str,
 }
 
-impl<'a> Datetime<'a> {
+impl Datetime<'_> {
     pub fn year(&self) -> u32 {
         u32::from_str(&self.date[0..4]).unwrap()
     }
@@ -145,8 +145,8 @@ pub enum Timestamp<'a> {
     Diary(&'a str),
 }
 
-impl<'a> Timestamp<'a> {
-    pub(crate) fn parse(text: &'a str) -> Option<(Timestamp<'a>, usize)> {
+impl Timestamp<'_> {
+    pub(crate) fn parse(text: &str) -> Option<(Timestamp<'_>, usize)> {
         if text.starts_with('<') {
             Timestamp::parse_active(text).or_else(|| Timestamp::parse_diary(text))
         } else if text.starts_with('[') {
@@ -156,7 +156,7 @@ impl<'a> Timestamp<'a> {
         }
     }
 
-    pub(crate) fn parse_active(text: &'a str) -> Option<(Timestamp<'a>, usize)> {
+    pub(crate) fn parse_active(text: &str) -> Option<(Timestamp<'_>, usize)> {
         debug_assert!(text.starts_with('<'));
 
         let bytes = text.as_bytes();
@@ -194,7 +194,7 @@ impl<'a> Timestamp<'a> {
         ))
     }
 
-    pub(crate) fn parse_inactive(text: &'a str) -> Option<(Timestamp<'a>, usize)> {
+    pub(crate) fn parse_inactive(text: &str) -> Option<(Timestamp<'_>, usize)> {
         debug_assert!(text.starts_with('['));
 
         let bytes = text.as_bytes();
@@ -231,7 +231,7 @@ impl<'a> Timestamp<'a> {
         ))
     }
 
-    fn parse_datetime(text: &'a str) -> Option<(Datetime<'a>, Option<Datetime<'a>>)> {
+    fn parse_datetime(text: &str) -> Option<(Datetime<'_>, Option<Datetime<'_>>)> {
         if text.is_empty()
             || !text.starts_with(|c: char| c.is_ascii_digit())
             || !text.ends_with(|c: char| c.is_ascii_alphanumeric())

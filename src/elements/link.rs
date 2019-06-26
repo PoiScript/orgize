@@ -8,8 +8,9 @@ pub struct Link<'a> {
     pub desc: Option<&'a str>,
 }
 
-impl<'a> Link<'a> {
+impl Link<'_> {
     #[inline]
+    // return (link, offset)
     pub(crate) fn parse(text: &str) -> Option<(Link<'_>, usize)> {
         debug_assert!(text.starts_with("[["));
 

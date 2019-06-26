@@ -7,8 +7,9 @@ pub enum Cookie<'a> {
     Slash(&'a str, &'a str),
 }
 
-impl<'a> Cookie<'a> {
+impl Cookie<'_> {
     #[inline]
+    // return (clock, offset)
     pub(crate) fn parse(src: &str) -> Option<(Cookie<'_>, usize)> {
         debug_assert!(src.starts_with('['));
 

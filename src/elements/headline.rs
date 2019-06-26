@@ -21,8 +21,8 @@ pub struct Headline<'a> {
     pub keyword: Option<&'a str>,
 }
 
-impl<'a> Headline<'a> {
-    pub(crate) fn parse(text: &'a str, keywords: &'a [&'a str]) -> (Headline<'a>, usize, usize) {
+impl Headline<'_> {
+    pub(crate) fn parse<'a>(text: &'a str, keywords: &[&str]) -> (Headline<'a>, usize, usize) {
         let level = memchr2(b'\n', b' ', text.as_bytes()).unwrap_or_else(|| text.len());
 
         debug_assert!(level > 0);

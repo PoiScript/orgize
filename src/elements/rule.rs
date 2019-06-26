@@ -1,37 +1,37 @@
-#[inline]
-pub fn parse(text: &str) -> usize {
-    let (text, off) = memchr::memchr(b'\n', text.as_bytes())
-        .map(|i| (text[..i].trim(), i + 1))
-        .unwrap_or_else(|| (text.trim(), text.len()));
+pub struct Rule;
 
-    if text.len() >= 5 && text.as_bytes().iter().all(|&c| c == b'-') {
-        off
-    } else {
-        0
+impl Rule {
+    #[inline]
+    // return offset
+    pub(crate) fn parse(text: &str) -> Option<usize> {
+        let (text, off) = memchr::memchr(b'\n', text.as_bytes())
+            .map(|i| (text[..i].trim(), i + 1))
+            .unwrap_or_else(|| (text.trim(), text.len()));
+
+        if text.len() >= 5 && text.as_bytes().iter().all(|&c| c == b'-') {
+            Some(off)
+        } else {
+            None
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn parse() {
-        use super::parse;
-
-        assert_eq!(parse("-----"), "-----".len());
-        assert_eq!(parse("--------"), "--------".len());
-        assert_eq!(parse("   -----"), "   -----".len());
-        assert_eq!(parse("\t\t-----"), "\t\t-----".len());
-        assert_eq!(parse("\t\t-----\n"), "\t\t-----\n".len());
-        assert_eq!(parse("\t\t-----  \n"), "\t\t-----  \n".len());
-        assert_eq!(parse(""), 0);
-        assert_eq!(parse("----"), 0);
-        assert_eq!(parse("   ----"), 0);
-        assert_eq!(parse("  0----"), 0);
-        assert_eq!(parse("0  ----"), 0);
-        assert_eq!(parse("0------"), 0);
-        assert_eq!(parse("----0----"), 0);
-        assert_eq!(parse("\t\t----"), 0);
-        assert_eq!(parse("------0"), 0);
-        assert_eq!(parse("----- 0"), 0);
-    }
+#[test]
+fn parse() {
+    assert_eq!(Rule::parse("-----"), Some("-----".len()));
+    assert_eq!(Rule::parse("--------"), Some("--------".len()));
+    assert_eq!(Rule::parse("   -----"), Some("   -----".len()));
+    assert_eq!(Rule::parse("\t\t-----"), Some("\t\t-----".len()));
+    assert_eq!(Rule::parse("\t\t-----\n"), Some("\t\t-----\n".len()));
+    assert_eq!(Rule::parse("\t\t-----  \n"), Some("\t\t-----  \n".len()));
+    assert_eq!(Rule::parse(""), None);
+    assert_eq!(Rule::parse("----"), None);
+    assert_eq!(Rule::parse("   ----"), None);
+    assert_eq!(Rule::parse("  None----"), None);
+    assert_eq!(Rule::parse("None  ----"), None);
+    assert_eq!(Rule::parse("None------"), None);
+    assert_eq!(Rule::parse("----None----"), None);
+    assert_eq!(Rule::parse("\t\t----"), None);
+    assert_eq!(Rule::parse("------None"), None);
+    assert_eq!(Rule::parse("----- None"), None);
 }

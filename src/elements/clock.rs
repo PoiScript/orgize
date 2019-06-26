@@ -1,4 +1,4 @@
-use crate::objects::timestamp::{Datetime, Timestamp};
+use crate::elements::{Datetime, Timestamp};
 use memchr::memchr;
 
 /// clock elements
@@ -23,8 +23,8 @@ pub enum Clock<'a> {
     },
 }
 
-impl<'a> Clock<'a> {
-    pub(crate) fn parse(text: &'a str) -> Option<(Clock<'a>, usize)> {
+impl Clock<'_> {
+    pub(crate) fn parse(text: &str) -> Option<(Clock<'_>, usize)> {
         let (text, eol) = memchr(b'\n', text.as_bytes())
             .map(|i| (text[..i].trim(), i + 1))
             .unwrap_or_else(|| (text.trim(), text.len()));
@@ -104,7 +104,7 @@ impl<'a> Clock<'a> {
     }
 
     /// returns `Some` if the clock is closed, `None` if running
-    pub fn duration(&self) -> Option<&'a str> {
+    pub fn duration(&self) -> Option<&str> {
         match self {
             Clock::Closed { duration, .. } => Some(duration),
             Clock::Running { .. } => None,

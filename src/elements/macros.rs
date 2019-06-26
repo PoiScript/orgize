@@ -8,9 +8,9 @@ pub struct Macros<'a> {
     pub arguments: Option<&'a str>,
 }
 
-impl<'a> Macros<'a> {
+impl Macros<'_> {
     #[inline]
-    pub fn parse(text: &str) -> Option<(Macros<'_>, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(Macros<'_>, usize)> {
         debug_assert!(text.starts_with("{{{"));
 
         let bytes = text.as_bytes();
