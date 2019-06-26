@@ -7,7 +7,7 @@ repository = "https://github.com/PoiScript/orgize"
 readme = "README.md"
 edition = "2018"
 license = "MIT"
-keywords = ["orgmode","emacs","parser"]
+keywords = ["orgmode", "emacs", "parser"]
 
 [badges]
 travis-ci = { repository = "PoiScript/orgize" }
@@ -17,13 +17,13 @@ default = ["serde", "chrono"]
 extra-serde-info = []
 
 [dependencies]
-bytecount = "0.5"
-chrono = { version = "0.4", optional = true }
+bytecount = "0.5.1"
+chrono = { version = "0.4.7", optional = true }
 indextree = "3.2.0"
-jetscii = "0.4"
-memchr = "2"
-serde = { version = "1.0.93", features = ["derive"], optional = true }
-serde_json = "1.0.39"
+jetscii = "0.4.4"
+memchr = "2.2.0"
+serde = { version = "1.0.93", optional = true }
 
 [dev-dependencies]
+serde_json = "1.0.39"
 slugify = "0.1.0"
