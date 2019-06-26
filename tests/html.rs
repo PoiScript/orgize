@@ -1,8 +1,7 @@
-extern crate orgize;
-
 use orgize::Org;
+use pretty_assertions::assert_eq;
 
-macro_rules! html_test {
+macro_rules! test_suite {
     ($name:ident, $content:expr, $expected:expr) => {
         #[test]
         fn $name() {
@@ -16,13 +15,14 @@ macro_rules! html_test {
     };
 }
 
-html_test!(
+test_suite!(
     emphasis,
-    "*bold*, /italic/,_underlined_, =verbatim= and ~code~",
-    "<main><section><p><b>bold</b>, <i>italic</i>,<u>underlined</u>, <code>verbatim</code> and <code>code</code></p></section></main>"
+    "*bold*, /italic/,\n_underlined_, =verbatim= and ~code~",
+    "<main><section><p><b>bold</b>, <i>italic</i>,\n<u>underlined</u>, \
+     <code>verbatim</code> and <code>code</code></p></section></main>"
 );
 
-html_test!(
+test_suite!(
     section_and_headline,
     r#"* Title 1
 *Section 1*
@@ -42,7 +42,7 @@ _Section 2_
      <section><p><code>Section 4</code></p></section></main>"
 );
 
-html_test!(
+test_suite!(
     list,
     r#"+ 1
 
@@ -60,7 +60,7 @@ html_test!(
      </ul></section></main>"
 );
 
-html_test!(
+test_suite!(
     snippet,
     "@@html:<del>@@delete this@@html:</del>@@",
     "<main><section><p><del>delete this</del></p></section></main>"

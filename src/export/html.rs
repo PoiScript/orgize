@@ -121,10 +121,9 @@ pub trait HtmlHandler<E: From<Error>> {
     }
     fn snippet<W: Write>(&mut self, mut w: W, snippet: &Snippet<'_>) -> Result<(), E> {
         if snippet.name.eq_ignore_ascii_case("HTML") {
-            Ok(write!(w, "{}", snippet.value)?)
-        } else {
-            Ok(())
+            write!(w, "{}", snippet.value)?;
         }
+        Ok(())
     }
     fn target<W: Write>(&mut self, mut w: W, target: &Target<'_>) -> Result<(), E> {
         Ok(())

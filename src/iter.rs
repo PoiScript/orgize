@@ -415,6 +415,9 @@ impl<'a> Iterator for Iter<'a> {
                 if let Some(child_node) = node.first_child() {
                     self.node = child_node;
                     self.start_event()
+                } else if let Some(sibling_node) = node.next_sibling() {
+                    self.node = sibling_node;
+                    self.start_event()
                 } else if let Some(parent_node) = node.parent() {
                     self.node = parent_node;
                     self.end_event()

@@ -4,7 +4,7 @@ use crate::iter::Iter;
 
 use indextree::{Arena, NodeId};
 use jetscii::bytes;
-use memchr::{memchr_iter, memrchr_iter};
+use memchr::{memchr, memchr_iter, memrchr_iter};
 use std::io::{Error, Write};
 
 pub struct Org<'a> {
@@ -206,53 +206,60 @@ impl<'a> Org<'a> {
         }
     }
 
-    fn parse_elements_children(&mut self, mut begin: usize, end: usize, node: NodeId) {
-        'out: while begin < end {
-            let text = &self.text[begin..end];
+    fn parse_elements_children(&mut self, begin: usize, end: usize, node: NodeId) {
+        let text = &self.text[begin..end];
+        let mut pos = 0;
 
-            if let Some((ty, off)) = self.parse_element(begin, end) {
+        if let Some((ty, off)) = self.parse_element(begin, end) {
+            let new_node = self.arena.new_node(ty);
+            node.append(new_node, &mut self.arena).unwrap();
+            pos += off;
+        }
+
+        let mut last_end = pos;
+
+        while pos < text.len() {
+            let i = memchr(b'\n', &text.as_bytes()[pos..]).unwrap_or(text.len() - pos);
+            if text.as_bytes()[pos..pos + i]
+                .iter()
+                .all(u8::is_ascii_whitespace)
+            {
+                let (end, _) = skip_empty_lines(&text[pos + i..]);
+                let new_node = self.arena.new_node(Element::Paragraph {
+                    begin: begin + last_end,
+                    end: begin + pos + 1 + i + end,
+                    contents_begin: begin + last_end,
+                    contents_end: begin + pos,
+                });
+                node.append(new_node, &mut self.arena).unwrap();
+                pos += i + end + 1;
+                last_end = pos;
+            } else if let Some((ty, off)) = self.parse_element(begin + pos, end) {
+                if last_end != pos {
+                    let new_node = self.arena.new_node(Element::Paragraph {
+                        begin: begin + last_end,
+                        end: begin + pos,
+                        contents_begin: begin + last_end,
+                        contents_end: begin + pos,
+                    });
+                    node.append(new_node, &mut self.arena).unwrap();
+                }
                 let new_node = self.arena.new_node(ty);
                 node.append(new_node, &mut self.arena).unwrap();
-                begin += off;
-                continue 'out;
+                pos += off;
+                last_end = pos;
+            } else {
+                pos += i + 1;
             }
+        }
 
-            let mut pos = 0;
-            for i in memchr_iter(b'\n', text.as_bytes()) {
-                if text.as_bytes()[pos..i].iter().all(u8::is_ascii_whitespace) {
-                    let (end, _) = skip_empty_lines(&text[i..]);
-                    let new_node = self.arena.new_node(Element::Paragraph {
-                        begin,
-                        end: begin + i + end,
-                        contents_begin: begin,
-                        contents_end: begin + pos,
-                    });
-                    node.append(new_node, &mut self.arena).unwrap();
-                    begin += i + end;
-                    continue 'out;
-                } else if let Some((ty, off)) = self.parse_element(begin + pos, end) {
-                    let new_node = self.arena.new_node(Element::Paragraph {
-                        begin,
-                        end: begin + pos,
-                        contents_begin: begin,
-                        contents_end: begin + pos,
-                    });
-                    node.append(new_node, &mut self.arena).unwrap();
-                    let new_node = self.arena.new_node(ty);
-                    node.append(new_node, &mut self.arena).unwrap();
-                    begin += pos + off;
-                    continue 'out;
-                }
-                pos = i + 1;
-            }
-
+        if begin + last_end < end {
             let new_node = self.arena.new_node(Element::Paragraph {
-                begin,
+                begin: begin + last_end,
                 end,
-                contents_begin: begin,
+                contents_begin: begin + last_end,
                 contents_end: if text.ends_with('\n') { end - 1 } else { end },
             });
-            begin = end;
             node.append(new_node, &mut self.arena).unwrap();
         }
     }
@@ -386,80 +393,99 @@ impl<'a> Org<'a> {
         None
     }
 
-    fn parse_objects_children(&mut self, mut begin: usize, end: usize, node: NodeId) {
-        'out: while begin < end {
-            let bytes = self.text[begin..end].as_bytes();
+    fn parse_objects_children(&mut self, begin: usize, end: usize, node: NodeId) {
+        if begin >= end {
+            return;
+        }
 
-            match bytes[0] {
-                b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => {
-                    if let Some((ty, off)) = self.parse_object(begin + 1, end) {
+        let mut pos = 0;
+
+        if let Some((ty, off)) = self.parse_object(begin, end) {
+            let new_node = self.arena.new_node(ty);
+            node.append(new_node, &mut self.arena).unwrap();
+            pos += off;
+        }
+
+        let mut last_end = pos;
+        let text = &self.text[begin..end];
+        while let Some(off) = bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n')
+            .find(&text[pos..].as_bytes())
+        {
+            pos += off;
+            match text.as_bytes()[pos] {
+                b'{' => {
+                    if let Some((ty, off)) = self.parse_object(begin + pos, end) {
+                        if last_end != pos {
+                            let new_node = self.arena.new_node(Element::Text {
+                                value: &text[last_end..pos],
+                                begin: begin + last_end,
+                                end: begin + pos,
+                            });
+                            node.append(new_node, &mut self.arena).unwrap();
+                        }
+                        let new_node = self.arena.new_node(ty);
+                        node.append(new_node, &mut self.arena).unwrap();
+                        pos += off;
+                        last_end = pos;
+                    } else if let Some((ty, off)) = self.parse_object(begin + pos + 1, end) {
                         let new_node = self.arena.new_node(Element::Text {
-                            value: &self.text[begin..=begin],
-                            begin,
-                            end,
+                            value: &text[last_end..=pos],
+                            begin: begin + last_end,
+                            end: begin + pos + 1,
                         });
                         node.append(new_node, &mut self.arena).unwrap();
                         let new_node = self.arena.new_node(ty);
                         node.append(new_node, &mut self.arena).unwrap();
-                        begin += 1 + off;
-                        continue;
+                        pos += off + 1;
+                        last_end = pos;
+                    } else {
+                        pos += 1;
+                    }
+                }
+                b' ' | b'(' | b'\'' | b'"' | b'\n' => {
+                    if let Some((ty, off)) = self.parse_object(begin + pos + 1, end) {
+                        let new_node = self.arena.new_node(Element::Text {
+                            value: &text[last_end..=pos],
+                            begin: begin + last_end,
+                            end: begin + pos + 1,
+                        });
+                        node.append(new_node, &mut self.arena).unwrap();
+                        let new_node = self.arena.new_node(ty);
+                        node.append(new_node, &mut self.arena).unwrap();
+                        pos += off + 1;
+                        last_end = pos;
+                    } else {
+                        pos += 1;
                     }
                 }
                 _ => {
-                    if let Some((ty, off)) = self.parse_object(begin, end) {
+                    if let Some((ty, off)) = self.parse_object(begin + pos, end) {
+                        if last_end != pos {
+                            let new_node = self.arena.new_node(Element::Text {
+                                value: &text[last_end..pos],
+                                begin: begin + last_end,
+                                end: begin + pos,
+                            });
+                            node.append(new_node, &mut self.arena).unwrap();
+                        }
                         let new_node = self.arena.new_node(ty);
                         node.append(new_node, &mut self.arena).unwrap();
-                        begin += off;
-                        continue;
+                        pos += off;
+                        last_end = pos;
+                    } else {
+                        pos += 1;
                     }
                 }
             }
+        }
 
-            let bs = bytes!(b'@', b' ', b'"', b'(', b'\n', b'{', b'<', b'[');
-            let mut pos = 0;
-            while let Some(off) = bs.find(&bytes[pos..]) {
-                pos += off;
-                assert!(begin + pos <= end);
-                match bytes[pos] {
-                    b'{' | b' ' | b'"' | b',' | b'(' | b'\n' => {
-                        if let Some((ty, off)) = self.parse_object(begin + pos + 1, end) {
-                            let new_node = self.arena.new_node(Element::Text {
-                                value: &self.text[begin..=begin + pos],
-                                begin,
-                                end,
-                            });
-                            node.append(new_node, &mut self.arena).unwrap();
-                            let new_node = self.arena.new_node(ty);
-                            node.append(new_node, &mut self.arena).unwrap();
-                            begin += pos + 1 + off;
-                            continue 'out;
-                        }
-                    }
-                    _ => {
-                        if let Some((ty, off)) = self.parse_object(begin + pos, end) {
-                            let new_node = self.arena.new_node(Element::Text {
-                                value: &self.text[begin..begin + pos],
-                                begin,
-                                end,
-                            });
-                            node.append(new_node, &mut self.arena).unwrap();
-                            let new_node = self.arena.new_node(ty);
-                            node.append(new_node, &mut self.arena).unwrap();
-                            begin += pos + off;
-                            continue 'out;
-                        }
-                    }
-                }
-                pos += 1;
-            }
-
+        if begin + last_end < end {
             let new_node = self.arena.new_node(Element::Text {
-                value: &self.text[begin..end],
-                begin,
+                value: &text[last_end..],
+                begin: begin + last_end,
                 end,
             });
             node.append(new_node, &mut self.arena).unwrap();
-            begin = end;
         }
     }
 

@@ -1,6 +1,5 @@
 #![feature(test)]
 
-extern crate orgize;
 extern crate test;
 
 use orgize::Org;
