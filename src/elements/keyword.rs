@@ -8,6 +8,12 @@ pub struct Keyword<'a> {
     pub value: &'a str,
 }
 
+#[derive(Debug)]
+pub struct BabelCall<'a> {
+    pub key: &'a str,
+    pub value: &'a str,
+}
+
 impl Keyword<'_> {
     #[inline]
     // return (key, option, value, offset)

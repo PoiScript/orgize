@@ -140,9 +140,11 @@
 //! ```
 
 pub mod elements;
+pub mod export;
 pub mod iter;
 pub mod org;
 #[cfg(feature = "serde")]
 mod serde;
 
+pub use iter::{Container, Event};
 pub use org::Org;

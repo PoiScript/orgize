@@ -1,28 +1,32 @@
 use crate::elements::*;
+use crate::export::{DefaultHtmlHandler, HtmlHandler};
 use crate::iter::Iter;
 
 use indextree::{Arena, NodeId};
 use jetscii::bytes;
 use memchr::{memchr_iter, memrchr_iter};
+use std::io::{Error, Write};
 
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
     pub(crate) document: NodeId,
-    root: Option<NodeId>,
+    root: NodeId,
     text: &'a str,
 }
 
 impl<'a> Org<'a> {
     pub fn new(text: &'a str) -> Self {
         let mut arena = Arena::new();
+        let root = arena.new_node(Element::Root);
         let document = arena.new_node(Element::Document {
             begin: 0,
             end: text.len(),
         });
+        root.append(document, &mut arena).unwrap();
 
         Org {
             arena,
-            root: None,
+            root,
             document,
             text,
         }
@@ -32,14 +36,50 @@ impl<'a> Org<'a> {
         self.arena[self.document].first_child().is_some()
     }
 
-    pub fn iter(&'a mut self) -> Iter<'a> {
-        if let Some(root) = self.root {
-            Iter::new(&self.arena, root)
-        } else {
-            let root = self.arena.new_node(Element::Root);
-            root.append(self.document, &mut self.arena).unwrap();
-            Iter::new(&self.arena, root)
+    pub fn iter(&'a self) -> Iter<'a> {
+        Iter::new(&self.arena, self.root)
+    }
+
+    pub fn html<W, H, E>(&self, mut writer: W, mut handler: H) -> Result<(), E>
+    where
+        W: Write,
+        E: From<Error>,
+        H: HtmlHandler<E>,
+    {
+        use crate::iter::Event::*;
+
+        for event in self.iter() {
+            match event {
+                Start(e) => handler.start(&mut writer, e)?,
+                End(e) => handler.end(&mut writer, e)?,
+                Clock(e) => handler.clock(&mut writer, e)?,
+                Cookie(e) => handler.cookie(&mut writer, e)?,
+                Drawer(e) => handler.drawer(&mut writer, e)?,
+                FnDef(e) => handler.fn_def(&mut writer, e)?,
+                FnRef(e) => handler.fn_ref(&mut writer, e)?,
+                InlineCall(e) => handler.inline_call(&mut writer, e)?,
+                InlineSrc(e) => handler.inline_src(&mut writer, e)?,
+                Keyword(e) => handler.keyword(&mut writer, e)?,
+                Link(e) => handler.link(&mut writer, e)?,
+                Macros(e) => handler.macros(&mut writer, e)?,
+                Planning(e) => handler.planning(&mut writer, e)?,
+                RadioTarget(e) => handler.radio_target(&mut writer, e)?,
+                Snippet(e) => handler.snippet(&mut writer, e)?,
+                Target(e) => handler.target(&mut writer, e)?,
+                Timestamp(e) => handler.timestamp(&mut writer, e)?,
+                Text(e) => handler.text(&mut writer, e)?,
+                Code(e) => handler.code(&mut writer, e)?,
+                Verbatim(e) => handler.verbatim(&mut writer, e)?,
+                BabelCall(e) => handler.babel_call(&mut writer, e)?,
+                Rule => handler.rule(&mut writer)?,
+            }
         }
+
+        Ok(())
+    }
+
+    pub fn html_default<W: Write>(&self, wrtier: W) -> Result<(), Error> {
+        self.html(wrtier, DefaultHtmlHandler)
     }
 
     pub fn parse(&mut self) {
@@ -327,7 +367,7 @@ impl<'a> Org<'a> {
             } else if let Some((key, option, value, end)) = Keyword::parse(tail) {
                 if key.eq_ignore_ascii_case("CALL") {
                     let call = Element::BabelCall {
-                        value,
+                        call: BabelCall { key, value },
                         begin,
                         end: begin + line_begin + end,
                     };

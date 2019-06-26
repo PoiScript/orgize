@@ -201,7 +201,7 @@ impl Serialize for ElementNode<'_> {
                     state.serialize_field("end", end)?;
                 }
             }
-            Element::BabelCall { value, begin, end } => {
+            Element::BabelCall { call, begin, end } => {
                 state = serializer.serialize_struct("Element::BabelCall", 2)?;
                 state.serialize_field("type", "babel_call")?;
                 if cfg!(feature = "extra-serde-info") {

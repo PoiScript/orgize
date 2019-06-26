@@ -41,7 +41,7 @@ pub enum Event<'a> {
     Text(&'a str),
     Code(&'a str),
     Verbatim(&'a str),
-    BabelCall(&'a str),
+    BabelCall(&'a BabelCall<'a>),
 }
 
 enum State {
@@ -73,9 +73,9 @@ impl<'a> Iter<'a> {
                 self.state = State::Finished;
                 None
             }
-            Element::BabelCall { value, .. } => {
+            Element::BabelCall { call, .. } => {
                 self.state = State::Start;
-                Some(Event::BabelCall(value))
+                Some(Event::BabelCall(call))
             }
             Element::Verbatim { value, .. } => {
                 self.state = State::Start;
@@ -260,9 +260,9 @@ impl<'a> Iter<'a> {
                 self.state = State::Finished;
                 None
             }
-            Element::BabelCall { value, .. } => {
+            Element::BabelCall { call, .. } => {
                 self.state = State::End;
-                Some(Event::BabelCall(value))
+                Some(Event::BabelCall(call))
             }
             Element::Verbatim { value, .. } => {
                 self.state = State::End;

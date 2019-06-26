@@ -33,7 +33,7 @@ pub use self::{
     headline::Headline,
     inline_call::InlineCall,
     inline_src::InlineSrc,
-    keyword::Keyword,
+    keyword::{BabelCall, Keyword},
     link::Link,
     list::{List, ListItem},
     macros::Macros,
@@ -56,7 +56,7 @@ pub enum Element<'a> {
         contents_end: usize,
     },
     BabelCall {
-        value: &'a str,
+        call: BabelCall<'a>,
         begin: usize,
         end: usize,
     },
