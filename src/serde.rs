@@ -10,7 +10,7 @@ impl Serialize for Org<'_> {
         serializer.serialize_newtype_struct(
             "Element",
             &ElementNode {
-                node: self.root,
+                node: self.document,
                 arena: &self.arena,
             },
         )
@@ -27,6 +27,10 @@ impl Serialize for ElementNode<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut state;
         match &self.arena[self.node].data {
+            Element::Root => {
+                state = serializer.serialize_struct("Element::Root", 2)?;
+                state.serialize_field("type", "root")?;
+            }
             Element::Document { begin, end } => {
                 state = serializer.serialize_struct("Element::Document", 2)?;
                 state.serialize_field("type", "document")?;

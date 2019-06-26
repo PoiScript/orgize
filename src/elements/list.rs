@@ -60,6 +60,8 @@ impl List {
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct ListItem<'a> {
     pub bullet: &'a str,
 }

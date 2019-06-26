@@ -47,6 +47,7 @@ pub use self::{
 
 #[derive(Debug)]
 pub enum Element<'a> {
+    Root,
     Block {
         block: Block<'a>,
         begin: usize,

@@ -140,6 +140,7 @@
 //! ```
 
 pub mod elements;
+pub mod iter;
 pub mod org;
 #[cfg(feature = "serde")]
 mod serde;

@@ -1,4 +1,5 @@
 use crate::elements::*;
+use crate::iter::Iter;
 
 use indextree::{Arena, NodeId};
 use jetscii::bytes;
@@ -6,23 +7,39 @@ use memchr::{memchr_iter, memrchr_iter};
 
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
-    pub(crate) root: NodeId,
+    pub(crate) document: NodeId,
+    root: Option<NodeId>,
     text: &'a str,
 }
 
 impl<'a> Org<'a> {
     pub fn new(text: &'a str) -> Self {
         let mut arena = Arena::new();
-        let root = arena.new_node(Element::Document {
+        let document = arena.new_node(Element::Document {
             begin: 0,
             end: text.len(),
         });
 
-        Org { arena, root, text }
+        Org {
+            arena,
+            root: None,
+            document,
+            text,
+        }
     }
 
     pub fn finish(&self) -> bool {
-        self.arena[self.root].first_child().is_some()
+        self.arena[self.document].first_child().is_some()
+    }
+
+    pub fn iter(&'a mut self) -> Iter<'a> {
+        if let Some(root) = self.root {
+            Iter::new(&self.arena, root)
+        } else {
+            let root = self.arena.new_node(Element::Root);
+            root.append(self.document, &mut self.arena).unwrap();
+            Iter::new(&self.arena, root)
+        }
     }
 
     pub fn parse(&mut self) {
@@ -30,7 +47,7 @@ impl<'a> Org<'a> {
             return;
         }
 
-        let mut node = self.root;
+        let mut node = self.document;
         loop {
             match self.arena[node].data {
                 Element::Document { begin, end, .. }
@@ -152,6 +169,14 @@ impl<'a> Org<'a> {
     fn parse_elements_children(&mut self, mut begin: usize, end: usize, node: NodeId) {
         'out: while begin < end {
             let text = &self.text[begin..end];
+
+            if let Some((ty, off)) = self.parse_element(begin, end) {
+                let new_node = self.arena.new_node(ty);
+                node.append(new_node, &mut self.arena).unwrap();
+                begin += off;
+                continue 'out;
+            }
+
             let mut pos = 0;
             for i in memchr_iter(b'\n', text.as_bytes()) {
                 if text.as_bytes()[pos..i].iter().all(u8::is_ascii_whitespace) {
