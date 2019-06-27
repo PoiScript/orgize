@@ -1,34 +1,15 @@
 # Orgize
 
-Orgize is a Emacs Org-mode parser written by pure Rust. It behaves like a pull
-parser (returning an iterator of events) but not exactly.
+A Rust library for parsing orgmode files.
 
-Besides, orgize also provides some mechanism for exporting org-mode files to
-various formats, e.g. HTML.
+## Parse
 
-## Usage
-
-```toml
-[dependencies]
-orgize = "0.1.0"
-```
+To parse a orgmode string, simply invoking the `Org::parse` function:
 
 ```rust
-// Rust 2015 only
-extern crate orgize;
-```
+use orgize::Org;
 
-## Example
-
-### Using Parser
-
-Orgize parser acts like a event-based parser, which means it returns an
-`Iterator` of `Event` s.
-
-```rust
-use orgize::Parser;
-
-let parser = Parser::new(r#"* Title 1
+let org = Org::parse(r#"* Title 1
 *Section 1*
 ** Title 2
 _Section 2_
@@ -36,21 +17,97 @@ _Section 2_
 /Section 3/
 * Title 4
 =Section 4="#);
+```
 
-for event in parser {
+## Iter
+
+`Org::iter` function will return a iteractor of `Event`s, which is
+a simple wrapper of `Element`.
+
+```rust
+for event in org.iter() {
     // handling the event
 }
 ```
 
-### Using Render
+**Note**: whether an element is container or not, it will appears two times in a loop.
+One as `Event::Start(element)`, one as `Event::End(element)`.
 
-You can use the built-in `HtmlRender` to generate html string directly:
+## Render html
+
+You can call the `Org::html_default` function to generate html directly, which
+uses the `DefaultHtmlHandler` internally:
 
 ```rust
-use orgize::export::HtmlRender;
-use std::io::{Cursor, Result};
+let mut writer = Vec::new();
+org.html_default(&mut writer).unwrap();
 
-fn main() -> Result<()> {
+assert_eq!(
+    String::from_utf8(writer).unwrap(),
+    "<main><h1>Title 1</h1><section><p><b>Section 1</b></p></section>\
+    <h2>Title 2</h2><section><p><u>Section 2</u></p></section>\
+    <h1>Title 3</h1><section><p><i>Section 3</i></p></section>\
+    <h1>Title 4</h1><section><p><code>Section 4</code></p></section></main>"
+);
+```
+
+## Render html with custom HtmlHandler
+
+To customize html rending, simply implementing `HtmlHandler` trait and passing
+it to the `Org::html` function.
+
+The following code demonstrates how to add a id for every headline and return
+own error type while rendering.
+
+```rust
+#[derive(Debug)]
+enum MyError {
+    IO(IOError),
+    Heading,
+    Utf8(FromUtf8Error),
+}
+
+// From<std::io::Error> trait is required for custom error type
+impl From<IOError> for MyError {
+    fn from(err: IOError) -> Self {
+        MyError::IO(err)
+    }
+}
+
+impl From<FromUtf8Error> for MyError {
+    fn from(err: FromUtf8Error) -> Self {
+        MyError::Utf8(err)
+    }
+}
+
+struct MyHtmlHandler;
+
+impl HtmlHandler<MyError> for MyHtmlHandler {
+    fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
+        let mut default_handler = DefaultHtmlHandler;
+        match element {
+            Element::Headline { headline, .. } => {
+                if headline.level > 6 {
+                    return Err(MyError::Heading);
+                } else {
+                    let slugify = slugify!(headline.title);
+                    write!(
+                        w,
+                        "<h{0}><a id=\"{1}\" href=\"#{1}\">{2}</a></h{0}>",
+                        headline.level,
+                        slugify,
+                        Escape(headline.title),
+                    )?;
+                }
+            }
+            // fallthrough to default handler
+            _ => default_handler.start(w, element)?,
+        }
+        Ok(())
+    }
+}
+
+fn main() -> Result<(), MyError> {
     let contents = r"* Title 1
 *Section 1*
 ** Title 2
@@ -60,96 +117,33 @@ _Section 2_
 * Title 4
 =Section 4=";
 
-    let mut cursor = Cursor::new(Vec::new());
-    let mut render = HtmlRender::default(&mut cursor, &contents);
-
-    render.render()?;
-
+    let mut writer = Vec::new();
+    Org::parse(&contents).html(&mut writer, MyHtmlHandler)?;
     assert_eq!(
-        String::from_utf8(cursor.into_inner()).unwrap(),
-        "<h1>Title 1</h1><section><p><b>Section 1</b></p></section>\
-         <h2>Title 2</h2><section><p><u>Section 2</u></p></section>\
-         <h1>Title 3</h1><section><p><i>Section 3</i></p></section>\
-         <h1>Title 4</h1><section><p><code>Section 4</code></p></section>"
+        String::from_utf8(writer)?,
+        "<main><h1><a id=\"title-1\" href=\"#title-1\">Title 1</a></h1><section><p><b>Section 1</b></p></section>\
+         <h2><a id=\"title-2\" href=\"#title-2\">Title 2</a></h2><section><p><u>Section 2</u></p></section>\
+         <h1><a id=\"title-3\" href=\"#title-3\">Title 3</a></h1><section><p><i>Section 3</i></p></section>\
+         <h1><a id=\"title-4\" href=\"#title-4\">Title 4</a></h1><section><p><code>Section 4</code></p></section></main>"
     );
 
     Ok(())
 }
 ```
 
-### Custom HtmlHandler
+**Note**: as I mentioned above, each element will appears two times while iterating.
+And handler will silently ignores all end events from non-container elements.
 
-You can create your own handler by implementing `HtmlHandler` trait and passing
-it to the `HtmlRender`.
+So if you want to change how a non-container element renders, just redefine the start
+function and leave the end function untouched.
 
-The following example demonstrates how to add an anchor for every headline and
-use your own error type.
+## Serde
+
+`Org` struct have already implemented serde's `Serialize` trait. It means you can
+freely serialize it into any format that serde supports such as json:
 
 ```rust
-use orgize::{export::*, headline::Headline};
-use slugify::slugify;
-use std::io::{Cursor, Error as IOError, Write};
-use std::string::FromUtf8Error;
-
-// custom error type
-#[derive(Debug)]
-enum Error {
-    IO(IOError),
-    Headline,
-    Utf8(FromUtf8Error),
-}
-
-// From<std::io::Error> trait is required for custom error type
-impl From<IOError> for Error {
-    fn from(err: IOError) -> Error {
-        Error::IO(err)
-    }
-}
-
-struct CustomHtmlHandler;
-
-impl<W: Write> HtmlHandler<W, Error> for CustomHtmlHandler {
-    fn headline_beg(&mut self, w: &mut W, hdl: Headline) -> Result<(), Error> {
-         if hdl.level > 6 {
-             Err(Error::Headline)
-         } else {
-             write!(
-                 w,
-                 r##"<h{}><a class="anchor" href="#{}">"##,
-                 hdl.level,
-                 slugify!(hdl.title),
-             )?;
-             self.escape(w, hdl.title)?;
-             Ok(write!(w, "</a></h{}>", hdl.level)?)
-         }
-    }
-}
-
-fn main() -> Result<(), Error> {
-    let contents = r"* Title 1
-*Section 1*
-** Title 2
-_Section 2_
-* Title 3
-/Section 3/
-* Title 4
-=Section 4=";
-
-    let mut cursor = Cursor::new(Vec::new());
-    let mut render = HtmlRender::new(CustomHtmlHandler, &mut cursor, &contents);
-
-    render.render()?;
-
-    assert_eq!(
-        String::from_utf8(cursor.into_inner()).map_err(Error::Utf8)?,
-        "<h1><a class=\"anchor\" href=\"#title-1\">Title 1</a></h1><section><p><b>Section 1</b></p></section>\
-         <h2><a class=\"anchor\" href=\"#title-2\">Title 2</a></h2><section><p><u>Section 2</u></p></section>\
-         <h1><a class=\"anchor\" href=\"#title-3\">Title 3</a></h1><section><p><i>Section 3</i></p></section>\
-         <h1><a class=\"anchor\" href=\"#title-4\">Title 4</a></h1><section><p><code>Section 4</code></p></section>"
-    );
-
-    Ok(())
-}
+println!("{}", to_string(&org).unwrap());
 ```
 
 ## License

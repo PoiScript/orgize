@@ -1,6 +1,6 @@
 use indextree::{Arena, NodeId};
 use jetscii::bytes;
-use memchr::{memchr, memchr_iter, memrchr_iter};
+use memchr::{memchr, memchr_iter};
 use std::io::{Error, Write};
 
 use crate::elements::*;
@@ -80,13 +80,11 @@ impl<'a> Org<'a> {
                     if begin < end {
                         let off = Headline::find_level(&self.text[begin..end], std::usize::MAX);
                         if off != 0 {
-                            let (contents_begin, contents_end) =
-                                skip_empty_lines(&self.text[begin..begin + off]);
                             let section = Element::Section {
                                 begin,
                                 end: begin + off,
-                                contents_begin: begin + contents_begin,
-                                contents_end: begin + contents_end,
+                                contents_begin: begin,
+                                contents_end: begin + off,
                             };
                             let new_node = self.arena.new_node(section);
                             node.append(new_node, &mut self.arena).unwrap();
@@ -236,7 +234,7 @@ impl<'a> Org<'a> {
         if let Some((ty, off)) = self.parse_element(begin, end) {
             let new_node = self.arena.new_node(ty);
             node.append(new_node, &mut self.arena).unwrap();
-            pos += off;
+            pos += off + skip_empty_lines(&text[off..]);
         }
 
         let mut last_end = pos;
@@ -247,12 +245,17 @@ impl<'a> Org<'a> {
                 .iter()
                 .all(u8::is_ascii_whitespace)
             {
-                let (end, _) = skip_empty_lines(&text[pos + i..]);
+                let end = skip_empty_lines(&text[pos + i..]);
                 let new_node = self.arena.new_node(Element::Paragraph {
                     begin: begin + last_end,
                     end: begin + pos + i + end,
                     contents_begin: begin + last_end,
-                    contents_end: begin + pos,
+                    contents_end: begin
+                        + if text.as_bytes()[pos - 1] == b'\n' {
+                            pos - 1
+                        } else {
+                            pos
+                        },
                 });
                 node.append(new_node, &mut self.arena).unwrap();
                 pos += i + end;
@@ -263,13 +266,18 @@ impl<'a> Org<'a> {
                         begin: begin + last_end,
                         end: begin + pos,
                         contents_begin: begin + last_end,
-                        contents_end: begin + pos,
+                        contents_end: begin
+                            + if text.as_bytes()[pos - 1] == b'\n' {
+                                pos - 1
+                            } else {
+                                pos
+                            },
                     });
                     node.append(new_node, &mut self.arena).unwrap();
                 }
                 let new_node = self.arena.new_node(ty);
                 node.append(new_node, &mut self.arena).unwrap();
-                pos += off;
+                pos += off + skip_empty_lines(&text[pos + off..]);
                 last_end = pos;
             } else {
                 pos += i + 1;
@@ -755,9 +763,8 @@ impl<'a> Org<'a> {
     }
 }
 
-fn skip_empty_lines(text: &str) -> (usize, usize) {
+fn skip_empty_lines(text: &str) -> usize {
     let mut i = 0;
-    let mut j = text.len();
     for pos in memchr_iter(b'\n', text.as_bytes()) {
         if text.as_bytes()[i..pos].iter().all(u8::is_ascii_whitespace) {
             i = pos + 1;
@@ -765,14 +772,15 @@ fn skip_empty_lines(text: &str) -> (usize, usize) {
             break;
         }
     }
+    i
+}
 
-    for pos in memrchr_iter(b'\n', text.as_bytes()) {
-        if text.as_bytes()[pos..j].iter().all(u8::is_ascii_whitespace) {
-            j = pos;
-        } else {
-            break;
-        }
-    }
-
-    (i, j)
+#[test]
+fn test_skip_empty_lines() {
+    assert_eq!(skip_empty_lines("foo"), 0);
+    assert_eq!(skip_empty_lines(" foo"), 0);
+    assert_eq!(skip_empty_lines(" \nfoo\n"), " \n".len());
+    assert_eq!(skip_empty_lines(" \n\n\nfoo\n"), " \n\n\n".len());
+    assert_eq!(skip_empty_lines(" \n  \n\nfoo\n"), " \n  \n\n".len());
+    assert_eq!(skip_empty_lines(" \n  \n\n   foo\n"), " \n  \n\n".len());
 }

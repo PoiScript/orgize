@@ -1,3 +1,5 @@
+//! Org-mode elements module
+
 mod block;
 mod clock;
 mod cookie;
@@ -47,6 +49,12 @@ pub use self::{
 
 use indextree::NodeId;
 
+/// Org-mode element enum
+///
+/// Generally, each variant contains a element struct and
+/// a set of properties which indicate the position of the
+/// element in the original string.
+///
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]

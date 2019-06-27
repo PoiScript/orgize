@@ -81,12 +81,12 @@ fn parse() {
     );
 
     assert_eq!(
-        Keyword::parse("#+ATTR_LATEX: :width 5cm"),
+        Keyword::parse("#+ATTR_LATEX: :width 5cm\n"),
         Some((
             "ATTR_LATEX",
             None,
             ":width 5cm",
-            "#+ATTR_LATEX: :width 5cm".len()
+            "#+ATTR_LATEX: :width 5cm\n".len()
         ))
     );
 
