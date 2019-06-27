@@ -73,6 +73,8 @@ impl<'a> Org<'a> {
                 Verbatim(e) => handler.verbatim(&mut writer, e)?,
                 BabelCall(e) => handler.babel_call(&mut writer, e)?,
                 Rule => handler.rule(&mut writer)?,
+                Comment(e) => handler.comment(&mut writer, e)?,
+                FixedWidth(e) => handler.fixed_width(&mut writer, e)?,
             }
         }
 
@@ -271,12 +273,12 @@ impl<'a> Org<'a> {
                 let (end, _) = skip_empty_lines(&text[pos + i..]);
                 let new_node = self.arena.new_node(Element::Paragraph {
                     begin: begin + last_end,
-                    end: begin + pos + 1 + i + end,
+                    end: begin + pos + i + end,
                     contents_begin: begin + last_end,
                     contents_end: begin + pos,
                 });
                 node.append(new_node, &mut self.arena).unwrap();
-                pos += i + end + 1;
+                pos += i + end;
                 last_end = pos;
             } else if let Some((ty, off)) = self.parse_element(begin + pos, end) {
                 if last_end != pos {
@@ -346,8 +348,7 @@ impl<'a> Org<'a> {
         // TODO: LaTeX environment
         if tail.starts_with("\\begin{") {}
 
-        // rule
-        if tail.starts_with("-----") {
+        if tail.starts_with('-') {
             if let Some(end) = Rule::parse(tail) {
                 let rule = Element::Rule {
                     begin,
@@ -370,30 +371,48 @@ impl<'a> Org<'a> {
             }
         }
 
-        // fixed width
-        if tail.starts_with(": ") || tail.starts_with(":\n") {
-            // let end = line_ends
-            //     .skip_while(|&i| {
-            //         text[i + 1..].starts_with(": ") || text[i + 1..].starts_with(":\n")
-            //     })
-            //     .next()
-            //     .map(|i| i + 1)
-            //     .unwrap_or_else(|| text.len());
-            // let off = end - pos;
-            // brk!(Element::FixedWidth(&tail[0..off]), off);
+        if tail == ":" || tail.starts_with(": ") || tail.starts_with(":\n") {
+            let mut last_end = 1; // ":"
+            for i in memchr_iter(b'\n', text.as_bytes()) {
+                last_end = i + 1;
+                let line = &text[last_end..];
+                if !(line == ":" || line.starts_with(": ") || line.starts_with(":\n")) {
+                    let fixed_width = Element::FixedWidth {
+                        value: &text[0..i + 1],
+                        begin,
+                        end: begin + i + 1,
+                    };
+                    return Some((fixed_width, i + 1));
+                }
+            }
+            let fixed_width = Element::FixedWidth {
+                value: &text[0..last_end],
+                begin,
+                end: begin + last_end,
+            };
+            return Some((fixed_width, last_end));
         }
 
-        // comment
-        if tail.starts_with("# ") || tail.starts_with("#\n") {
-            // let end = line_ends
-            //     .skip_while(|&i| {
-            //         text[i + 1..].starts_with("# ") || text[i + 1..].starts_with("#\n")
-            //     })
-            //     .next()
-            //     .map(|i| i + 1)
-            //     .unwrap_or_else(|| text.len());
-            // let off = end - pos;
-            // brk!(Element::Comment(&tail[0..off]), off);
+        if tail == "#" || tail.starts_with("# ") || tail.starts_with("#\n") {
+            let mut last_end = 1; // "#"
+            for i in memchr_iter(b'\n', text.as_bytes()) {
+                last_end = i + 1;
+                let line = &text[last_end..];
+                if !(line == "#" || line.starts_with("# ") || line.starts_with("#\n")) {
+                    let fixed_width = Element::Comment {
+                        value: &text[0..i + 1],
+                        begin,
+                        end: begin + i + 1,
+                    };
+                    return Some((fixed_width, i + 1));
+                }
+            }
+            let fixed_width = Element::Comment {
+                value: &text[0..last_end],
+                begin,
+                end: begin + last_end,
+            };
+            return Some((fixed_width, last_end));
         }
 
         if tail.starts_with("#+") {

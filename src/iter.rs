@@ -22,6 +22,8 @@ pub enum Container<'a> {
 pub enum Event<'a> {
     Start(Container<'a>),
     End(Container<'a>),
+    Rule,
+    BabelCall(&'a BabelCall<'a>),
     Clock(&'a Clock<'a>),
     Cookie(&'a Cookie<'a>),
     Drawer(&'a Drawer<'a>),
@@ -34,14 +36,14 @@ pub enum Event<'a> {
     Macros(&'a Macros<'a>),
     Planning(Planning<'a>),
     RadioTarget(&'a RadioTarget<'a>),
-    Rule,
     Snippet(&'a Snippet<'a>),
     Target(&'a Target<'a>),
     Timestamp(&'a Timestamp<'a>),
-    Text(&'a str),
     Code(&'a str),
+    Comment(&'a str),
+    FixedWidth(&'a str),
+    Text(&'a str),
     Verbatim(&'a str),
-    BabelCall(&'a BabelCall<'a>),
 }
 
 enum State {
@@ -277,6 +279,14 @@ impl<'a> Iter<'a> {
                 self.state = State::Start;
                 Some(Event::Timestamp(timestamp))
             }
+            Element::FixedWidth { value, .. } => {
+                self.state = State::Start;
+                Some(Event::FixedWidth(value))
+            }
+            Element::Comment { value, .. } => {
+                self.state = State::Start;
+                Some(Event::Comment(value))
+            }
         }
     }
 
@@ -286,22 +296,6 @@ impl<'a> Iter<'a> {
             Element::Root => {
                 self.state = State::Finished;
                 None
-            }
-            Element::BabelCall { call, .. } => {
-                self.state = State::End;
-                Some(Event::BabelCall(call))
-            }
-            Element::Verbatim { value, .. } => {
-                self.state = State::End;
-                Some(Event::Verbatim(value))
-            }
-            Element::Code { value, .. } => {
-                self.state = State::End;
-                Some(Event::Code(value))
-            }
-            Element::Text { value, .. } => {
-                self.state = State::End;
-                Some(Event::Text(value))
             }
             Element::Block { block, .. } => {
                 self.state = State::End;
@@ -351,97 +345,7 @@ impl<'a> Iter<'a> {
                 self.state = State::End;
                 Some(Event::End(Container::Underline))
             }
-            Element::Clock { clock, .. } => {
-                self.state = State::End;
-                Some(Event::Clock(clock))
-            }
-            Element::Cookie { cookie, .. } => {
-                self.state = State::End;
-                Some(Event::Cookie(cookie))
-            }
-            Element::Drawer { drawer, .. } => {
-                self.state = State::End;
-                Some(Event::Drawer(drawer))
-            }
-            Element::FnDef { fn_def, .. } => {
-                self.state = State::End;
-                Some(Event::FnDef(fn_def))
-            }
-            Element::FnRef { fn_ref, .. } => {
-                self.state = State::End;
-                Some(Event::FnRef(fn_ref))
-            }
-            Element::InlineCall { inline_call, .. } => {
-                self.state = State::End;
-                Some(Event::InlineCall(inline_call))
-            }
-            Element::InlineSrc { inline_src, .. } => {
-                self.state = State::End;
-                Some(Event::InlineSrc(inline_src))
-            }
-            Element::Keyword { keyword, .. } => {
-                self.state = State::End;
-                Some(Event::Keyword(keyword))
-            }
-            Element::Link { link, .. } => {
-                self.state = State::End;
-                Some(Event::Link(link))
-            }
-            Element::Macros { macros, .. } => {
-                self.state = State::End;
-                Some(Event::Macros(macros))
-            }
-            Element::Planning {
-                deadline,
-                scheduled,
-                closed,
-                ..
-            } => {
-                self.state = State::End;
-                Some(Event::Planning(Planning {
-                    deadline: deadline.and_then(|id| {
-                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
-                            Some(timestamp)
-                        } else {
-                            None
-                        }
-                    }),
-                    scheduled: scheduled.and_then(|id| {
-                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
-                            Some(timestamp)
-                        } else {
-                            None
-                        }
-                    }),
-                    closed: closed.and_then(|id| {
-                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
-                            Some(timestamp)
-                        } else {
-                            None
-                        }
-                    }),
-                }))
-            }
-            Element::RadioTarget { radio_target, .. } => {
-                self.state = State::End;
-                Some(Event::RadioTarget(radio_target))
-            }
-            Element::Rule { .. } => {
-                self.state = State::End;
-                Some(Event::Rule)
-            }
-            Element::Snippet { snippet, .. } => {
-                self.state = State::End;
-                Some(Event::Snippet(snippet))
-            }
-            Element::Target { target, .. } => {
-                self.state = State::End;
-                Some(Event::Target(target))
-            }
-            Element::Timestamp { timestamp, .. } => {
-                self.state = State::End;
-                Some(Event::Timestamp(timestamp))
-            }
+            _ => unreachable!(),
         }
     }
 }

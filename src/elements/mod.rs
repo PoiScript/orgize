@@ -349,4 +349,18 @@ pub enum Element<'a> {
         end: usize,
         value: &'a str,
     },
+    Comment {
+        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+        begin: usize,
+        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+        end: usize,
+        value: &'a str,
+    },
+    FixedWidth {
+        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+        begin: usize,
+        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+        end: usize,
+        value: &'a str,
+    },
 }

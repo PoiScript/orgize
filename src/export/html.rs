@@ -156,6 +156,18 @@ pub trait HtmlHandler<E: From<Error>> {
     fn fn_def<W: Write>(&mut self, mut w: W, fn_def: &FnDef<'_>) -> Result<(), E> {
         Ok(())
     }
+    fn comment<W: Write>(&mut self, mut w: W, value: &str) -> Result<(), E> {
+        write!(&mut w, "<!--\n")?;
+        self.text(&mut w, value)?;
+        write!(&mut w, "\n-->")?;
+        Ok(())
+    }
+    fn fixed_width<W: Write>(&mut self, mut w: W, value: &str) -> Result<(), E> {
+        write!(&mut w, "<pre>")?;
+        self.text(&mut w, value)?;
+        write!(&mut w, "</pre>")?;
+        Ok(())
+    }
 }
 
 pub struct DefaultHtmlHandler;
