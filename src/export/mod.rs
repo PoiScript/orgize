@@ -1,3 +1,3 @@
-mod html;
+pub mod html;
 
-pub use html::*;
+pub use html::{DefaultHtmlHandler, HtmlHandler};

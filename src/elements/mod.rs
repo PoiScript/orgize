@@ -52,7 +52,6 @@ use indextree::NodeId;
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Element<'a> {
-    Root,
     Block {
         #[cfg_attr(feature = "serde", serde(flatten))]
         block: Block<'a>,

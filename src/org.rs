@@ -10,25 +10,21 @@ use crate::iter::Iter;
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
     pub(crate) document: NodeId,
-    root: NodeId,
     text: &'a str,
 }
 
 impl<'a> Org<'a> {
     pub fn parse(text: &'a str) -> Self {
         let mut arena = Arena::new();
-        let root = arena.new_node(Element::Root);
         let document = arena.new_node(Element::Document {
             begin: 0,
             end: text.len(),
             contents_begin: 0,
             contents_end: text.len(),
         });
-        root.append(document, &mut arena).unwrap();
 
         let mut org = Org {
             arena,
-            root,
             document,
             text,
         };
@@ -38,7 +34,10 @@ impl<'a> Org<'a> {
     }
 
     pub fn iter(&'a self) -> Iter<'a> {
-        Iter::new(&self.arena, self.root)
+        Iter {
+            arena: &self.arena,
+            traverse: self.document.traverse(&self.arena),
+        }
     }
 
     pub fn html<W, H, E>(&self, mut writer: W, mut handler: H) -> Result<(), E>
@@ -53,28 +52,6 @@ impl<'a> Org<'a> {
             match event {
                 Start(e) => handler.start(&mut writer, e)?,
                 End(e) => handler.end(&mut writer, e)?,
-                Clock(e) => handler.clock(&mut writer, e)?,
-                Cookie(e) => handler.cookie(&mut writer, e)?,
-                Drawer(e) => handler.drawer(&mut writer, e)?,
-                FnDef(e) => handler.fn_def(&mut writer, e)?,
-                FnRef(e) => handler.fn_ref(&mut writer, e)?,
-                InlineCall(e) => handler.inline_call(&mut writer, e)?,
-                InlineSrc(e) => handler.inline_src(&mut writer, e)?,
-                Keyword(e) => handler.keyword(&mut writer, e)?,
-                Link(e) => handler.link(&mut writer, e)?,
-                Macros(e) => handler.macros(&mut writer, e)?,
-                Planning(e) => handler.planning(&mut writer, &e)?,
-                RadioTarget(e) => handler.radio_target(&mut writer, e)?,
-                Snippet(e) => handler.snippet(&mut writer, e)?,
-                Target(e) => handler.target(&mut writer, e)?,
-                Timestamp(e) => handler.timestamp(&mut writer, e)?,
-                Text(e) => handler.text(&mut writer, e)?,
-                Code(e) => handler.code(&mut writer, e)?,
-                Verbatim(e) => handler.verbatim(&mut writer, e)?,
-                BabelCall(e) => handler.babel_call(&mut writer, e)?,
-                Rule => handler.rule(&mut writer)?,
-                Comment(e) => handler.comment(&mut writer, e)?,
-                FixedWidth(e) => handler.fixed_width(&mut writer, e)?,
             }
         }
 

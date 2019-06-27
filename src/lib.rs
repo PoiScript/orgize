@@ -146,5 +146,6 @@ pub mod org;
 #[cfg(feature = "serde")]
 mod serde;
 
-pub use iter::{Container, Event};
+pub use elements::Element;
+pub use iter::{Event, Iter};
 pub use org::Org;
