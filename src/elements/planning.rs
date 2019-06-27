@@ -3,13 +3,17 @@ use memchr::memchr;
 
 /// palnning elements
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Planning<'a> {
     /// the date when the task should be done
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub deadline: Option<&'a Timestamp<'a>>,
     /// the date when you should start working on the task
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub scheduled: Option<&'a Timestamp<'a>>,
     /// the date when the task is closed
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub closed: Option<&'a Timestamp<'a>>,
 }
 

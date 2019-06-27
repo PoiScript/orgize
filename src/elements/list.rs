@@ -2,6 +2,7 @@ use memchr::memchr_iter;
 use std::iter::once;
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct List {
     pub indent: usize,
@@ -61,6 +62,7 @@ impl List {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct ListItem<'a> {
     pub bullet: &'a str,

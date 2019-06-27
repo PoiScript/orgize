@@ -2,9 +2,11 @@ use memchr::memchr;
 use std::str::FromStr;
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug, Clone, Copy)]
 pub struct Datetime<'a> {
     pub(crate) date: &'a str,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub(crate) time: Option<&'a str>,
     pub(crate) dayname: &'a str,
 }
@@ -76,7 +78,8 @@ mod chrono {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Copy, Clone)]
 pub enum RepeaterType {
     Cumulate,
     CatchUp,
@@ -84,6 +87,7 @@ pub enum RepeaterType {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug, Copy, Clone)]
 pub enum DelayType {
     All,
@@ -91,6 +95,7 @@ pub enum DelayType {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug, Copy, Clone)]
 pub enum TimeUnit {
     Hour,
@@ -101,6 +106,7 @@ pub enum TimeUnit {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug, Copy, Clone)]
 pub struct Repeater {
     pub ty: RepeaterType,
@@ -109,6 +115,7 @@ pub struct Repeater {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug, Copy, Clone)]
 pub struct Delay {
     pub ty: DelayType,
@@ -118,28 +125,37 @@ pub struct Delay {
 
 /// timestamp obejcts
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub enum Timestamp<'a> {
     Active {
         start: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     Inactive {
         start: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     ActiveRange {
         start: Datetime<'a>,
         end: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     InactiveRange {
         start: Datetime<'a>,
         end: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     Diary(&'a str),

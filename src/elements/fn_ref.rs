@@ -1,9 +1,12 @@
 use memchr::{memchr2, memchr2_iter};
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct FnRef<'a> {
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub label: Option<&'a str>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub definition: Option<&'a str>,
 }
 

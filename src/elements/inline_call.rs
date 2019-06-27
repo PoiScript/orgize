@@ -1,11 +1,14 @@
 use memchr::{memchr, memchr2};
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct InlineCall<'a> {
     pub name: &'a str,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub inside_header: Option<&'a str>,
     pub args: &'a str,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub end_header: Option<&'a str>,
 }
 

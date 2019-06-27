@@ -1,6 +1,7 @@
 use memchr::{memchr, memchr2};
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub enum Cookie<'a> {
     Percent(&'a str),

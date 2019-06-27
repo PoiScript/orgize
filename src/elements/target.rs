@@ -1,6 +1,7 @@
 use jetscii::Substring;
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Target<'a> {
     pub target: &'a str,

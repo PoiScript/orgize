@@ -14,7 +14,7 @@ travis-ci = { repository = "PoiScript/orgize" }
 
 [features]
 default = ["serde", "chrono"]
-extra-serde-info = []
+extra-serde-info = ["serde"]
 
 [dependencies]
 bytecount = "0.5.1"
@@ -22,7 +22,7 @@ chrono = { version = "0.4.7", optional = true }
 indextree = "3.2.0"
 jetscii = "0.4.4"
 memchr = "2.2.0"
-serde = { version = "1.0.93", optional = true }
+serde = { version = "1.0.93", optional = true, features = ["derive"] }
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"

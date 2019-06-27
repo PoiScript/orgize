@@ -1,9 +1,11 @@
 use memchr::{memchr, memchr2};
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct InlineSrc<'a> {
     pub lang: &'a str,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub option: Option<&'a str>,
     pub body: &'a str,
 }

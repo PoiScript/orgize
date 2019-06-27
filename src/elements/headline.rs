@@ -7,17 +7,21 @@ pub const DEFAULT_TODO_KEYWORDS: &[&str] =
     &["TODO", "DONE", "NEXT", "WAITING", "LATER", "CANCELLED"];
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Headline<'a> {
     /// headline level, number of stars
     pub level: usize,
     /// priority cookie
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub priority: Option<char>,
     /// headline tags, including the sparated colons
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Vec::is_empty"))]
     pub tags: Vec<&'a str>,
     /// headline title
     pub title: &'a str,
     /// headline keyword
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub keyword: Option<&'a str>,
 }
 

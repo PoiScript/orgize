@@ -2,6 +2,7 @@ use jetscii::Substring;
 use memchr::memchr;
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Snippet<'a> {
     pub name: &'a str,

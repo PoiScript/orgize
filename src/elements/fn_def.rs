@@ -1,6 +1,7 @@
 use memchr::memchr;
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct FnDef<'a> {
     pub label: &'a str,

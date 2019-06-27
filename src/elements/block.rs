@@ -1,9 +1,11 @@
 use memchr::{memchr, memchr_iter};
 
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Block<'a> {
     pub name: &'a str,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub args: Option<&'a str>,
 }
 

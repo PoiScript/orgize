@@ -2,6 +2,7 @@ use jetscii::Substring;
 
 // TODO: text-markup, entities, latex-fragments, subscript and superscript
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct RadioTarget<'a> {
     contents: &'a str,
