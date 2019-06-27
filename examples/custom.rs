@@ -29,9 +29,9 @@ impl From<FromUtf8Error> for MyError {
     }
 }
 
-struct CustomHtmlHandler;
+struct MyHtmlHandler;
 
-impl HtmlHandler<MyError> for CustomHtmlHandler {
+impl HtmlHandler<MyError> for MyHtmlHandler {
     fn start<W: Write>(&mut self, mut w: W, container: Container<'_>) -> Result<(), MyError> {
         let mut default_handler = DefaultHtmlHandler;
         match container {
@@ -62,7 +62,7 @@ fn main() -> Result<(), MyError> {
         let contents = String::from_utf8(fs::read(&args[1])?)?;
 
         let mut writer = Vec::new();
-        Org::parse(&contents).html(&mut writer, CustomHtmlHandler)?;
+        Org::parse(&contents).html(&mut writer, MyHtmlHandler)?;
 
         println!("{}", String::from_utf8(writer)?);
     }
