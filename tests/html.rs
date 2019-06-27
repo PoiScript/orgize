@@ -6,8 +6,7 @@ macro_rules! test_suite {
         #[test]
         fn $name() {
             let mut writer = Vec::new();
-            let mut org = Org::new($content);
-            org.parse();
+            let org = Org::parse($content);
             org.html_default(&mut writer).unwrap();
             let string = String::from_utf8(writer).unwrap();
             assert_eq!(string, $expected);

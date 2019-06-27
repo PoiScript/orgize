@@ -6,16 +6,24 @@ use memchr::memchr;
 #[derive(Debug)]
 pub struct Planning<'a> {
     /// the date when the task should be done
-    pub deadline: Option<Timestamp<'a>>,
+    pub deadline: Option<&'a Timestamp<'a>>,
     /// the date when you should start working on the task
-    pub scheduled: Option<Timestamp<'a>>,
+    pub scheduled: Option<&'a Timestamp<'a>>,
     /// the date when the task is closed
-    pub closed: Option<Timestamp<'a>>,
+    pub closed: Option<&'a Timestamp<'a>>,
 }
 
 impl Planning<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(Planning<'_>, usize)> {
+    pub(crate) fn parse(
+        text: &str,
+    ) -> Option<(
+        // TODO: timestamp position
+        Option<(Timestamp<'_>, usize, usize)>,
+        Option<(Timestamp<'_>, usize, usize)>,
+        Option<(Timestamp<'_>, usize, usize)>,
+        usize,
+    )> {
         let (mut deadline, mut scheduled, mut closed) = (None, None, None);
         let (mut tail, off) = memchr(b'\n', text.as_bytes())
             .map(|i| (text[..i].trim(), i + 1))
@@ -28,7 +36,7 @@ impl Planning<'_> {
                 ($timestamp:expr) => {
                     if $timestamp.is_none() {
                         let (timestamp, off) = Timestamp::parse(next)?;
-                        $timestamp = Some(timestamp);
+                        $timestamp = Some((timestamp, 0, 0));
                         tail = &next[off..].trim_start();
                     } else {
                         return None;
@@ -47,14 +55,7 @@ impl Planning<'_> {
         if deadline.is_none() && scheduled.is_none() && closed.is_none() {
             None
         } else {
-            Some((
-                Planning {
-                    deadline,
-                    scheduled,
-                    closed,
-                },
-                off,
-            ))
+            Some((deadline, scheduled, closed, off))
         }
     }
 }
@@ -66,8 +67,9 @@ fn prase() {
     assert_eq!(
         Planning::parse("SCHEDULED: <2019-04-08 Mon>\n"),
         Some((
-            Planning {
-                scheduled: Some(Timestamp::Active {
+            None,
+            Some((
+                Timestamp::Active {
                     start: Datetime {
                         date: "2019-04-08",
                         time: None,
@@ -75,10 +77,11 @@ fn prase() {
                     },
                     repeater: None,
                     delay: None
-                }),
-                closed: None,
-                deadline: None,
-            },
+                },
+                0,
+                0
+            )),
+            None,
             "SCHEDULED: <2019-04-08 Mon>\n".len()
         ))
     )

@@ -25,19 +25,59 @@ struct ElementNode<'a> {
 impl Serialize for ElementNode<'_> {
     #[allow(unused_variables)]
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut state;
-        match &self.arena[self.node].data {
-            Element::Root => {
-                state = serializer.serialize_struct("Element::Root", 2)?;
-                state.serialize_field("type", "root")?;
-            }
-            Element::Document { begin, end } => {
-                state = serializer.serialize_struct("Element::Document", 2)?;
-                state.serialize_field("type", "document")?;
+        let node = &self.arena[self.node];
+
+        macro_rules! ser {
+            ($state:ident, $begin:ident, $end:ident) => {
                 if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
+                    $state.serialize_field("begin", $begin)?;
+                    $state.serialize_field("end", $end)?;
                 }
+            };
+            ($state:ident, $begin:ident, $end:ident, $contents_begin:ident, $contents_end:ident) => {
+                if cfg!(feature = "extra-serde-info") {
+                    $state.serialize_field("begin", $begin)?;
+                    $state.serialize_field("end", $end)?;
+                    $state.serialize_field("contents_begin", $contents_begin)?;
+                    $state.serialize_field("contents_end", $contents_end)?;
+                }
+                if let Some(first) = node.first_child() {
+                    $state.serialize_field(
+                        "children",
+                        &ElementChildrenNode {
+                            first,
+                            arena: self.arena,
+                        },
+                    )?;
+                }
+            };
+        }
+
+        match &node.data {
+            Element::Root => {
+                let mut state = serializer.serialize_struct("Element::Root", 2)?;
+                state.serialize_field("type", "root")?;
+                if let Some(first) = node.first_child() {
+                    state.serialize_field(
+                        "children",
+                        &ElementChildrenNode {
+                            first,
+                            arena: self.arena,
+                        },
+                    )?;
+                }
+                state.end()
+            }
+            Element::Document {
+                begin,
+                end,
+                contents_begin,
+                contents_end,
+            } => {
+                let mut state = serializer.serialize_struct("Element::Document", 2)?;
+                state.serialize_field("type", "document")?;
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Block {
                 block,
@@ -46,14 +86,10 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::Block", 2)?;
+                let mut state = serializer.serialize_struct("Element::Block", 2)?;
                 state.serialize_field("type", "block")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Section {
                 begin,
@@ -61,14 +97,10 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::Section", 2)?;
+                let mut state = serializer.serialize_struct("Element::Section", 2)?;
                 state.serialize_field("type", "section")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Drawer {
                 drawer,
@@ -77,14 +109,10 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::Drawer", 2)?;
+                let mut state = serializer.serialize_struct("Element::Drawer", 2)?;
                 state.serialize_field("type", "drawer")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::DynBlock {
                 dyn_block,
@@ -93,14 +121,10 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::DynBlock", 2)?;
+                let mut state = serializer.serialize_struct("Element::DynBlock", 2)?;
                 state.serialize_field("type", "dynamic_block")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::FnDef {
                 begin,
@@ -109,14 +133,10 @@ impl Serialize for ElementNode<'_> {
                 contents_end,
                 fn_def,
             } => {
-                state = serializer.serialize_struct("Element::FnDef", 2)?;
+                let mut state = serializer.serialize_struct("Element::FnDef", 2)?;
                 state.serialize_field("type", "footnote_definition")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Headline {
                 begin,
@@ -125,7 +145,7 @@ impl Serialize for ElementNode<'_> {
                 contents_end,
                 headline,
             } => {
-                state = serializer.serialize_struct("Element::Headline", 2)?;
+                let mut state = serializer.serialize_struct("Element::Headline", 6)?;
                 state.serialize_field("type", "headline")?;
                 state.serialize_field("level", &headline.level)?;
                 state.serialize_field("title", &headline.title)?;
@@ -138,12 +158,8 @@ impl Serialize for ElementNode<'_> {
                 if !headline.tags.is_empty() {
                     state.serialize_field("tags", &headline.tags)?;
                 }
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::List {
                 list,
@@ -152,14 +168,10 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::List", 2)?;
+                let mut state = serializer.serialize_struct("Element::List", 2)?;
                 state.serialize_field("type", "list")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::ListItem {
                 list_item,
@@ -168,15 +180,11 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::ListItem", 2)?;
+                let mut state = serializer.serialize_struct("Element::ListItem", 3)?;
                 state.serialize_field("type", "list_item")?;
                 state.serialize_field("bullet", list_item.bullet)?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Paragraph {
                 begin,
@@ -184,152 +192,157 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::Paragraph", 2)?;
+                let mut state = serializer.serialize_struct("Element::Paragraph", 2)?;
                 state.serialize_field("type", "paragraph")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Clock { clock, begin, end } => {
-                state = serializer.serialize_struct("Element::Clock", 2)?;
+                let mut state = serializer.serialize_struct("Element::Clock", 1)?;
                 state.serialize_field("type", "clock")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::BabelCall { call, begin, end } => {
-                state = serializer.serialize_struct("Element::BabelCall", 2)?;
+                let mut state = serializer.serialize_struct("Element::BabelCall", 1)?;
                 state.serialize_field("type", "babel_call")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Cookie { cookie, begin, end } => {
-                state = serializer.serialize_struct("Element::Cookie", 2)?;
+                let mut state = serializer.serialize_struct("Element::Cookie", 1)?;
                 state.serialize_field("type", "cookie")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::FnRef { fn_ref, begin, end } => {
-                state = serializer.serialize_struct("Element::FnRef", 2)?;
+                let mut state = serializer.serialize_struct("Element::FnRef", 1)?;
                 state.serialize_field("type", "footnote_reference")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::InlineCall {
                 inline_call,
                 begin,
                 end,
             } => {
-                state = serializer.serialize_struct("Element::InlineCall", 2)?;
+                let mut state = serializer.serialize_struct("Element::InlineCall", 1)?;
                 state.serialize_field("type", "inline_call")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::InlineSrc {
                 inline_src,
                 begin,
                 end,
             } => {
-                state = serializer.serialize_struct("Element::InlineSrc", 2)?;
+                let mut state = serializer.serialize_struct("Element::InlineSrc", 1)?;
                 state.serialize_field("type", "inlne_source_block")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Keyword {
                 keyword,
                 begin,
                 end,
             } => {
-                state = serializer.serialize_struct("Element::Keyword", 2)?;
+                let mut state = serializer.serialize_struct("Element::Keyword", 4)?;
                 state.serialize_field("type", "keyword")?;
                 state.serialize_field("key", keyword.key)?;
                 if let Some(option) = keyword.option {
                     state.serialize_field("option", option)?;
                 }
                 state.serialize_field("value", keyword.value)?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Link { link, begin, end } => {
-                state = serializer.serialize_struct("Element::Link", 2)?;
+                let mut state = serializer.serialize_struct("Element::Link", 3)?;
                 state.serialize_field("type", "link")?;
                 state.serialize_field("path", link.path)?;
                 if let Some(desc) = link.desc {
                     state.serialize_field("desc", desc)?;
                 }
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Macros { macros, begin, end } => {
-                state = serializer.serialize_struct("Element::Macros", 2)?;
+                let mut state = serializer.serialize_struct("Element::Macros", 1)?;
                 state.serialize_field("type", "macros")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
-            Element::Planning(_) => {
-                state = serializer.serialize_struct("Element::Planning", 2)?;
+            Element::Planning {
+                deadline,
+                scheduled,
+                closed,
+                begin,
+                end,
+            } => {
+                let mut state = serializer.serialize_struct("Element::Planning", 4)?;
                 state.serialize_field("type", "planning")?;
+                if let Some(node) = deadline {
+                    state.serialize_field(
+                        "deadline",
+                        &ElementNode {
+                            node: *node,
+                            arena: &self.arena,
+                        },
+                    )?;
+                }
+                if let Some(node) = closed {
+                    state.serialize_field(
+                        "closed",
+                        &ElementNode {
+                            node: *node,
+                            arena: &self.arena,
+                        },
+                    )?;
+                }
+                if let Some(node) = scheduled {
+                    state.serialize_field(
+                        "scheduled",
+                        &ElementNode {
+                            node: *node,
+                            arena: &self.arena,
+                        },
+                    )?;
+                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Snippet {
                 begin,
                 end,
                 snippet,
             } => {
-                state = serializer.serialize_struct("Element::Snippet", 2)?;
+                let mut state = serializer.serialize_struct("Element::Snippet", 2)?;
                 state.serialize_field("type", "snippet")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Text { value, begin, end } => {
-                state = serializer.serialize_struct("Element::Text", 2)?;
+                let mut state = serializer.serialize_struct("Element::Text", 2)?;
                 state.serialize_field("type", "text")?;
                 state.serialize_field("value", value)?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Rule { begin, end } => {
-                state = serializer.serialize_struct("Element::Rule", 2)?;
+                let mut state = serializer.serialize_struct("Element::Rule", 1)?;
                 state.serialize_field("type", "rule")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Timestamp {
                 begin,
                 end,
                 timestamp,
             } => {
-                state = serializer.serialize_struct("Element::Timestamp", 2)?;
+                let mut state = serializer.serialize_struct("Element::Timestamp", 1)?;
                 state.serialize_field("type", "timestamp")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Bold {
                 begin,
@@ -337,14 +350,10 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::Bold", 2)?;
+                let mut state = serializer.serialize_struct("Element::Bold", 2)?;
                 state.serialize_field("type", "bold")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Strike {
                 begin,
@@ -352,14 +361,10 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::Strike", 2)?;
+                let mut state = serializer.serialize_struct("Element::Strike", 2)?;
                 state.serialize_field("type", "strike")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Italic {
                 begin,
@@ -367,14 +372,10 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::Italic", 2)?;
+                let mut state = serializer.serialize_struct("Element::Italic", 2)?;
                 state.serialize_field("type", "italic")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Underline {
                 begin,
@@ -382,64 +383,42 @@ impl Serialize for ElementNode<'_> {
                 contents_begin,
                 contents_end,
             } => {
-                state = serializer.serialize_struct("Element::Underline", 2)?;
+                let mut state = serializer.serialize_struct("Element::Underline", 2)?;
                 state.serialize_field("type", "underline")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                    state.serialize_field("contents_begin", contents_begin)?;
-                    state.serialize_field("contents_end", contents_end)?;
-                }
+                ser!(state, begin, end, contents_begin, contents_end);
+                state.end()
             }
             Element::Code { begin, end, value } => {
-                state = serializer.serialize_struct("Element::Code", 2)?;
+                let mut state = serializer.serialize_struct("Element::Code", 2)?;
                 state.serialize_field("type", "code")?;
                 state.serialize_field("value", value)?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Verbatim { begin, end, value } => {
-                state = serializer.serialize_struct("Element::Verbatim", 2)?;
+                let mut state = serializer.serialize_struct("Element::Verbatim", 2)?;
                 state.serialize_field("type", "verbatim")?;
                 state.serialize_field("value", value)?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::RadioTarget {
                 radio_target,
                 begin,
                 end,
             } => {
-                state = serializer.serialize_struct("Element::RadioTarget", 2)?;
+                let mut state = serializer.serialize_struct("Element::RadioTarget", 1)?;
                 state.serialize_field("type", "radio_target")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
             Element::Target { target, begin, end } => {
-                state = serializer.serialize_struct("Element::Target", 2)?;
+                let mut state = serializer.serialize_struct("Element::Target", 1)?;
                 state.serialize_field("type", "target")?;
-                if cfg!(feature = "extra-serde-info") {
-                    state.serialize_field("begin", begin)?;
-                    state.serialize_field("end", end)?;
-                }
+                ser!(state, begin, end);
+                state.end()
             }
         }
-        if let Some(first) = self.arena[self.node].first_child() {
-            state.serialize_field(
-                "children",
-                &ElementChildrenNode {
-                    first,
-                    arena: self.arena,
-                },
-            )?;
-        }
-        state.end()
     }
 }
 

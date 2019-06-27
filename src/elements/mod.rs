@@ -30,7 +30,7 @@ pub use self::{
     dyn_block::DynBlock,
     fn_def::FnDef,
     fn_ref::FnRef,
-    headline::Headline,
+    headline::{Headline, DEFAULT_TODO_KEYWORDS},
     inline_call::InlineCall,
     inline_src::InlineSrc,
     keyword::{BabelCall, Keyword},
@@ -44,6 +44,8 @@ pub use self::{
     target::Target,
     timestamp::*,
 };
+
+use indextree::NodeId;
 
 #[derive(Debug)]
 pub enum Element<'a> {
@@ -91,6 +93,8 @@ pub enum Element<'a> {
     Document {
         begin: usize,
         end: usize,
+        contents_begin: usize,
+        contents_end: usize,
     },
     DynBlock {
         dyn_block: DynBlock<'a>,
@@ -157,7 +161,13 @@ pub enum Element<'a> {
         begin: usize,
         end: usize,
     },
-    Planning(Planning<'a>),
+    Planning {
+        deadline: Option<NodeId>,
+        scheduled: Option<NodeId>,
+        closed: Option<NodeId>,
+        begin: usize,
+        end: usize,
+    },
     Snippet {
         begin: usize,
         end: usize,

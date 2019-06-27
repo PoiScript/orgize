@@ -32,7 +32,7 @@ pub enum Event<'a> {
     Keyword(&'a Keyword<'a>),
     Link(&'a Link<'a>),
     Macros(&'a Macros<'a>),
-    Planning(&'a Planning<'a>),
+    Planning(Planning<'a>),
     RadioTarget(&'a RadioTarget<'a>),
     Rule,
     Snippet(&'a Snippet<'a>),
@@ -226,9 +226,36 @@ impl<'a> Iter<'a> {
                 self.state = State::Start;
                 Some(Event::Macros(macros))
             }
-            Element::Planning(planning) => {
+            Element::Planning {
+                deadline,
+                scheduled,
+                closed,
+                ..
+            } => {
                 self.state = State::Start;
-                Some(Event::Planning(planning))
+                Some(Event::Planning(Planning {
+                    deadline: deadline.and_then(|id| {
+                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
+                            Some(timestamp)
+                        } else {
+                            None
+                        }
+                    }),
+                    scheduled: scheduled.and_then(|id| {
+                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
+                            Some(timestamp)
+                        } else {
+                            None
+                        }
+                    }),
+                    closed: closed.and_then(|id| {
+                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
+                            Some(timestamp)
+                        } else {
+                            None
+                        }
+                    }),
+                }))
             }
             Element::RadioTarget { radio_target, .. } => {
                 self.state = State::Start;
@@ -364,9 +391,36 @@ impl<'a> Iter<'a> {
                 self.state = State::End;
                 Some(Event::Macros(macros))
             }
-            Element::Planning(planning) => {
+            Element::Planning {
+                deadline,
+                scheduled,
+                closed,
+                ..
+            } => {
                 self.state = State::End;
-                Some(Event::Planning(planning))
+                Some(Event::Planning(Planning {
+                    deadline: deadline.and_then(|id| {
+                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
+                            Some(timestamp)
+                        } else {
+                            None
+                        }
+                    }),
+                    scheduled: scheduled.and_then(|id| {
+                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
+                            Some(timestamp)
+                        } else {
+                            None
+                        }
+                    }),
+                    closed: closed.and_then(|id| {
+                        if let Element::Timestamp { timestamp, .. } = &self.arena[id].data {
+                            Some(timestamp)
+                        } else {
+                            None
+                        }
+                    }),
+                }))
             }
             Element::RadioTarget { radio_target, .. } => {
                 self.state = State::End;

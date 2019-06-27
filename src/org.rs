@@ -1,11 +1,11 @@
-use crate::elements::*;
-use crate::export::{DefaultHtmlHandler, HtmlHandler};
-use crate::iter::Iter;
-
 use indextree::{Arena, NodeId};
 use jetscii::bytes;
 use memchr::{memchr, memchr_iter, memrchr_iter};
 use std::io::{Error, Write};
+
+use crate::elements::*;
+use crate::export::{DefaultHtmlHandler, HtmlHandler};
+use crate::iter::Iter;
 
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
@@ -15,25 +15,26 @@ pub struct Org<'a> {
 }
 
 impl<'a> Org<'a> {
-    pub fn new(text: &'a str) -> Self {
+    pub fn parse(text: &'a str) -> Self {
         let mut arena = Arena::new();
         let root = arena.new_node(Element::Root);
         let document = arena.new_node(Element::Document {
             begin: 0,
             end: text.len(),
+            contents_begin: 0,
+            contents_end: text.len(),
         });
         root.append(document, &mut arena).unwrap();
 
-        Org {
+        let mut org = Org {
             arena,
             root,
             document,
             text,
-        }
-    }
+        };
+        org.parse_internal();
 
-    pub fn finish(&self) -> bool {
-        self.arena[self.document].first_child().is_some()
+        org
     }
 
     pub fn iter(&'a self) -> Iter<'a> {
@@ -62,7 +63,7 @@ impl<'a> Org<'a> {
                 Keyword(e) => handler.keyword(&mut writer, e)?,
                 Link(e) => handler.link(&mut writer, e)?,
                 Macros(e) => handler.macros(&mut writer, e)?,
-                Planning(e) => handler.planning(&mut writer, e)?,
+                Planning(e) => handler.planning(&mut writer, &e)?,
                 RadioTarget(e) => handler.radio_target(&mut writer, e)?,
                 Snippet(e) => handler.snippet(&mut writer, e)?,
                 Target(e) => handler.target(&mut writer, e)?,
@@ -82,15 +83,15 @@ impl<'a> Org<'a> {
         self.html(wrtier, DefaultHtmlHandler)
     }
 
-    pub fn parse(&mut self) {
-        if self.finish() {
-            return;
-        }
-
+    fn parse_internal(&mut self) {
         let mut node = self.document;
         loop {
             match self.arena[node].data {
-                Element::Document { begin, end, .. }
+                Element::Document {
+                    contents_begin: begin,
+                    contents_end: end,
+                    ..
+                }
                 | Element::Headline {
                     contents_begin: begin,
                     contents_end: end,
@@ -131,8 +132,51 @@ impl<'a> Org<'a> {
                     contents_begin,
                     contents_end,
                     ..
+                } => {
+                    let (mut deadline_node, mut scheduled_node, mut closed_node) =
+                        (None, None, None);
+                    if let Some((deadline, scheduled, closed, off)) =
+                        Planning::parse(&self.text[contents_begin..contents_end])
+                    {
+                        if let Some((deadline, off, end)) = deadline {
+                            let timestamp = Element::Timestamp {
+                                timestamp: deadline,
+                                begin: contents_begin + off,
+                                end: contents_end + end,
+                            };
+                            deadline_node = Some(self.arena.new_node(timestamp));
+                        }
+                        if let Some((scheduled, off, end)) = scheduled {
+                            let timestamp = Element::Timestamp {
+                                timestamp: scheduled,
+                                begin: contents_begin + off,
+                                end: contents_end + end,
+                            };
+                            scheduled_node = Some(self.arena.new_node(timestamp));
+                        }
+                        if let Some((closed, off, end)) = closed {
+                            let timestamp = Element::Timestamp {
+                                timestamp: closed,
+                                begin: contents_begin + off,
+                                end: contents_end + end,
+                            };
+                            closed_node = Some(self.arena.new_node(timestamp));
+                        }
+                        let planning = Element::Planning {
+                            deadline: deadline_node,
+                            scheduled: scheduled_node,
+                            closed: closed_node,
+                            begin: contents_begin,
+                            end: contents_begin + off,
+                        };
+                        let new_node = self.arena.new_node(planning);
+                        node.append(new_node, &mut self.arena).unwrap();
+                        self.parse_elements_children(contents_begin + off, contents_end, node);
+                    } else {
+                        self.parse_elements_children(contents_begin, contents_end, node);
+                    }
                 }
-                | Element::Block {
+                Element::Block {
                     contents_begin,
                     contents_end,
                     ..

@@ -9,7 +9,7 @@ use test::Bencher;
 fn org_syntax(b: &mut Bencher) {
     // wget https://orgmode.org/worg/sources/dev/org-syntax.org
     b.iter(|| {
-        Org::new(include_str!("org-syntax.org")).parse();
+        Org::parse(include_str!("org-syntax.org"));
     })
 }
 
@@ -17,7 +17,7 @@ fn org_syntax(b: &mut Bencher) {
 fn doc(b: &mut Bencher) {
     // wget https://orgmode.org/worg/sources/doc.org
     b.iter(|| {
-        Org::new(include_str!("doc.org")).parse();
+        Org::parse(include_str!("doc.org"));
     })
 }
 
@@ -25,6 +25,6 @@ fn doc(b: &mut Bencher) {
 fn org_faq(b: &mut Bencher) {
     // wget https://orgmode.org/worg/sources/org-faq.org
     b.iter(|| {
-        Org::new(include_str!("org-faq.org")).parse();
+        Org::parse(include_str!("org-faq.org"));
     })
 }

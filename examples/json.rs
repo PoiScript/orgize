@@ -11,9 +11,7 @@ fn main() -> Result<()> {
         eprintln!("Usage: {} <org-file>", args[0]);
     } else {
         let contents = String::from_utf8(fs::read(&args[1])?).unwrap();
-        let mut org = Org::new(&contents);
-        org.parse();
-        println!("{}", to_string(&org).unwrap());
+        println!("{}", to_string(&Org::parse(&contents)).unwrap());
     }
     Ok(())
 }

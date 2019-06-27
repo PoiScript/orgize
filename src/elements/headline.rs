@@ -3,7 +3,7 @@
 use jetscii::ByteSubstring;
 use memchr::{memchr, memchr2, memrchr};
 
-pub(crate) const DEFAULT_TODO_KEYWORDS: &[&str] =
+pub const DEFAULT_TODO_KEYWORDS: &[&str] =
     &["TODO", "DONE", "NEXT", "WAITING", "LATER", "CANCELLED"];
 
 #[cfg_attr(test, derive(PartialEq))]

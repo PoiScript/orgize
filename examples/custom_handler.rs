@@ -60,11 +60,9 @@ fn main() -> Result<(), MyError> {
         eprintln!("Usage: {} <org-file>", args[0]);
     } else {
         let contents = String::from_utf8(fs::read(&args[1])?)?;
-        let mut org = Org::new(&contents);
-        let mut writer = Vec::new();
 
-        org.parse();
-        org.html(&mut writer, CustomHtmlHandler)?;
+        let mut writer = Vec::new();
+        Org::parse(&contents).html(&mut writer, CustomHtmlHandler)?;
 
         println!("{}", String::from_utf8(writer)?);
     }
