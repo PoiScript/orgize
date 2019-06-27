@@ -145,17 +145,17 @@ impl Headline<'_> {
 #[test]
 fn parse() {
     assert_eq!(
-        Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%:", &["TODO"]).0,
+        Headline::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &["DONE"]).0,
         Headline {
             level: 4,
             priority: Some('A'),
-            keyword: Some("TODO"),
+            keyword: Some("DONE"),
             title: "COMMENT Title",
             tags: vec!["tag", "a2%"],
         },
     );
     assert_eq!(
-        Headline::parse("**** ToDO [#A] COMMENT Title :tag:a2%:", &["TODO"]).0,
+        Headline::parse("**** ToDO [#A] COMMENT Title :tag:a2%:", &["DONE"]).0,
         Headline {
             level: 4,
             priority: None,
@@ -165,7 +165,7 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** T0DO [#A] COMMENT Title :tag:a2%:", &["TODO"]).0,
+        Headline::parse("**** T0DO [#A] COMMENT Title :tag:a2%:", &["DONE"]).0,
         Headline {
             level: 4,
             priority: None,
@@ -175,47 +175,47 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** TODO [#1] COMMENT Title :tag:a2%:", &["TODO"]).0,
+        Headline::parse("**** DONE [#1] COMMENT Title :tag:a2%:", &["DONE"]).0,
         Headline {
             level: 4,
             priority: None,
             tags: vec!["tag", "a2%"],
             title: "[#1] COMMENT Title",
-            keyword: Some("TODO")
+            keyword: Some("DONE")
         },
     );
     assert_eq!(
-        Headline::parse("**** TODO [#a] COMMENT Title :tag:a2%:", &["TODO"]).0,
+        Headline::parse("**** DONE [#a] COMMENT Title :tag:a2%:", &["DONE"]).0,
         Headline {
             level: 4,
             priority: None,
             tags: vec!["tag", "a2%"],
             title: "[#a] COMMENT Title",
-            keyword: Some("TODO")
+            keyword: Some("DONE")
         },
     );
     assert_eq!(
-        Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%", &["TODO"]).0,
+        Headline::parse("**** DONE [#A] COMMENT Title :tag:a2%", &["DONE"]).0,
         Headline {
             level: 4,
             priority: Some('A'),
             tags: Vec::new(),
             title: "COMMENT Title :tag:a2%",
-            keyword: Some("TODO"),
+            keyword: Some("DONE"),
         },
     );
     assert_eq!(
-        Headline::parse("**** TODO [#A] COMMENT Title tag:a2%:", &["TODO"]).0,
+        Headline::parse("**** DONE [#A] COMMENT Title tag:a2%:", &["DONE"]).0,
         Headline {
             level: 4,
             priority: Some('A'),
             tags: Vec::new(),
             title: "COMMENT Title tag:a2%:",
-            keyword: Some("TODO"),
+            keyword: Some("DONE"),
         },
     );
     assert_eq!(
-        Headline::parse("**** COMMENT Title tag:a2%:", &["TODO"]).0,
+        Headline::parse("**** COMMENT Title tag:a2%:", &["DONE"]).0,
         Headline {
             level: 4,
             priority: None,
@@ -229,12 +229,12 @@ fn parse() {
 #[test]
 fn parse_todo_keywords() {
     assert_eq!(
-        Headline::parse("**** TODO [#A] COMMENT Title :tag:a2%:", &[]).0,
+        Headline::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &[]).0,
         Headline {
             level: 4,
             priority: None,
             keyword: None,
-            title: "TODO [#A] COMMENT Title",
+            title: "DONE [#A] COMMENT Title",
             tags: vec!["tag", "a2%"],
         },
     );
