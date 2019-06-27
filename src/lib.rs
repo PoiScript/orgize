@@ -186,19 +186,34 @@
 //! freely serialize it into any format that serde supports such as json:
 //!
 //! ```rust
-//! use serde_json::to_string;
-//! # use orgize::Org;
-//! #
-//! # let org = Org::parse(r#"* Title 1
-//! # *Section 1*
-//! # ** Title 2
-//! # _Section 2_
-//! # * Title 3
-//! # /Section 3/
-//! # * Title 4
-//! # =Section 4="#);
+//! use orgize::Org;
+//! use serde_json::{json, to_string};
 //!
+//! let org = Org::parse("I 'm *bold*.");
 //! println!("{}", to_string(&org).unwrap());
+//!
+//! // {
+//! //     "type": "document",
+//! //     "children": [{
+//! //         "type": "section",
+//! //         "children": [{
+//! //             "type": "paragraph",
+//! //             "children":[{
+//! //                 "type": "text",
+//! //                 "value":"I 'm "
+//! //             }, {
+//! //                 "type": "bold",
+//! //                 "children":[{
+//! //                     "type": "text",
+//! //                     "value": "bold"
+//! //                 }]
+//! //             }, {
+//! //                 "type":"text",
+//! //                 "value":"."
+//! //             }]
+//! //         }]
+//! //     }]
+//! // }
 //! ```
 
 pub mod elements;

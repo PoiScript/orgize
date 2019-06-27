@@ -143,7 +143,34 @@ function and leave the end function untouched.
 freely serialize it into any format that serde supports such as json:
 
 ```rust
+use orgize::Org;
+use serde_json::{json, to_string};
+
+let org = Org::parse("I 'm *bold*.");
 println!("{}", to_string(&org).unwrap());
+
+// {
+//     "type": "document",
+//     "children": [{
+//         "type": "section",
+//         "children": [{
+//             "type": "paragraph",
+//             "children":[{
+//                 "type": "text",
+//                 "value":"I 'm "
+//             }, {
+//                 "type": "bold",
+//                 "children":[{
+//                     "type": "text",
+//                     "value": "bold"
+//                 }]
+//             }, {
+//                 "type":"text",
+//                 "value":"."
+//             }]
+//         }]
+//     }]
+// }
 ```
 
 ## License
