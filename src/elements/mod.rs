@@ -7,7 +7,6 @@ mod drawer;
 mod dyn_block;
 mod fn_def;
 mod fn_ref;
-mod fragment;
 mod headline;
 mod inline_call;
 mod inline_src;
