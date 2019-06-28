@@ -21,7 +21,7 @@
 //!
 //! # Iter
 //!
-//! [`Org::iter`] function will return a iteractor of [`Event`]s, which is
+//! [`Org::iter`] function will returns an iteractor of [`Event`]s, which is
 //! a simple wrapper of [`Element`].
 //!
 //! [`Org::iter`]: org/struct.Org.html#method.iter
@@ -45,7 +45,7 @@
 //! }
 //! ```
 //!
-//! **Note**: whether an element is container or not, it will appears two times in a loop.
+//! **Note**: whether an element is container or not, it will appears twice in one loop.
 //! One as [`Event::Start(element)`], one as [`Event::End(element)`].
 //!
 //! [`Event::Start(element)`]: iter/enum.Event.html#variant.Start
@@ -85,7 +85,7 @@
 //!
 //! # Render html with custom HtmlHandler
 //!
-//! To customize html rending, simply implementing [`HtmlHandler`] trait and passing
+//! To customize html rendering, simply implementing [`HtmlHandler`] trait and passing
 //! it to the [`Org::html`] function.
 //!
 //! [`HtmlHandler`]: export/html/trait.HtmlHandler.html

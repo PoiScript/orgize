@@ -1,5 +1,9 @@
 # Orgize
 
+[![Build Status](https://travis-ci.org/PoiScript/orgize.svg?branch=master)](https://travis-ci.org/PoiScript/orgize)
+[![Crates.io](https://img.shields.io/crates/v/orgize.svg)](https://crates.io/crates/orgize)
+[![Document](https://docs.rs/orgize/badge.svg)](https://docs.rs/orgize)
+
 A Rust library for parsing orgmode files.
 
 ## Parse
@@ -21,7 +25,7 @@ _Section 2_
 
 ## Iter
 
-`Org::iter` function will return a iteractor of `Event`s, which is
+`Org::iter` function will returns an iteractor of `Event`s, which is
 a simple wrapper of `Element`.
 
 ```rust
@@ -30,7 +34,7 @@ for event in org.iter() {
 }
 ```
 
-**Note**: whether an element is container or not, it will appears two times in a loop.
+**Note**: whether an element is container or not, it will appears twice in one loop.
 One as `Event::Start(element)`, one as `Event::End(element)`.
 
 ## Render html
@@ -53,7 +57,7 @@ assert_eq!(
 
 ## Render html with custom HtmlHandler
 
-To customize html rending, simply implementing `HtmlHandler` trait and passing
+To customize html rendering, simply implementing `HtmlHandler` trait and passing
 it to the `Org::html` function.
 
 The following code demonstrates how to add a id for every headline and return
