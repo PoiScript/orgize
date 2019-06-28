@@ -13,7 +13,7 @@ pub struct FnRef<'a> {
 impl FnRef<'_> {
     #[inline]
     // return (fn_ref, offset)
-    pub fn parse(text: &str) -> Option<(FnRef<'_>, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(FnRef<'_>, usize)> {
         debug_assert!(text.starts_with("[fn:"));
 
         let bytes = text.as_bytes();

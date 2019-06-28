@@ -12,7 +12,7 @@ pub struct Block<'a> {
 impl Block<'_> {
     #[inline]
     // return (block, contents-begin, contents-end, end)
-    pub fn parse(text: &str) -> Option<(Block<'_>, usize, usize, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(Block<'_>, usize, usize, usize)> {
         debug_assert!(text.starts_with("#+"));
 
         if text.len() <= 8 || text[2..8].to_uppercase() != "BEGIN_" {

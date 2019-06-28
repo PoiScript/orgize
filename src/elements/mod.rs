@@ -5,6 +5,7 @@ mod clock;
 mod cookie;
 mod drawer;
 mod dyn_block;
+mod emphasis;
 mod fn_def;
 mod fn_ref;
 mod headline;
@@ -21,7 +22,7 @@ mod snippet;
 mod target;
 mod timestamp;
 
-pub(crate) mod emphasis;
+pub(crate) use emphasis::parse as parse_emphasis;
 
 pub use self::{
     block::Block,

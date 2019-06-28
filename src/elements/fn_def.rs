@@ -9,7 +9,7 @@ pub struct FnDef<'a> {
 
 impl FnDef<'_> {
     #[inline]
-    pub fn parse(text: &str) -> Option<(FnDef<'_>, usize, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(FnDef<'_>, usize, usize)> {
         if text.starts_with("[fn:") {
             let (label, off) = memchr(b']', text.as_bytes())
                 .filter(|&i| {

@@ -652,7 +652,7 @@ impl<'a> Org<'a> {
                             })
                     }
                 }
-                b'*' => emphasis::parse(text, b'*').map(|off| {
+                b'*' => parse_emphasis(text, b'*').map(|off| {
                     (
                         Element::Bold {
                             begin,
@@ -663,7 +663,7 @@ impl<'a> Org<'a> {
                         off,
                     )
                 }),
-                b'+' => emphasis::parse(text, b'+').map(|off| {
+                b'+' => parse_emphasis(text, b'+').map(|off| {
                     (
                         Element::Strike {
                             begin,
@@ -674,7 +674,7 @@ impl<'a> Org<'a> {
                         off,
                     )
                 }),
-                b'/' => emphasis::parse(text, b'/').map(|off| {
+                b'/' => parse_emphasis(text, b'/').map(|off| {
                     (
                         Element::Italic {
                             begin,
@@ -685,7 +685,7 @@ impl<'a> Org<'a> {
                         off,
                     )
                 }),
-                b'_' => emphasis::parse(text, b'_').map(|off| {
+                b'_' => parse_emphasis(text, b'_').map(|off| {
                     (
                         Element::Underline {
                             begin,
@@ -696,7 +696,7 @@ impl<'a> Org<'a> {
                         off,
                     )
                 }),
-                b'=' => emphasis::parse(text, b'=').map(|off| {
+                b'=' => parse_emphasis(text, b'=').map(|off| {
                     (
                         Element::Verbatim {
                             begin,
@@ -706,7 +706,7 @@ impl<'a> Org<'a> {
                         off,
                     )
                 }),
-                b'~' => emphasis::parse(text, b'~').map(|off| {
+                b'~' => parse_emphasis(text, b'~').map(|off| {
                     (
                         Element::Code {
                             begin,

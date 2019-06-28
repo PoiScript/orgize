@@ -2,7 +2,7 @@ use bytecount::count;
 use memchr::memchr;
 
 #[inline]
-pub fn parse(text: &str, marker: u8) -> Option<usize> {
+pub(crate) fn parse(text: &str, marker: u8) -> Option<usize> {
     debug_assert!(text.len() >= 3);
 
     let bytes = text.as_bytes();
