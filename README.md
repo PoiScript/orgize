@@ -173,6 +173,16 @@ println!("{}", to_string(&org).unwrap());
 // }
 ```
 
+## Features
+
+By now, orgize provides three features:
+
++ `serde`: adds the ability to serialize `Org` and other elements using `serde`, enabled by default.
+
++ `extra-serde-info`: includes the position information while serializing, disabled by default.
+
++ `chrono`: adds the ability to convert `Datetime` into `chrono` struct, disabled by default.
+
 ## License
 
 MIT
