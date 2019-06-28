@@ -13,14 +13,22 @@ To parse a orgmode string, simply invoking the `Org::parse` function:
 ```rust
 use orgize::Org;
 
-let org = Org::parse(r#"* Title 1
-*Section 1*
-** Title 2
-_Section 2_
-* Title 3
-/Section 3/
-* Title 4
-=Section 4="#);
+Org::parse("* DONE Title :tag:");
+```
+
+or `Org::parse_with_config`:
+
+``` rust
+use orgize::{Org, ParseConfig};
+
+let org = Org::parse_with_config(
+    "* TASK Title 1",
+    ParseConfig {
+        // custom todo keywords
+        todo_keywords: &["TASK"],
+        ..Default::default()
+    },
+);
 ```
 
 ## Iter
@@ -29,7 +37,9 @@ _Section 2_
 a simple wrapper of `Element`.
 
 ```rust
-for event in org.iter() {
+use orgize::Org;
+
+for event in Org::parse("* DONE Title :tag:").iter() {
     // handling the event
 }
 ```
@@ -43,15 +53,14 @@ You can call the `Org::html_default` function to generate html directly, which
 uses the `DefaultHtmlHandler` internally:
 
 ```rust
+use orgize::Org;
+
 let mut writer = Vec::new();
-org.html_default(&mut writer).unwrap();
+Org::parse("* title\n*section*").html_default(&mut writer).unwrap();
 
 assert_eq!(
     String::from_utf8(writer).unwrap(),
-    "<main><h1>Title 1</h1><section><p><b>Section 1</b></p></section>\
-    <h2>Title 2</h2><section><p><u>Section 2</u></p></section>\
-    <h1>Title 3</h1><section><p><i>Section 3</i></p></section>\
-    <h1>Title 4</h1><section><p><code>Section 4</code></p></section></main>"
+    "<main><h1>title</h1><section><p><b>section</b></p></section></main>"
 );
 ```
 
@@ -64,6 +73,14 @@ The following code demonstrates how to add a id for every headline and return
 own error type while rendering.
 
 ```rust
+use std::convert::From;
+use std::io::{Error as IOError, Write};
+use std::string::FromUtf8Error;
+
+use orgize::export::{html::Escape, DefaultHtmlHandler, HtmlHandler};
+use orgize::{Element, Org};
+use slugify::slugify;
+
 #[derive(Debug)]
 enum MyError {
     IO(IOError),
@@ -112,23 +129,13 @@ impl HtmlHandler<MyError> for MyHtmlHandler {
 }
 
 fn main() -> Result<(), MyError> {
-    let contents = r"* Title 1
-*Section 1*
-** Title 2
-_Section 2_
-* Title 3
-/Section 3/
-* Title 4
-=Section 4=";
-
     let mut writer = Vec::new();
-    Org::parse(&contents).html(&mut writer, MyHtmlHandler)?;
+    Org::parse("* title\n*section*").html(&mut writer, MyHtmlHandler)?;
+
     assert_eq!(
         String::from_utf8(writer)?,
-        "<main><h1><a id=\"title-1\" href=\"#title-1\">Title 1</a></h1><section><p><b>Section 1</b></p></section>\
-         <h2><a id=\"title-2\" href=\"#title-2\">Title 2</a></h2><section><p><u>Section 2</u></p></section>\
-         <h1><a id=\"title-3\" href=\"#title-3\">Title 3</a></h1><section><p><i>Section 3</i></p></section>\
-         <h1><a id=\"title-4\" href=\"#title-4\">Title 4</a></h1><section><p><code>Section 4</code></p></section></main>"
+        "<main><h1><a id=\"title\" href=\"#title\">title</a></h1>\
+         <section><p><b>section</b></p></section></main>"
     );
 
     Ok(())

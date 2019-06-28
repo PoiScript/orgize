@@ -3,8 +3,7 @@
 use jetscii::ByteSubstring;
 use memchr::{memchr, memchr2, memrchr};
 
-pub const DEFAULT_TODO_KEYWORDS: &[&str] =
-    &["TODO", "DONE", "NEXT", "WAITING", "LATER", "CANCELLED"];
+use crate::config::ParseConfig;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -26,7 +25,10 @@ pub struct Headline<'a> {
 }
 
 impl Headline<'_> {
-    pub(crate) fn parse<'a>(text: &'a str, keywords: &[&str]) -> (Headline<'a>, usize, usize) {
+    pub(crate) fn parse<'a>(
+        text: &'a str,
+        config: &ParseConfig<'_>,
+    ) -> (Headline<'a>, usize, usize) {
         let level = memchr2(b'\n', b' ', text.as_bytes()).unwrap_or_else(|| text.len());
 
         debug_assert!(level > 0);
@@ -65,7 +67,8 @@ impl Headline<'_> {
             let (word, off) = memchr(b' ', tail.as_bytes())
                 .map(|i| (&tail[0..i], i + 1))
                 .unwrap_or_else(|| (tail, tail.len()));
-            if keywords.contains(&word) {
+            if config.todo_keywords.contains(&word) || config.default_todo_keywords.contains(&word)
+            {
                 (Some(word), &tail[off..])
             } else {
                 (None, tail)
@@ -149,7 +152,11 @@ impl Headline<'_> {
 #[test]
 fn parse() {
     assert_eq!(
-        Headline::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &["DONE"]).0,
+        Headline::parse(
+            "**** DONE [#A] COMMENT Title :tag:a2%:",
+            &ParseConfig::default()
+        )
+        .0,
         Headline {
             level: 4,
             priority: Some('A'),
@@ -159,7 +166,11 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** ToDO [#A] COMMENT Title :tag:a2%:", &["DONE"]).0,
+        Headline::parse(
+            "**** ToDO [#A] COMMENT Title :tag:a2%:",
+            &ParseConfig::default()
+        )
+        .0,
         Headline {
             level: 4,
             priority: None,
@@ -169,7 +180,11 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** T0DO [#A] COMMENT Title :tag:a2%:", &["DONE"]).0,
+        Headline::parse(
+            "**** T0DO [#A] COMMENT Title :tag:a2%:",
+            &ParseConfig::default()
+        )
+        .0,
         Headline {
             level: 4,
             priority: None,
@@ -179,7 +194,11 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** DONE [#1] COMMENT Title :tag:a2%:", &["DONE"]).0,
+        Headline::parse(
+            "**** DONE [#1] COMMENT Title :tag:a2%:",
+            &ParseConfig::default()
+        )
+        .0,
         Headline {
             level: 4,
             priority: None,
@@ -189,7 +208,11 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** DONE [#a] COMMENT Title :tag:a2%:", &["DONE"]).0,
+        Headline::parse(
+            "**** DONE [#a] COMMENT Title :tag:a2%:",
+            &ParseConfig::default()
+        )
+        .0,
         Headline {
             level: 4,
             priority: None,
@@ -199,7 +222,11 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** DONE [#A] COMMENT Title :tag:a2%", &["DONE"]).0,
+        Headline::parse(
+            "**** DONE [#A] COMMENT Title :tag:a2%",
+            &ParseConfig::default()
+        )
+        .0,
         Headline {
             level: 4,
             priority: Some('A'),
@@ -209,7 +236,11 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** DONE [#A] COMMENT Title tag:a2%:", &["DONE"]).0,
+        Headline::parse(
+            "**** DONE [#A] COMMENT Title tag:a2%:",
+            &ParseConfig::default()
+        )
+        .0,
         Headline {
             level: 4,
             priority: Some('A'),
@@ -219,7 +250,7 @@ fn parse() {
         },
     );
     assert_eq!(
-        Headline::parse("**** COMMENT Title tag:a2%:", &["DONE"]).0,
+        Headline::parse("**** COMMENT Title tag:a2%:", &ParseConfig::default()).0,
         Headline {
             level: 4,
             priority: None,
@@ -233,7 +264,14 @@ fn parse() {
 #[test]
 fn parse_todo_keywords() {
     assert_eq!(
-        Headline::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &[]).0,
+        Headline::parse(
+            "**** DONE [#A] COMMENT Title :tag:a2%:",
+            &ParseConfig {
+                default_todo_keywords: &[],
+                ..Default::default()
+            }
+        )
+        .0,
         Headline {
             level: 4,
             priority: None,
@@ -243,7 +281,14 @@ fn parse_todo_keywords() {
         },
     );
     assert_eq!(
-        Headline::parse("**** TASK [#A] COMMENT Title :tag:a2%:", &["TASK"]).0,
+        Headline::parse(
+            "**** TASK [#A] COMMENT Title :tag:a2%:",
+            &ParseConfig {
+                todo_keywords: &["TASK"],
+                ..Default::default()
+            }
+        )
+        .0,
         Headline {
             level: 4,
             priority: Some('A'),
@@ -256,21 +301,55 @@ fn parse_todo_keywords() {
 
 #[test]
 fn is_commented() {
-    assert!(Headline::parse("* COMMENT Title", &[]).0.is_commented());
-    assert!(!Headline::parse("* Title", &[]).0.is_commented());
-    assert!(!Headline::parse("* C0MMENT Title", &[]).0.is_commented());
-    assert!(!Headline::parse("* comment Title", &[]).0.is_commented());
+    assert!(Headline::parse("* COMMENT Title", &ParseConfig::default())
+        .0
+        .is_commented());
+    assert!(!Headline::parse("* Title", &ParseConfig::default())
+        .0
+        .is_commented());
+    assert!(!Headline::parse("* C0MMENT Title", &ParseConfig::default())
+        .0
+        .is_commented());
+    assert!(!Headline::parse("* comment Title", &ParseConfig::default())
+        .0
+        .is_commented());
 }
 
 #[test]
 fn is_archived() {
-    assert!(Headline::parse("* Title :ARCHIVE:", &[]).0.is_archived());
-    assert!(Headline::parse("* Title :t:ARCHIVE:", &[]).0.is_archived());
-    assert!(Headline::parse("* Title :ARCHIVE:t:", &[]).0.is_archived());
-    assert!(!Headline::parse("* Title", &[]).0.is_commented());
-    assert!(!Headline::parse("* Title :ARCHIVED:", &[]).0.is_archived());
-    assert!(!Headline::parse("* Title :ARCHIVES:", &[]).0.is_archived());
-    assert!(!Headline::parse("* Title :archive:", &[]).0.is_archived());
+    assert!(
+        Headline::parse("* Title :ARCHIVE:", &ParseConfig::default())
+            .0
+            .is_archived()
+    );
+    assert!(
+        Headline::parse("* Title :t:ARCHIVE:", &ParseConfig::default())
+            .0
+            .is_archived()
+    );
+    assert!(
+        Headline::parse("* Title :ARCHIVE:t:", &ParseConfig::default())
+            .0
+            .is_archived()
+    );
+    assert!(!Headline::parse("* Title", &ParseConfig::default())
+        .0
+        .is_commented());
+    assert!(
+        !Headline::parse("* Title :ARCHIVED:", &ParseConfig::default())
+            .0
+            .is_archived()
+    );
+    assert!(
+        !Headline::parse("* Title :ARCHIVES:", &ParseConfig::default())
+            .0
+            .is_archived()
+    );
+    assert!(
+        !Headline::parse("* Title :archive:", &ParseConfig::default())
+            .0
+            .is_archived()
+    );
 }
 
 #[test]

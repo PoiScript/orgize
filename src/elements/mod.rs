@@ -32,7 +32,7 @@ pub use self::{
     dyn_block::DynBlock,
     fn_def::FnDef,
     fn_ref::FnRef,
-    headline::{Headline, DEFAULT_TODO_KEYWORDS},
+    headline::Headline,
     inline_call::InlineCall,
     inline_src::InlineSrc,
     keyword::{BabelCall, Keyword},

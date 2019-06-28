@@ -3,6 +3,7 @@ use jetscii::bytes;
 use memchr::{memchr, memchr_iter};
 use std::io::{Error, Write};
 
+use crate::config::ParseConfig;
 use crate::elements::*;
 use crate::export::{DefaultHtmlHandler, HtmlHandler};
 use crate::iter::Iter;
@@ -28,7 +29,27 @@ impl<'a> Org<'a> {
             document,
             text,
         };
-        org.parse_internal();
+
+        org.parse_internal(ParseConfig::default());
+
+        org
+    }
+
+    pub fn parse_with_config(text: &'a str, config: ParseConfig<'_>) -> Self {
+        let mut arena = Arena::new();
+        let document = arena.new_node(Element::Document {
+            begin: 0,
+            end: text.len(),
+            contents_begin: 0,
+            contents_end: text.len(),
+        });
+
+        let mut org = Org {
+            arena,
+            document,
+            text,
+        };
+        org.parse_internal(config);
 
         org
     }
@@ -62,7 +83,7 @@ impl<'a> Org<'a> {
         self.html(wrtier, DefaultHtmlHandler)
     }
 
-    fn parse_internal(&mut self) {
+    fn parse_internal(&mut self, config: ParseConfig<'_>) {
         let mut node = self.document;
         loop {
             match self.arena[node].data {
@@ -92,7 +113,7 @@ impl<'a> Org<'a> {
                         }
                     }
                     while begin < end {
-                        let (headline, off, end) = Headline::parse(&self.text[begin..end], &[]);
+                        let (headline, off, end) = Headline::parse(&self.text[begin..end], &config);
                         let headline = Element::Headline {
                             headline,
                             begin,
