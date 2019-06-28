@@ -9,11 +9,14 @@ edition = "2018"
 license = "MIT"
 keywords = ["orgmode", "emacs", "parser"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [badges]
 travis-ci = { repository = "PoiScript/orgize" }
 
 [features]
-default = ["serde", "chrono"]
+default = ["serde"]
 extra-serde-info = ["serde"]
 
 [dependencies]

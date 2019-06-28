@@ -1,3 +1,5 @@
+#[cfg(feature = "chrono")]
+use chrono::*;
 use memchr::memchr;
 use std::str::FromStr;
 
@@ -47,33 +49,30 @@ impl Datetime<'_> {
     pub fn dayname(&self) -> &str {
         self.dayname
     }
-}
 
-#[cfg(feature = "chrono")]
-mod chrono {
-    use super::Datetime;
-    use chrono::*;
+    #[cfg(feature = "chrono")]
+    pub fn naive_date(&self) -> NaiveDate {
+        NaiveDate::from_ymd(self.year() as i32, self.month(), self.day())
+    }
 
-    impl<'a> Datetime<'a> {
-        pub fn naive_date(&self) -> NaiveDate {
-            NaiveDate::from_ymd(self.year() as i32, self.month(), self.day())
-        }
+    #[cfg(feature = "chrono")]
+    pub fn naive_time(&self) -> NaiveTime {
+        NaiveTime::from_hms(self.hour().unwrap_or(0), self.minute().unwrap_or(0), 0)
+    }
 
-        pub fn naive_time(&self) -> NaiveTime {
-            NaiveTime::from_hms(self.hour().unwrap_or(0), self.minute().unwrap_or(0), 0)
-        }
+    #[cfg(feature = "chrono")]
+    pub fn naive_date_time(&self) -> NaiveDateTime {
+        NaiveDateTime::new(self.naive_date(), self.naive_time())
+    }
 
-        pub fn naive_date_time(&self) -> NaiveDateTime {
-            NaiveDateTime::new(self.naive_date(), self.naive_time())
-        }
+    #[cfg(feature = "chrono")]
+    pub fn date_time<Tz: TimeZone>(&self, offset: Tz::Offset) -> DateTime<Tz> {
+        DateTime::from_utc(self.naive_date_time(), offset)
+    }
 
-        pub fn date_time<Tz: TimeZone>(&self, offset: Tz::Offset) -> DateTime<Tz> {
-            DateTime::from_utc(self.naive_date_time(), offset)
-        }
-
-        pub fn date<Tz: TimeZone>(&self, offset: Tz::Offset) -> Date<Tz> {
-            Date::from_utc(self.naive_date(), offset)
-        }
+    #[cfg(feature = "chrono")]
+    pub fn date<Tz: TimeZone>(&self, offset: Tz::Offset) -> Date<Tz> {
+        Date::from_utc(self.naive_date(), offset)
     }
 }
 

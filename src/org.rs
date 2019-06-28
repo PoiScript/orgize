@@ -250,9 +250,9 @@ impl<'a> Org<'a> {
 
     fn parse_elements_children(&mut self, begin: usize, end: usize, node: NodeId) {
         let text = &self.text[begin..end];
-        let mut pos = 0;
+        let mut pos = skip_empty_lines(text);
 
-        if let Some((ty, off)) = self.parse_element(begin, end) {
+        if let Some((ty, off)) = self.parse_element(begin + pos, end) {
             let new_node = self.arena.new_node(ty);
             node.append(new_node, &mut self.arena).unwrap();
             pos += off + skip_empty_lines(&text[off..]);
