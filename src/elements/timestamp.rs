@@ -1,542 +1,366 @@
 #[cfg(feature = "chrono")]
 use chrono::*;
-use memchr::memchr;
-use std::str::FromStr;
+use nom::{
+    bytes::complete::{tag, take, take_till, take_while, take_while_m_n},
+    character::complete::{space0, space1},
+    combinator::{map_res, opt},
+    IResult,
+};
+
+/// Date
+///
+/// # Syntax
+///
+/// ```text
+/// YYYY-MM-DD DAYNAME
+/// ```
+///
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, Copy)]
+pub struct Date<'a> {
+    pub year: u16,
+    pub month: u8,
+    pub day: u8,
+    pub dayname: &'a str,
+}
+
+impl Date<'_> {
+    fn parse(input: &str) -> IResult<&str, Date<'_>> {
+        let (input, year) = map_res(take(4usize), |num| u16::from_str_radix(num, 10))(input)?;
+        let (input, _) = tag("-")(input)?;
+        let (input, month) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
+        let (input, _) = tag("-")(input)?;
+        let (input, day) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
+        let (input, _) = space1(input)?;
+        let (input, dayname) = take_while(|c: char| {
+            !c.is_ascii_whitespace()
+                && !c.is_ascii_digit()
+                && c != '+'
+                && c != '-'
+                && c != ']'
+                && c != '>'
+        })(input)?;
+
+        Ok((
+            input,
+            Date {
+                year,
+                month,
+                day,
+                dayname,
+            },
+        ))
+    }
+}
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug, Clone, Copy)]
-pub struct Datetime<'a> {
-    pub(crate) date: &'a str,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub(crate) time: Option<&'a str>,
-    pub(crate) dayname: &'a str,
+pub struct Time {
+    pub hour: u8,
+    pub minute: u8,
 }
 
-impl Datetime<'_> {
-    pub fn year(&self) -> u32 {
-        u32::from_str(&self.date[0..4]).unwrap()
-    }
+impl Time {
+    fn parse(input: &str) -> IResult<&str, Time> {
+        let (input, hour) = map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), |num| {
+            u8::from_str_radix(num, 10)
+        })(input)?;
+        let (input, _) = tag(":")(input)?;
+        let (input, minute) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
 
-    pub fn month(&self) -> u32 {
-        u32::from_str(&self.date[5..7]).unwrap()
-    }
-
-    pub fn day(&self) -> u32 {
-        u32::from_str(&self.date[8..10]).unwrap()
-    }
-
-    pub fn hour(&self) -> Option<u32> {
-        self.time.map(|time| {
-            if time.len() == 4 {
-                u32::from_str(&time[0..1]).unwrap()
-            } else {
-                u32::from_str(&time[0..2]).unwrap()
-            }
-        })
-    }
-
-    pub fn minute(&self) -> Option<u32> {
-        self.time.map(|time| {
-            if time.len() == 4 {
-                u32::from_str(&time[2..4]).unwrap()
-            } else {
-                u32::from_str(&time[3..5]).unwrap()
-            }
-        })
-    }
-
-    pub fn dayname(&self) -> &str {
-        self.dayname
-    }
-
-    #[cfg(feature = "chrono")]
-    pub fn naive_date(&self) -> NaiveDate {
-        NaiveDate::from_ymd(self.year() as i32, self.month(), self.day())
-    }
-
-    #[cfg(feature = "chrono")]
-    pub fn naive_time(&self) -> NaiveTime {
-        NaiveTime::from_hms(self.hour().unwrap_or(0), self.minute().unwrap_or(0), 0)
-    }
-
-    #[cfg(feature = "chrono")]
-    pub fn naive_date_time(&self) -> NaiveDateTime {
-        NaiveDateTime::new(self.naive_date(), self.naive_time())
-    }
-
-    #[cfg(feature = "chrono")]
-    pub fn date_time<Tz: TimeZone>(&self, offset: Tz::Offset) -> DateTime<Tz> {
-        DateTime::from_utc(self.naive_date_time(), offset)
-    }
-
-    #[cfg(feature = "chrono")]
-    pub fn date<Tz: TimeZone>(&self, offset: Tz::Offset) -> Date<Tz> {
-        Date::from_utc(self.naive_date(), offset)
+        Ok((input, Time { hour, minute }))
     }
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
-pub enum RepeaterType {
-    Cumulate,
-    CatchUp,
-    Restart,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
-pub enum DelayType {
-    All,
-    First,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
-pub enum TimeUnit {
-    Hour,
-    Day,
-    Week,
-    Month,
-    Year,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
-pub struct Repeater {
-    pub ty: RepeaterType,
-    pub value: usize,
-    pub unit: TimeUnit,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
-pub struct Delay {
-    pub ty: DelayType,
-    pub value: usize,
-    pub unit: TimeUnit,
-}
-
-/// timestamp obejcts
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub enum Timestamp<'a> {
     Active {
-        start: Datetime<'a>,
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        start_date: Date<'a>,
+        start_time: Option<Time>,
         repeater: Option<&'a str>,
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     Inactive {
-        start: Datetime<'a>,
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        start_date: Date<'a>,
+        start_time: Option<Time>,
         repeater: Option<&'a str>,
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     ActiveRange {
-        start: Datetime<'a>,
-        end: Datetime<'a>,
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        start_date: Date<'a>,
+        start_time: Option<Time>,
+        end_date: Date<'a>,
+        end_time: Option<Time>,
         repeater: Option<&'a str>,
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     InactiveRange {
-        start: Datetime<'a>,
-        end: Datetime<'a>,
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        start_date: Date<'a>,
+        start_time: Option<Time>,
+        end_date: Date<'a>,
+        end_time: Option<Time>,
         repeater: Option<&'a str>,
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     Diary(&'a str),
 }
 
 impl Timestamp<'_> {
-    pub(crate) fn parse(text: &str) -> Option<(Timestamp<'_>, usize)> {
-        if text.starts_with('<') {
-            Timestamp::parse_active(text).or_else(|| Timestamp::parse_diary(text))
-        } else if text.starts_with('[') {
-            Timestamp::parse_inactive(text)
-        } else {
-            None
-        }
-    }
+    pub(crate) fn parse_active(input: &str) -> IResult<&str, Timestamp<'_>> {
+        let (input, _) = tag("<")(input)?;
+        let (input, start_date) = Date::parse(input)?;
+        let (input, _) = space0(input)?;
+        let (input, start_time) = opt(Time::parse)(input)?;
 
-    pub(crate) fn parse_active(text: &str) -> Option<(Timestamp<'_>, usize)> {
-        debug_assert!(text.starts_with('<'));
-
-        let bytes = text.as_bytes();
-        let mut off = memchr(b'>', bytes)?;
-        let (start, mut end) = Self::parse_datetime(&text[1..off])?;
-
-        if end.is_none()
-            && off + "--<YYYY-MM-DD >".len() <= text.len()
-            && text[off + 1..].starts_with("--<")
-        {
-            if let Some(new_off) = memchr(b'>', &bytes[off + 1..]) {
-                if let Some((start, _)) = Self::parse_datetime(&text[off + 4..off + 1 + new_off]) {
-                    end = Some(start);
-                    off += new_off + 1;
-                }
-            }
-        }
-
-        Some((
-            if let Some(end) = end {
+        if input.starts_with('-') {
+            let (input, end_time) = opt(Time::parse)(&input[1..])?;
+            let (input, _) = space0(input)?;
+            // TODO: delay-or-repeater
+            let (input, _) = tag(">")(input)?;
+            return Ok((
+                input,
                 Timestamp::ActiveRange {
-                    start,
-                    end,
+                    start_date,
+                    start_time,
+                    end_date: start_date,
+                    end_time,
                     repeater: None,
                     delay: None,
-                }
-            } else {
-                Timestamp::Active {
-                    start,
-                    repeater: None,
-                    delay: None,
-                }
-            },
-            off + 1,
-        ))
-    }
-
-    pub(crate) fn parse_inactive(text: &str) -> Option<(Timestamp<'_>, usize)> {
-        debug_assert!(text.starts_with('['));
-
-        let bytes = text.as_bytes();
-        let mut off = memchr(b']', bytes)?;
-        let (start, mut end) = Self::parse_datetime(&text[1..off])?;
-        if end.is_none()
-            && off + "--[YYYY-MM-DD ]".len() <= text.len()
-            && text[off + 1..].starts_with("--[")
-        {
-            if let Some(new_off) = memchr(b']', &bytes[off + 1..]) {
-                if let Some((start, _)) = Self::parse_datetime(&text[off + 4..off + 1 + new_off]) {
-                    end = Some(start);
-                    off += new_off + 1;
-                }
-            }
-        }
-
-        Some((
-            if let Some(end) = end {
-                Timestamp::InactiveRange {
-                    start,
-                    end,
-                    repeater: None,
-                    delay: None,
-                }
-            } else {
-                Timestamp::Inactive {
-                    start,
-                    repeater: None,
-                    delay: None,
-                }
-            },
-            off + 1,
-        ))
-    }
-
-    fn parse_datetime(text: &str) -> Option<(Datetime<'_>, Option<Datetime<'_>>)> {
-        if text.is_empty()
-            || !text.starts_with(|c: char| c.is_ascii_digit())
-            || !text.ends_with(|c: char| c.is_ascii_alphanumeric())
-        {
-            return None;
-        }
-
-        let mut words = text.split_ascii_whitespace();
-
-        let date = words.next().filter(|word| {
-            let word = word.as_bytes();
-            // YYYY-MM-DD
-            word.len() == 10
-                && word[0..4].iter().all(u8::is_ascii_digit)
-                && word[4] == b'-'
-                && word[5..7].iter().all(u8::is_ascii_digit)
-                && word[7] == b'-'
-                && word[8..10].iter().all(u8::is_ascii_digit)
-        })?;
-
-        let dayname = words.next().filter(|word| {
-            word.as_bytes().iter().all(|&c| {
-                !(c == b'+'
-                    || c == b'-'
-                    || c == b']'
-                    || c == b'>'
-                    || c.is_ascii_digit()
-                    || c == b'\n')
-            })
-        })?;
-
-        let (start, end) = if let Some(word) = words.next() {
-            let time = word.as_bytes();
-
-            if (time.len() == "H:MM".len()
-                && time[0].is_ascii_digit()
-                && time[1] == b':'
-                && time[2..4].iter().all(u8::is_ascii_digit))
-                || (time.len() == "HH:MM".len()
-                    && time[0..2].iter().all(u8::is_ascii_digit)
-                    && time[2] == b':'
-                    && time[3..5].iter().all(u8::is_ascii_digit))
-            {
-                (
-                    Datetime {
-                        date,
-                        dayname,
-                        time: Some(word),
-                    },
-                    None,
-                )
-            } else if time.len() == "H:MM-H:MM".len()
-                && time[0].is_ascii_digit()
-                && time[1] == b':'
-                && time[2..4].iter().all(u8::is_ascii_digit)
-                && time[4] == b'-'
-                && time[5].is_ascii_digit()
-                && time[6] == b':'
-                && time[7..9].iter().all(u8::is_ascii_digit)
-            {
-                (
-                    Datetime {
-                        date,
-                        dayname,
-                        time: Some(&word[0..4]),
-                    },
-                    Some(Datetime {
-                        date,
-                        dayname,
-                        time: Some(&word[5..9]),
-                    }),
-                )
-            } else if time.len() == "H:MM-HH:MM".len()
-                && time[0].is_ascii_digit()
-                && time[1] == b':'
-                && time[2..4].iter().all(u8::is_ascii_digit)
-                && time[4] == b'-'
-                && time[5..7].iter().all(u8::is_ascii_digit)
-                && time[7] == b':'
-                && time[8..10].iter().all(u8::is_ascii_digit)
-            {
-                (
-                    Datetime {
-                        date,
-                        dayname,
-                        time: Some(&word[0..4]),
-                    },
-                    Some(Datetime {
-                        date,
-                        dayname,
-                        time: Some(&word[5..10]),
-                    }),
-                )
-            } else if time.len() == "HH:MM-H:MM".len()
-                && time[0..2].iter().all(u8::is_ascii_digit)
-                && time[2] == b':'
-                && time[3..5].iter().all(u8::is_ascii_digit)
-                && time[5] == b'-'
-                && time[6].is_ascii_digit()
-                && time[7] == b':'
-                && time[8..10].iter().all(u8::is_ascii_digit)
-            {
-                (
-                    Datetime {
-                        date,
-                        dayname,
-                        time: Some(&word[0..5]),
-                    },
-                    Some(Datetime {
-                        date,
-                        dayname,
-                        time: Some(&word[6..10]),
-                    }),
-                )
-            } else if time.len() == "HH:MM-HH:MM".len()
-                && time[0..2].iter().all(u8::is_ascii_digit)
-                && time[2] == b':'
-                && time[3..5].iter().all(u8::is_ascii_digit)
-                && time[5] == b'-'
-                && time[6..8].iter().all(u8::is_ascii_digit)
-                && time[8] == b':'
-                && time[9..11].iter().all(u8::is_ascii_digit)
-            {
-                (
-                    Datetime {
-                        date,
-                        dayname,
-                        time: Some(&word[0..5]),
-                    },
-                    Some(Datetime {
-                        date,
-                        dayname,
-                        time: Some(&word[6..11]),
-                    }),
-                )
-            } else {
-                return None;
-            }
-        } else {
-            (
-                Datetime {
-                    date,
-                    dayname,
-                    time: None,
                 },
-                None,
-            )
-        };
+            ));
+        }
 
-        // TODO: repeater and delay
-        if words.next().is_some() {
-            None
+        let (input, _) = space0(input)?;
+        // TODO: delay-or-repeater
+        let (input, _) = tag(">")(input)?;
+
+        if input.starts_with("--<") {
+            let (input, end_date) = Date::parse(&input["--<".len()..])?;
+            let (input, _) = space0(input)?;
+            let (input, end_time) = opt(Time::parse)(input)?;
+            let (input, _) = space0(input)?;
+            // TODO: delay-or-repeater
+            let (input, _) = tag(">")(input)?;
+            Ok((
+                input,
+                Timestamp::ActiveRange {
+                    start_date,
+                    start_time,
+                    end_date,
+                    end_time,
+                    repeater: None,
+                    delay: None,
+                },
+            ))
         } else {
-            Some((start, end))
+            Ok((
+                input,
+                Timestamp::Active {
+                    start_date,
+                    start_time,
+                    repeater: None,
+                    delay: None,
+                },
+            ))
         }
     }
 
-    pub(crate) fn parse_diary(text: &str) -> Option<(Timestamp<'_>, usize)> {
-        debug_assert!(text.starts_with('<'));
+    pub(crate) fn parse_inactive(input: &str) -> IResult<&str, Timestamp<'_>> {
+        let (input, _) = tag("[")(input)?;
+        let (input, start_date) = Date::parse(input)?;
+        let (input, _) = space0(input)?;
+        let (input, start_time) = opt(Time::parse)(input)?;
 
-        if text.len() <= "<%%()>".len() || &text[1..4] != "%%(" {
-            return None;
+        if input.starts_with('-') {
+            let (input, end_time) = opt(Time::parse)(&input[1..])?;
+            let (input, _) = space0(input)?;
+            // TODO: delay-or-repeater
+            let (input, _) = tag("]")(input)?;
+            return Ok((
+                input,
+                Timestamp::InactiveRange {
+                    start_date,
+                    start_time,
+                    end_date: start_date,
+                    end_time,
+                    repeater: None,
+                    delay: None,
+                },
+            ));
         }
 
-        let bytes = text.as_bytes();
+        let (input, _) = space0(input)?;
+        // TODO: delay-or-repeater
+        let (input, _) = tag("]")(input)?;
 
-        memchr(b'>', bytes)
-            .filter(|i| {
-                bytes[i - 1] == b')' && bytes["<%%(".len()..i - 1].iter().all(|&c| c != b'\n')
-            })
-            .map(|i| (Timestamp::Diary(&text["<%%(".len()..i - 1]), i))
+        if input.starts_with("--[") {
+            let (input, end_date) = Date::parse(&input["--[".len()..])?;
+            let (input, _) = space0(input)?;
+            let (input, end_time) = opt(Time::parse)(input)?;
+            let (input, _) = space0(input)?;
+            // TODO: delay-or-repeater
+            let (input, _) = tag("]")(input)?;
+            Ok((
+                input,
+                Timestamp::InactiveRange {
+                    start_date,
+                    start_time,
+                    end_date,
+                    end_time,
+                    repeater: None,
+                    delay: None,
+                },
+            ))
+        } else {
+            Ok((
+                input,
+                Timestamp::Inactive {
+                    start_date,
+                    start_time,
+                    repeater: None,
+                    delay: None,
+                },
+            ))
+        }
+    }
+
+    pub(crate) fn parse_diary(input: &str) -> IResult<&str, Timestamp<'_>> {
+        let (input, _) = tag("<%%(")(input)?;
+        let (input, sexp) = take_till(|c| c == ')' || c == '>' || c == '\n')(input)?;
+        let (input, _) = tag(")>")(input)?;
+
+        Ok((input, Timestamp::Diary(sexp)))
     }
 }
 
-#[test]
-fn parse_range() {
-    use super::*;
+// TODO
+// #[cfg_attr(test, derive(PartialEq))]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+// #[derive(Debug, Copy, Clone)]
+// pub enum RepeaterType {
+//     Cumulate,
+//     CatchUp,
+//     Restart,
+// }
 
+// #[cfg_attr(test, derive(PartialEq))]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+// #[derive(Debug, Copy, Clone)]
+// pub enum DelayType {
+//     All,
+//     First,
+// }
+
+// #[cfg_attr(test, derive(PartialEq))]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+// #[derive(Debug, Copy, Clone)]
+// pub enum TimeUnit {
+//     Hour,
+//     Day,
+//     Week,
+//     Month,
+//     Year,
+// }
+
+// #[cfg_attr(test, derive(PartialEq))]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+// #[derive(Debug, Copy, Clone)]
+// pub struct Repeater {
+//     pub ty: RepeaterType,
+//     pub value: usize,
+//     pub unit: TimeUnit,
+// }
+
+// #[cfg_attr(test, derive(PartialEq))]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+// #[derive(Debug, Copy, Clone)]
+// pub struct Delay {
+//     pub ty: DelayType,
+//     pub value: usize,
+//     pub unit: TimeUnit,
+// }
+
+#[test]
+fn parse() {
     assert_eq!(
         Timestamp::parse_inactive("[2003-09-16 Tue]"),
-        Some((
+        Ok((
+            "",
             Timestamp::Inactive {
-                start: Datetime {
-                    date: "2003-09-16",
-                    time: None,
+                start_date: Date {
+                    year: 2003,
+                    month: 9,
+                    day: 16,
                     dayname: "Tue"
                 },
+                start_time: None,
                 repeater: None,
                 delay: None,
             },
-            "[2003-09-16 Tue]".len()
         ))
     );
     assert_eq!(
         Timestamp::parse_inactive("[2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39]"),
-        Some((
+        Ok((
+            "",
             Timestamp::InactiveRange {
-                start: Datetime {
-                    date: "2003-09-16",
-                    time: Some("09:39"),
+                start_date: Date {
+                    year: 2003,
+                    month: 9,
+                    day: 16,
                     dayname: "Tue"
                 },
-                end: Datetime {
-                    date: "2003-09-16",
-                    time: Some("10:39"),
+                start_time: Some(Time {
+                    hour: 9,
+                    minute: 39
+                }),
+                end_date: Date {
+                    year: 2003,
+                    month: 9,
+                    day: 16,
                     dayname: "Tue"
                 },
+                end_time: Some(Time {
+                    hour: 10,
+                    minute: 39
+                }),
                 repeater: None,
                 delay: None
             },
-            "[2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39]".len()
         ))
     );
     assert_eq!(
         Timestamp::parse_active("<2003-09-16 Tue 09:39-10:39>"),
-        Some((
+        Ok((
+            "",
             Timestamp::ActiveRange {
-                start: Datetime {
-                    date: "2003-09-16",
-                    time: Some("09:39"),
+                start_date: Date {
+                    year: 2003,
+                    month: 9,
+                    day: 16,
                     dayname: "Tue"
                 },
-                end: Datetime {
-                    date: "2003-09-16",
-                    time: Some("10:39"),
+                start_time: Some(Time {
+                    hour: 9,
+                    minute: 39
+                }),
+                end_date: Date {
+                    year: 2003,
+                    month: 9,
+                    day: 16,
                     dayname: "Tue"
                 },
+                end_time: Some(Time {
+                    hour: 10,
+                    minute: 39
+                }),
                 repeater: None,
                 delay: None
             },
-            "<2003-09-16 Tue 09:39-10:39>".len()
         ))
     );
-}
-
-#[test]
-fn parse_datetime() {
-    use super::*;
-
-    assert_eq!(
-        Timestamp::parse_datetime("2003-09-16 Tue"),
-        Some((
-            Datetime {
-                date: "2003-09-16",
-                time: None,
-                dayname: "Tue"
-            },
-            None
-        ))
-    );
-    assert_eq!(
-        Timestamp::parse_datetime("2003-09-16  Tue 9:39"),
-        Some((
-            Datetime {
-                date: "2003-09-16",
-                time: Some("9:39"),
-                dayname: "Tue"
-            },
-            None
-        ))
-    );
-    assert_eq!(
-        Timestamp::parse_datetime("2003-09-16 Tue  09:39"),
-        Some((
-            Datetime {
-                date: "2003-09-16",
-                time: Some("09:39"),
-                dayname: "Tue"
-            },
-            None
-        ))
-    );
-    assert_eq!(
-        Timestamp::parse_datetime("2003-09-16 Tue 9:39-10:39"),
-        Some((
-            Datetime {
-                date: "2003-09-16",
-                time: Some("9:39"),
-                dayname: "Tue"
-            },
-            Some(Datetime {
-                date: "2003-09-16",
-                time: Some("10:39"),
-                dayname: "Tue"
-            }),
-        ))
-    );
-
-    assert_eq!(Timestamp::parse_datetime("2003-9-16 Tue"), None);
-    assert_eq!(Timestamp::parse_datetime("2003-09-16"), None);
-    assert_eq!(Timestamp::parse_datetime("2003-09-16 09:39"), None);
-    assert_eq!(Timestamp::parse_datetime("2003-09-16 Tue 0939"), None);
 }

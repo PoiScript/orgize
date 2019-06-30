@@ -1,4 +1,10 @@
-use jetscii::Substring;
+use nom::{
+    bytes::complete::{tag, take_while},
+    combinator::verify,
+    IResult,
+};
+
+use crate::elements::Element;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -9,29 +15,15 @@ pub struct Target<'a> {
 
 impl Target<'_> {
     #[inline]
-    // return (target, offset)
-    pub(crate) fn parse(text: &str) -> Option<(Target<'_>, usize)> {
-        debug_assert!(text.starts_with("<<"));
+    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+        let (input, _) = tag("<<")(input)?;
+        let (input, target) = verify(
+            take_while(|c: char| c != '<' && c != '\n' && c != '>'),
+            |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
+        )(input)?;
+        let (input, _) = tag(">>")(input)?;
 
-        let bytes = text.as_bytes();
-
-        Substring::new(">>")
-            .find(text)
-            .filter(|&i| {
-                bytes[2] != b' '
-                    && bytes[i - 1] != b' '
-                    && bytes[2..i]
-                        .iter()
-                        .all(|&c| c != b'<' && c != b'\n' && c != b'>')
-            })
-            .map(|i| {
-                (
-                    Target {
-                        target: &text[2..i],
-                    },
-                    i + ">>".len(),
-                )
-            })
+        Ok((input, Element::Target(Target { target })))
     }
 }
 
@@ -39,16 +31,16 @@ impl Target<'_> {
 fn parse() {
     assert_eq!(
         Target::parse("<<target>>"),
-        Some((Target { target: "target" }, "<<target>>".len()))
+        Ok(("", Element::Target(Target { target: "target" })))
     );
     assert_eq!(
         Target::parse("<<tar get>>"),
-        Some((Target { target: "tar get" }, "<<tar get>>".len()))
+        Ok(("", Element::Target(Target { target: "tar get" })))
     );
-    assert_eq!(Target::parse("<<target >>"), None);
-    assert_eq!(Target::parse("<< target>>"), None);
-    assert_eq!(Target::parse("<<ta<get>>"), None);
-    assert_eq!(Target::parse("<<ta>get>>"), None);
-    assert_eq!(Target::parse("<<ta\nget>>"), None);
-    assert_eq!(Target::parse("<<target>"), None);
+    assert!(Target::parse("<<target >>").is_err());
+    assert!(Target::parse("<< target>>").is_err());
+    assert!(Target::parse("<<ta<get>>").is_err());
+    assert!(Target::parse("<<ta>get>>").is_err());
+    assert!(Target::parse("<<ta\nget>>").is_err());
+    assert!(Target::parse("<<target>").is_err());
 }

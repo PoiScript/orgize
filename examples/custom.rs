@@ -35,7 +35,7 @@ impl HtmlHandler<MyError> for MyHtmlHandler {
     fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
         let mut default_handler = DefaultHtmlHandler;
         match element {
-            Element::Headline { headline, .. } => {
+            Element::Headline(headline) => {
                 if headline.level > 6 {
                     return Err(MyError::Heading);
                 } else {
@@ -65,7 +65,7 @@ fn main() -> Result<(), MyError> {
         let contents = String::from_utf8(fs::read(&args[1])?)?;
 
         let mut writer = Vec::new();
-        Org::parse(&contents).html(&mut writer, MyHtmlHandler)?;
+        Org::parse(&contents).html_with_handler(&mut writer, MyHtmlHandler)?;
 
         println!("{}", String::from_utf8(writer)?);
     }

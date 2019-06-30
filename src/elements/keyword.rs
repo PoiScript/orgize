@@ -1,4 +1,11 @@
-use memchr::{memchr, memchr2};
+use nom::{
+    bytes::complete::{tag, take_till, take_while},
+    combinator::{map, opt},
+    sequence::delimited,
+    IResult,
+};
+
+use crate::elements::Element;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -6,7 +13,7 @@ use memchr::{memchr, memchr2};
 pub struct Keyword<'a> {
     pub key: &'a str,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub option: Option<&'a str>,
+    pub optional: Option<&'a str>,
     pub value: &'a str,
 }
 
@@ -14,43 +21,36 @@ pub struct Keyword<'a> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct BabelCall<'a> {
-    pub key: &'a str,
     pub value: &'a str,
+}
+
+fn optional(input: &str) -> IResult<&str, &str> {
+    delimited(tag("["), take_till(|c| c == ']' || c == '\n'), tag("]"))(input)
 }
 
 impl Keyword<'_> {
     #[inline]
-    // return (key, option, value, offset)
-    pub(crate) fn parse(text: &str) -> Option<(&str, Option<&str>, &str, usize)> {
-        debug_assert!(text.starts_with("#+"));
+    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+        let (input, _) = tag("#+")(input)?;
+        let (input, key) =
+            take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '[')(input)?;
+        let (input, optional) = opt(optional)(input)?;
+        let (input, _) = tag(":")(input)?;
+        let (input, value) = map(take_while(|c| c != '\n'), str::trim)(input)?;
+        let (input, _) = opt(tag("\n"))(input)?;
 
-        let bytes = text.as_bytes();
-
-        let (key, off) = memchr2(b':', b'[', bytes)
-            .filter(|&i| {
-                bytes[2..i]
-                    .iter()
-                    .all(|&c| c.is_ascii_alphabetic() || c == b'_')
-            })
-            .map(|i| (&text[2..i], i + 1))?;
-
-        let (option, off) = if bytes[off - 1] == b'[' {
-            memchr(b']', bytes)
-                .filter(|&i| {
-                    bytes[off..i].iter().all(|&c| c != b'\n')
-                        && i < text.len()
-                        && bytes[i + 1] == b':'
-                })
-                .map(|i| (Some(&text[off..i]), i + "]:".len()))?
+        if key.eq_ignore_ascii_case("CALL") {
+            Ok((input, Element::BabelCall(BabelCall { value })))
         } else {
-            (None, off)
-        };
-
-        let end = memchr(b'\n', bytes)
-            .map(|i| i + 1)
-            .unwrap_or_else(|| text.len());
-
-        Some((key, option, &text[off..end].trim(), end))
+            Ok((
+                input,
+                Element::Keyword(Keyword {
+                    key,
+                    optional,
+                    value,
+                }),
+            ))
+        }
     }
 }
 
@@ -58,50 +58,94 @@ impl Keyword<'_> {
 fn parse() {
     assert_eq!(
         Keyword::parse("#+KEY:"),
-        Some(("KEY", None, "", "#+KEY:".len()))
+        Ok((
+            "",
+            Element::Keyword(Keyword {
+                key: "KEY",
+                optional: None,
+                value: "",
+            })
+        ))
     );
     assert_eq!(
         Keyword::parse("#+KEY: VALUE"),
-        Some(("KEY", None, "VALUE", "#+KEY: VALUE".len()))
+        Ok((
+            "",
+            Element::Keyword(Keyword {
+                key: "KEY",
+                optional: None,
+                value: "VALUE",
+            })
+        ))
     );
     assert_eq!(
         Keyword::parse("#+K_E_Y: VALUE"),
-        Some(("K_E_Y", None, "VALUE", "#+K_E_Y: VALUE".len()))
+        Ok((
+            "",
+            Element::Keyword(Keyword {
+                key: "K_E_Y",
+                optional: None,
+                value: "VALUE",
+            })
+        ))
     );
     assert_eq!(
         Keyword::parse("#+KEY:VALUE\n"),
-        Some(("KEY", None, "VALUE", "#+KEY:VALUE\n".len()))
+        Ok((
+            "",
+            Element::Keyword(Keyword {
+                key: "KEY",
+                optional: None,
+                value: "VALUE",
+            })
+        ))
     );
-    assert_eq!(Keyword::parse("#+KE Y: VALUE"), None);
-    assert_eq!(Keyword::parse("#+ KEY: VALUE"), None);
+    assert!(Keyword::parse("#+KE Y: VALUE").is_err());
+    assert!(Keyword::parse("#+ KEY: VALUE").is_err());
 
     assert_eq!(
         Keyword::parse("#+RESULTS:"),
-        Some(("RESULTS", None, "", "#+RESULTS:".len()))
+        Ok((
+            "",
+            Element::Keyword(Keyword {
+                key: "RESULTS",
+                optional: None,
+                value: "",
+            })
+        ))
     );
 
     assert_eq!(
         Keyword::parse("#+ATTR_LATEX: :width 5cm\n"),
-        Some((
-            "ATTR_LATEX",
-            None,
-            ":width 5cm",
-            "#+ATTR_LATEX: :width 5cm\n".len()
+        Ok((
+            "",
+            Element::Keyword(Keyword {
+                key: "ATTR_LATEX",
+                optional: None,
+                value: ":width 5cm",
+            })
         ))
     );
 
     assert_eq!(
         Keyword::parse("#+CALL: double(n=4)"),
-        Some(("CALL", None, "double(n=4)", "#+CALL: double(n=4)".len()))
+        Ok((
+            "",
+            Element::BabelCall(BabelCall {
+                value: "double(n=4)",
+            })
+        ))
     );
 
     assert_eq!(
         Keyword::parse("#+CAPTION[Short caption]: Longer caption."),
-        Some((
-            "CAPTION",
-            Some("Short caption"),
-            "Longer caption.",
-            "#+CAPTION[Short caption]: Longer caption.".len()
+        Ok((
+            "",
+            Element::Keyword(Keyword {
+                key: "CAPTION",
+                optional: Some("Short caption"),
+                value: "Longer caption.",
+            })
         ))
     );
 }

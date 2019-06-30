@@ -1,16 +1,19 @@
 use memchr::memchr_iter;
 
+use crate::elements::Element;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Drawer<'a> {
     pub name: &'a str,
+    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+    pub contents: &'a str,
 }
 
-impl<'a> Drawer<'a> {
+impl Drawer<'_> {
     #[inline]
-    // return (drawer, contents-begin, contents-end , end)
-    pub(crate) fn parse(text: &'a str) -> Option<(Drawer<'a>, usize, usize, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>)> {
         debug_assert!(text.starts_with(':'));
 
         let mut lines = memchr_iter(b'\n', text.as_bytes());
@@ -30,12 +33,11 @@ impl<'a> Drawer<'a> {
         for i in lines {
             if text[pos..i].trim().eq_ignore_ascii_case(":END:") {
                 return Some((
-                    Drawer {
+                    &text[i + 1..],
+                    Element::Drawer(Drawer {
                         name: &name[0..name.len() - 1],
-                    },
-                    off,
-                    pos,
-                    i + 1,
+                        contents: &text[off..pos],
+                    }),
                 ));
             }
             pos = i + 1;
@@ -43,12 +45,11 @@ impl<'a> Drawer<'a> {
 
         if text[pos..].trim().eq_ignore_ascii_case(":END:") {
             Some((
-                Drawer {
+                "",
+                Element::Drawer(Drawer {
                     name: &name[0..name.len() - 1],
-                },
-                off,
-                pos,
-                text.len(),
+                    contents: &text[off..pos],
+                }),
             ))
         } else {
             None
@@ -61,10 +62,11 @@ fn parse() {
     assert_eq!(
         Drawer::parse(":PROPERTIES:\n  :CUSTOM_ID: id\n  :END:"),
         Some((
-            Drawer { name: "PROPERTIES" },
-            ":PROPERTIES:\n".len(),
-            ":PROPERTIES:\n  :CUSTOM_ID: id\n".len(),
-            ":PROPERTIES:\n  :CUSTOM_ID: id\n  :END:".len()
+            "",
+            Element::Drawer(Drawer {
+                name: "PROPERTIES",
+                contents: "  :CUSTOM_ID: id\n"
+            })
         ))
     )
 }

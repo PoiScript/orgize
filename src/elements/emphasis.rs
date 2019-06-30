@@ -2,7 +2,7 @@ use bytecount::count;
 use memchr::memchr;
 
 #[inline]
-pub(crate) fn parse(text: &str, marker: u8) -> Option<usize> {
+pub(crate) fn parse(text: &str, marker: u8) -> Option<(&str, &str)> {
     debug_assert!(text.len() >= 3);
 
     let bytes = text.as_bytes();
@@ -30,12 +30,12 @@ pub(crate) fn parse(text: &str, marker: u8) -> Option<usize> {
             || post == b')'
             || post == b'}'
         {
-            Some(end + 2)
+            Some((&text[end + 2..], &text[1..end + 1]))
         } else {
             None
         }
     } else {
-        Some(end + 2)
+        Some((&text[end + 2..], &text[1..end + 1]))
     }
 }
 
@@ -45,8 +45,8 @@ mod tests {
     fn parse() {
         use super::parse;
 
-        assert_eq!(parse("*bold*", b'*'), Some("*bold*".len()));
-        assert_eq!(parse("*bo\nld*", b'*'), Some("*bo\nld*".len()));
+        assert_eq!(parse("*bold*", b'*'), Some(("", "bold")));
+        assert_eq!(parse("*bo\nld*", b'*'), Some(("", "bo\nld")));
         assert_eq!(parse("*bold*a", b'*'), None);
         assert_eq!(parse("*bold*", b'/'), None);
         assert_eq!(parse("*bold *", b'*'), None);

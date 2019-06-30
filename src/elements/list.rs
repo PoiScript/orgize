@@ -4,15 +4,16 @@ use std::iter::once;
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
-pub struct List {
+pub struct List<'a> {
     pub indent: usize,
     pub ordered: bool,
+    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+    pub contents: &'a str,
 }
 
-impl List {
+impl List<'_> {
     #[inline]
-    // return (list, begin, end)
-    pub(crate) fn parse(text: &str) -> Option<(List, usize, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, List<'_>)> {
         let (indent, tail) = text
             .find(|c| c != ' ')
             .map(|off| (off, &text[off..]))
@@ -32,7 +33,14 @@ impl List {
                 if line_indent < indent
                     || (line_indent == indent && is_item(&line[line_indent..]).is_none())
                 {
-                    Some((List { indent, ordered }, pos, pos))
+                    Some((
+                        &text[pos..],
+                        List {
+                            indent,
+                            ordered,
+                            contents: &text[0..pos],
+                        },
+                    ))
                 } else {
                     pos = i;
                     continue;
@@ -44,20 +52,48 @@ impl List {
                     if line_indent < indent
                         || (line_indent == indent && is_item(&line[line_indent..]).is_none())
                     {
-                        Some((List { indent, ordered }, pos, pos))
+                        Some((
+                            &text[pos..],
+                            List {
+                                indent,
+                                ordered,
+                                contents: &text[0..pos],
+                            },
+                        ))
                     } else {
                         pos = next_i;
                         continue;
                     }
                 } else {
-                    Some((List { indent, ordered }, pos, next_i))
+                    Some((
+                        &text[next_i..],
+                        List {
+                            indent,
+                            ordered,
+                            contents: &text[0..pos],
+                        },
+                    ))
                 }
             } else {
-                Some((List { indent, ordered }, pos, i))
+                Some((
+                    &text[i..],
+                    List {
+                        indent,
+                        ordered,
+                        contents: &text[0..pos],
+                    },
+                ))
             };
         }
 
-        Some((List { indent, ordered }, pos, pos))
+        Some((
+            &text[pos..],
+            List {
+                indent,
+                ordered,
+                contents: &text[0..pos],
+            },
+        ))
     }
 }
 
@@ -66,10 +102,12 @@ impl List {
 #[derive(Debug)]
 pub struct ListItem<'a> {
     pub bullet: &'a str,
+    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+    pub contents: &'a str,
 }
 
 impl ListItem<'_> {
-    pub(crate) fn parse(text: &str, indent: usize) -> (ListItem<'_>, usize, usize) {
+    pub(crate) fn parse(text: &str, indent: usize) -> (&str, ListItem<'_>) {
         debug_assert!(&text[0..indent].trim().is_empty());
         let off = &text[indent..].find(' ').unwrap() + 1 + indent;
 
@@ -84,11 +122,11 @@ impl ListItem<'_> {
             if let Some(line_indent) = line.find(|c: char| !c.is_whitespace()) {
                 if line_indent == indent {
                     return (
+                        &text[pos..],
                         ListItem {
                             bullet: &text[indent..off],
+                            contents: &text[off..pos],
                         },
-                        off,
-                        pos,
                     );
                 }
             }
@@ -96,11 +134,11 @@ impl ListItem<'_> {
         }
 
         (
+            "",
             ListItem {
                 bullet: &text[indent..off],
+                contents: &text[off..],
             },
-            off,
-            text.len(),
         )
     }
 }
@@ -116,7 +154,7 @@ pub fn is_item(text: &str) -> Option<bool> {
                 None
             }
         }
-        b'0'...b'9' => {
+        b'0'..=b'9' => {
             let i = bytes
                 .iter()
                 .position(|&c| !c.is_ascii_digit())
@@ -155,89 +193,89 @@ fn list_parse() {
     assert_eq!(
         List::parse("+ item1\n+ item2"),
         Some((
+            "",
             List {
                 indent: 0,
                 ordered: false,
+                contents: "+ item1\n+ item2"
             },
-            "+ item1\n+ item2".len(),
-            "+ item1\n+ item2".len()
         ))
     );
     assert_eq!(
         List::parse("* item1\n  \n* item2"),
         Some((
+            "",
             List {
                 indent: 0,
-                ordered: false
+                ordered: false,
+                contents: "* item1\n  \n* item2"
             },
-            "* item1\n  \n* item2".len(),
-            "* item1\n  \n* item2".len()
         ))
     );
     assert_eq!(
         List::parse("* item1\n  \n   \n* item2"),
         Some((
+            "* item2",
             List {
                 indent: 0,
                 ordered: false,
+                contents: "* item1\n"
             },
-            "* item1\n".len(),
-            "* item1\n  \n   \n".len()
         ))
     );
     assert_eq!(
         List::parse("* item1\n  \n   "),
         Some((
+            "",
             List {
                 indent: 0,
                 ordered: false,
+                contents: "* item1\n"
             },
-            "+ item1\n".len(),
-            "* item1\n  \n   ".len()
         ))
     );
     assert_eq!(
         List::parse("+ item1\n  + item2\n   "),
         Some((
+            "",
             List {
                 indent: 0,
                 ordered: false,
+                contents: "+ item1\n  + item2\n"
             },
-            "+ item1\n  + item2\n".len(),
-            "+ item1\n  + item2\n   ".len()
         ))
     );
     assert_eq!(
         List::parse("+ item1\n  \n  + item2\n   \n+ item 3"),
         Some((
+            "",
             List {
                 indent: 0,
                 ordered: false,
+                contents: "+ item1\n  \n  + item2\n   \n+ item 3"
             },
-            "+ item1\n  \n  + item2\n   \n+ item 3".len(),
-            "+ item1\n  \n  + item2\n   \n+ item 3".len()
         ))
     );
     assert_eq!(
         List::parse("  + item1\n  \n  + item2"),
         Some((
+            "",
             List {
                 indent: 2,
                 ordered: false,
+                contents: "  + item1\n  \n  + item2"
             },
-            "  + item1\n  \n  + item2".len(),
-            "  + item1\n  \n  + item2".len()
         ))
     );
     assert_eq!(
         List::parse("+ 1\n\n  - 2\n\n  - 3\n\n+ 4"),
         Some((
+            "",
             List {
                 indent: 0,
                 ordered: false,
+                contents: "+ 1\n\n  - 2\n\n  - 3\n\n+ 4"
             },
-            "+ 1\n\n  - 2\n\n  - 3\n\n+ 4".len(),
-            "+ 1\n\n  - 2\n\n  - 3\n\n+ 4".len()
         ))
     );
 }

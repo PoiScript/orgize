@@ -34,11 +34,11 @@ pub trait HtmlHandler<E: From<Error>> {
 
         match element {
             // container elements
-            Block { .. } => write!(w, "<div>")?,
+            Block(_block) => write!(w, "<div>")?,
             Bold { .. } => write!(w, "<b>")?,
             Document { .. } => write!(w, "<main>")?,
-            DynBlock { .. } => (),
-            Headline { headline, .. } => {
+            DynBlock(_dyn_block) => (),
+            Headline(headline) => {
                 let level = if headline.level <= 6 {
                     headline.level
                 } else {
@@ -46,7 +46,7 @@ pub trait HtmlHandler<E: From<Error>> {
                 };
                 write!(w, "<h{0}>{1}</h{0}>", level, Escape(headline.title))?;
             }
-            List { list, .. } => {
+            List(list) => {
                 if list.ordered {
                     write!(w, "<ol>")?;
                 } else {
@@ -60,37 +60,37 @@ pub trait HtmlHandler<E: From<Error>> {
             Strike { .. } => write!(w, "<s>")?,
             Underline { .. } => write!(w, "<u>")?,
             // non-container elements
-            BabelCall { .. } => (),
-            InlineSrc { inline_src, .. } => write!(w, "<code>{}</code>", Escape(inline_src.body))?,
-            Code { value, .. } => write!(w, "<code>{}</code>", Escape(value))?,
-            FnRef { .. } => (),
-            InlineCall { .. } => (),
-            Link { link, .. } => write!(
+            BabelCall(_babel_call) => (),
+            InlineSrc(inline_src) => write!(w, "<code>{}</code>", Escape(inline_src.body))?,
+            Code { value } => write!(w, "<code>{}</code>", Escape(value))?,
+            FnRef(_fn_ref) => (),
+            InlineCall(_inline_call) => (),
+            Link(link) => write!(
                 w,
                 "<a href=\"{}\">{}</a>",
                 Escape(link.path),
                 Escape(link.desc.unwrap_or(link.path)),
             )?,
-            Macros { .. } => (),
-            Planning { .. } => (),
-            RadioTarget { .. } => (),
-            Snippet { snippet, .. } => {
+            Macros(_macros) => (),
+            Planning(_planning) => (),
+            RadioTarget(_radio_target) => (),
+            Snippet(snippet) => {
                 if snippet.name.eq_ignore_ascii_case("HTML") {
                     write!(w, "{}", snippet.value)?;
                 }
             }
-            Target { .. } => (),
-            Text { value, .. } => write!(w, "{}", Escape(value))?,
-            Timestamp { .. } => (),
-            Verbatim { value, .. } => write!(&mut w, "<code>{}</code>", Escape(value))?,
-            FnDef { .. } => (),
-            Clock { .. } => (),
-            Comment { value, .. } => write!(w, "<!--\n{}\n-->", Escape(value))?,
-            FixedWidth { value, .. } => write!(w, "<pre>{}</pre>", Escape(value))?,
-            Keyword { .. } => (),
-            Drawer { .. } => (),
-            Rule { .. } => write!(w, "<hr>")?,
-            Cookie { .. } => (),
+            Target(_target) => (),
+            Text { value } => write!(w, "{}", Escape(value))?,
+            Timestamp(_timestamp) => (),
+            Verbatim { value } => write!(&mut w, "<code>{}</code>", Escape(value))?,
+            FnDef(_fn_def) => (),
+            Clock(_clock) => (),
+            Comment { value } => write!(w, "<!--\n{}\n-->", Escape(value))?,
+            FixedWidth { value } => write!(w, "<pre>{}</pre>", Escape(value))?,
+            Keyword(_keyword) => (),
+            Drawer(_drawer) => (),
+            Rule => write!(w, "<hr>")?,
+            Cookie(_cookie) => (),
         }
 
         Ok(())
@@ -100,12 +100,12 @@ pub trait HtmlHandler<E: From<Error>> {
 
         match element {
             // container elements
-            Block { .. } => write!(w, "</div>")?,
+            Block(_block) => write!(w, "</div>")?,
             Bold { .. } => write!(w, "</b>")?,
             Document { .. } => write!(w, "</main>")?,
-            DynBlock { .. } => (),
-            Headline { .. } => (),
-            List { list, .. } => {
+            DynBlock(_dyn_block) => (),
+            Headline(_headline) => (),
+            List(list) => {
                 if list.ordered {
                     write!(w, "</ol>")?;
                 } else {

@@ -12,8 +12,7 @@ pub struct FnRef<'a> {
 
 impl FnRef<'_> {
     #[inline]
-    // return (fn_ref, offset)
-    pub(crate) fn parse(text: &str) -> Option<(FnRef<'_>, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, FnRef<'_>)> {
         debug_assert!(text.starts_with("[fn:"));
 
         let bytes = text.as_bytes();
@@ -50,7 +49,7 @@ impl FnRef<'_> {
             (None, off + 1)
         };
 
-        Some((FnRef { label, definition }, off))
+        Some((&text[off..], FnRef { label, definition }))
     }
 }
 
@@ -59,41 +58,41 @@ fn parse() {
     assert_eq!(
         FnRef::parse("[fn:1]"),
         Some((
+            "",
             FnRef {
                 label: Some("1"),
                 definition: None
             },
-            "[fn:1]".len()
         ))
     );
     assert_eq!(
         FnRef::parse("[fn:1:2]"),
         Some((
+            "",
             FnRef {
                 label: Some("1"),
                 definition: Some("2")
             },
-            "[fn:1:2]".len()
         ))
     );
     assert_eq!(
         FnRef::parse("[fn::2]"),
         Some((
+            "",
             FnRef {
                 label: None,
                 definition: Some("2")
             },
-            "[fn::2]".len()
         ))
     );
     assert_eq!(
         FnRef::parse("[fn::[]]"),
         Some((
+            "",
             FnRef {
                 label: None,
                 definition: Some("[]")
             },
-            "[fn::[]]".len()
         ))
     );
     assert_eq!(FnRef::parse("[fn::[]"), None);

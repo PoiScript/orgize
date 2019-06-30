@@ -1,32 +1,31 @@
-use jetscii::Substring;
+use nom::{
+    bytes::complete::{tag, take_while},
+    combinator::verify,
+    IResult,
+};
+
+use crate::elements::Element;
 
 // TODO: text-markup, entities, latex-fragments, subscript and superscript
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct RadioTarget<'a> {
+    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
     contents: &'a str,
 }
 
 impl RadioTarget<'_> {
     #[inline]
-    // return (radio_target, offset)
-    pub(crate) fn parse(src: &str) -> Option<(RadioTarget<'_>, usize)> {
-        debug_assert!(src.starts_with("<<<"));
+    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+        let (input, _) = tag("<<<")(input)?;
+        let (input, contents) = verify(
+            take_while(|c: char| c != '<' && c != '\n' && c != '>'),
+            |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
+        )(input)?;
+        let (input, _) = tag(">>>")(input)?;
 
-        let bytes = src.as_bytes();
-        let (contents, off) = Substring::new(">>>")
-            .find(src)
-            .filter(|&i| {
-                bytes[3] != b' '
-                    && bytes[i - 1] != b' '
-                    && bytes[3..i]
-                        .iter()
-                        .all(|&c| c != b'<' && c != b'\n' && c != b'>')
-            })
-            .map(|i| (&src[3..i], i + ">>>".len()))?;
-
-        Some((RadioTarget { contents }, off))
+        Ok((input, Element::RadioTarget(RadioTarget { contents })))
     }
 }
 
@@ -34,21 +33,21 @@ impl RadioTarget<'_> {
 fn parse() {
     assert_eq!(
         RadioTarget::parse("<<<target>>>"),
-        Some((RadioTarget { contents: "target" }, "<<<target>>>".len()))
+        Ok(("", Element::RadioTarget(RadioTarget { contents: "target" })))
     );
     assert_eq!(
         RadioTarget::parse("<<<tar get>>>"),
-        Some((
-            RadioTarget {
+        Ok((
+            "",
+            Element::RadioTarget(RadioTarget {
                 contents: "tar get"
-            },
-            "<<<tar get>>>".len()
+            },)
         ))
     );
-    assert_eq!(RadioTarget::parse("<<<target >>>"), None);
-    assert_eq!(RadioTarget::parse("<<< target>>>"), None);
-    assert_eq!(RadioTarget::parse("<<<ta<get>>>"), None);
-    assert_eq!(RadioTarget::parse("<<<ta>get>>>"), None);
-    assert_eq!(RadioTarget::parse("<<<ta\nget>>>"), None);
-    assert_eq!(RadioTarget::parse("<<<target>>"), None);
+    assert!(RadioTarget::parse("<<<target >>>").is_err());
+    assert!(RadioTarget::parse("<<< target>>>").is_err());
+    assert!(RadioTarget::parse("<<<ta<get>>>").is_err());
+    assert!(RadioTarget::parse("<<<ta>get>>>").is_err());
+    assert!(RadioTarget::parse("<<<ta\nget>>>").is_err());
+    assert!(RadioTarget::parse("<<<target>>").is_err());
 }

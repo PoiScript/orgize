@@ -1,15 +1,17 @@
 use orgize::Org;
 use pretty_assertions::assert_eq;
+use std::io::Result;
 
 macro_rules! test_suite {
     ($name:ident, $content:expr, $expected:expr) => {
         #[test]
-        fn $name() {
+        fn $name() -> Result<()> {
             let mut writer = Vec::new();
             let org = Org::parse($content);
-            org.html_default(&mut writer).unwrap();
+            org.html(&mut writer).unwrap();
             let string = String::from_utf8(writer).unwrap();
             assert_eq!(string, $expected);
+            Ok(())
         }
     };
 }

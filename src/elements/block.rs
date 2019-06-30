@@ -1,5 +1,7 @@
 use memchr::{memchr, memchr_iter};
 
+use crate::elements::Element;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -7,12 +9,13 @@ pub struct Block<'a> {
     pub name: &'a str,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub args: Option<&'a str>,
+    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+    pub contents: &'a str,
 }
 
 impl Block<'_> {
     #[inline]
-    // return (block, contents-begin, contents-end, end)
-    pub(crate) fn parse(text: &str) -> Option<(Block<'_>, usize, usize, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>)> {
         debug_assert!(text.starts_with("#+"));
 
         if text.len() <= 8 || text[2..8].to_uppercase() != "BEGIN_" {
@@ -35,14 +38,28 @@ impl Block<'_> {
 
         for i in lines {
             if text[pos..i].trim().eq_ignore_ascii_case(&end) {
-                return Some((Block { name, args }, off, pos, i + 1));
+                return Some((
+                    &text[i + 1..],
+                    Element::Block(Block {
+                        name,
+                        args,
+                        contents: &text[off..pos],
+                    }),
+                ));
             }
 
             pos = i + 1;
         }
 
         if text[pos..].trim().eq_ignore_ascii_case(&end) {
-            Some((Block { name, args }, off, pos, text.len()))
+            Some((
+                "",
+                Element::Block(Block {
+                    name,
+                    args,
+                    contents: &text[off..pos],
+                }),
+            ))
         } else {
             None
         }
@@ -54,25 +71,23 @@ fn parse() {
     assert_eq!(
         Block::parse("#+BEGIN_SRC\n#+END_SRC"),
         Some((
-            Block {
+            "",
+            Element::Block(Block {
                 name: "SRC",
                 args: None,
-            },
-            "#+BEGIN_SRC\n".len(),
-            "#+BEGIN_SRC\n".len(),
-            "#+BEGIN_SRC\n#+END_SRC".len()
+                contents: ""
+            }),
         ))
     );
     assert_eq!(
         Block::parse("#+BEGIN_SRC javascript  \nconsole.log('Hello World!');\n#+END_SRC\n"),
         Some((
-            Block {
+            "",
+            Element::Block(Block {
                 name: "SRC",
                 args: Some("javascript"),
-            },
-            "#+BEGIN_SRC javascript  \n".len(),
-            "#+BEGIN_SRC javascript  \nconsole.log('Hello World!');\n".len(),
-            "#+BEGIN_SRC javascript  \nconsole.log('Hello World!');\n#+END_SRC\n".len()
+                contents: "console.log('Hello World!');\n"
+            }),
         ))
     );
     // TODO: more testing

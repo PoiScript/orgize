@@ -1,37 +1,43 @@
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take, take_while_m_n},
+    character::complete::space0,
+    combinator::{map, not},
+    IResult,
+};
+use std::usize;
+
+use crate::elements::Element;
+
 pub struct Rule;
 
 impl Rule {
     #[inline]
-    // return offset
-    pub(crate) fn parse(text: &str) -> Option<usize> {
-        let (text, off) = memchr::memchr(b'\n', text.as_bytes())
-            .map(|i| (text[..i].trim(), i + 1))
-            .unwrap_or_else(|| (text.trim(), text.len()));
-
-        if text.len() >= 5 && text.as_bytes().iter().all(|&c| c == b'-') {
-            Some(off)
-        } else {
-            None
-        }
+    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+        let (input, _) = space0(input)?;
+        let (input, _) = take_while_m_n(5, usize::MAX, |c| c == '-')(input)?;
+        let (input, _) = space0(input)?;
+        let (input, _) = alt((tag("\n"), map(not(take(1usize)), |_| "")))(input)?;
+        Ok((input, Element::Rule))
     }
 }
 
 #[test]
 fn parse() {
-    assert_eq!(Rule::parse("-----"), Some("-----".len()));
-    assert_eq!(Rule::parse("--------"), Some("--------".len()));
-    assert_eq!(Rule::parse("   -----"), Some("   -----".len()));
-    assert_eq!(Rule::parse("\t\t-----"), Some("\t\t-----".len()));
-    assert_eq!(Rule::parse("\t\t-----\n"), Some("\t\t-----\n".len()));
-    assert_eq!(Rule::parse("\t\t-----  \n"), Some("\t\t-----  \n".len()));
-    assert_eq!(Rule::parse(""), None);
-    assert_eq!(Rule::parse("----"), None);
-    assert_eq!(Rule::parse("   ----"), None);
-    assert_eq!(Rule::parse("  None----"), None);
-    assert_eq!(Rule::parse("None  ----"), None);
-    assert_eq!(Rule::parse("None------"), None);
-    assert_eq!(Rule::parse("----None----"), None);
-    assert_eq!(Rule::parse("\t\t----"), None);
-    assert_eq!(Rule::parse("------None"), None);
-    assert_eq!(Rule::parse("----- None"), None);
+    assert_eq!(Rule::parse("-----"), Ok(("", Element::Rule)));
+    assert_eq!(Rule::parse("--------"), Ok(("", Element::Rule)));
+    assert_eq!(Rule::parse("   -----"), Ok(("", Element::Rule)));
+    assert_eq!(Rule::parse("\t\t-----"), Ok(("", Element::Rule)));
+    assert_eq!(Rule::parse("\t\t-----\n"), Ok(("", Element::Rule)));
+    assert_eq!(Rule::parse("\t\t-----  \n"), Ok(("", Element::Rule)));
+    assert!(Rule::parse("").is_err());
+    assert!(Rule::parse("----").is_err());
+    assert!(Rule::parse("   ----").is_err());
+    assert!(Rule::parse("  None----").is_err());
+    assert!(Rule::parse("None  ----").is_err());
+    assert!(Rule::parse("None------").is_err());
+    assert!(Rule::parse("----None----").is_err());
+    assert!(Rule::parse("\t\t----").is_err());
+    assert!(Rule::parse("------None").is_err());
+    assert!(Rule::parse("----- None").is_err());
 }

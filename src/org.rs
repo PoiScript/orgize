@@ -11,44 +11,18 @@ use crate::iter::Iter;
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
     pub(crate) document: NodeId,
-    text: &'a str,
 }
 
 impl<'a> Org<'a> {
     pub fn parse(text: &'a str) -> Self {
-        let mut arena = Arena::new();
-        let document = arena.new_node(Element::Document {
-            begin: 0,
-            end: text.len(),
-            contents_begin: 0,
-            contents_end: text.len(),
-        });
-
-        let mut org = Org {
-            arena,
-            document,
-            text,
-        };
-
-        org.parse_internal(ParseConfig::default());
-
-        org
+        Org::parse_with_config(text, ParseConfig::default())
     }
 
     pub fn parse_with_config(text: &'a str, config: ParseConfig<'_>) -> Self {
         let mut arena = Arena::new();
-        let document = arena.new_node(Element::Document {
-            begin: 0,
-            end: text.len(),
-            contents_begin: 0,
-            contents_end: text.len(),
-        });
+        let document = arena.new_node(Element::Document { contents: text });
 
-        let mut org = Org {
-            arena,
-            document,
-            text,
-        };
+        let mut org = Org { arena, document };
         org.parse_internal(config);
 
         org
@@ -61,7 +35,11 @@ impl<'a> Org<'a> {
         }
     }
 
-    pub fn html<W, H, E>(&self, mut writer: W, mut handler: H) -> Result<(), E>
+    pub fn html<W: Write>(&self, wrtier: W) -> Result<(), Error> {
+        self.html_with_handler(wrtier, DefaultHtmlHandler)
+    }
+
+    pub fn html_with_handler<W, H, E>(&self, mut writer: W, mut handler: H) -> Result<(), E>
     where
         W: Write,
         E: From<Error>,
@@ -79,147 +57,54 @@ impl<'a> Org<'a> {
         Ok(())
     }
 
-    pub fn html_default<W: Write>(&self, wrtier: W) -> Result<(), Error> {
-        self.html(wrtier, DefaultHtmlHandler)
-    }
-
     fn parse_internal(&mut self, config: ParseConfig<'_>) {
         let mut node = self.document;
         loop {
             match self.arena[node].data {
-                Element::Document {
-                    contents_begin: begin,
-                    contents_end: end,
-                    ..
-                }
-                | Element::Headline {
-                    contents_begin: begin,
-                    contents_end: end,
-                    ..
-                } => {
-                    let mut begin = begin;
-                    if begin < end {
-                        let off = Headline::find_level(&self.text[begin..end], std::usize::MAX);
+                Element::Document { mut contents }
+                | Element::Headline(Headline { mut contents, .. }) => {
+                    if !contents.is_empty() {
+                        let off = Headline::find_level(contents, std::usize::MAX);
                         if off != 0 {
                             let section = Element::Section {
-                                begin,
-                                end: begin + off,
-                                contents_begin: begin,
-                                contents_end: begin + off,
+                                contents: &contents[0..off],
                             };
                             let new_node = self.arena.new_node(section);
                             node.append(new_node, &mut self.arena).unwrap();
-                            begin += off;
+                            contents = &contents[off..];
                         }
                     }
-                    while begin < end {
-                        let (headline, off, end) = Headline::parse(&self.text[begin..end], &config);
-                        let headline = Element::Headline {
-                            headline,
-                            begin,
-                            end: begin + end,
-                            contents_begin: begin + off,
-                            contents_end: begin + end,
-                        };
+                    while !contents.is_empty() {
+                        let (tail, headline) = Headline::parse(contents, &config);
+                        let headline = Element::Headline(headline);
                         let new_node = self.arena.new_node(headline);
                         node.append(new_node, &mut self.arena).unwrap();
-                        begin += end;
+                        contents = tail;
                     }
                 }
-                Element::Section {
-                    contents_begin,
-                    contents_end,
-                    ..
-                } => {
-                    let (mut deadline_node, mut scheduled_node, mut closed_node) =
-                        (None, None, None);
-                    if let Some((deadline, scheduled, closed, off)) =
-                        Planning::parse(&self.text[contents_begin..contents_end])
-                    {
-                        if let Some((deadline, off, end)) = deadline {
-                            let timestamp = Element::Timestamp {
-                                timestamp: deadline,
-                                begin: contents_begin + off,
-                                end: contents_end + end,
-                            };
-                            deadline_node = Some(self.arena.new_node(timestamp));
-                        }
-                        if let Some((scheduled, off, end)) = scheduled {
-                            let timestamp = Element::Timestamp {
-                                timestamp: scheduled,
-                                begin: contents_begin + off,
-                                end: contents_end + end,
-                            };
-                            scheduled_node = Some(self.arena.new_node(timestamp));
-                        }
-                        if let Some((closed, off, end)) = closed {
-                            let timestamp = Element::Timestamp {
-                                timestamp: closed,
-                                begin: contents_begin + off,
-                                end: contents_end + end,
-                            };
-                            closed_node = Some(self.arena.new_node(timestamp));
-                        }
-                        let planning = Element::Planning {
-                            deadline: deadline_node,
-                            scheduled: scheduled_node,
-                            closed: closed_node,
-                            begin: contents_begin,
-                            end: contents_begin + off,
-                        };
-                        let new_node = self.arena.new_node(planning);
-                        node.append(new_node, &mut self.arena).unwrap();
-                        self.parse_elements_children(contents_begin + off, contents_end, node);
+                Element::Section { contents } => {
+                    // TODO
+                    if let Some((tail, _planning)) = Planning::parse(contents) {
+                        self.parse_elements_children(tail, node);
                     } else {
-                        self.parse_elements_children(contents_begin, contents_end, node);
+                        self.parse_elements_children(contents, node);
                     }
                 }
-                Element::Block {
-                    contents_begin,
-                    contents_end,
-                    ..
+                Element::Block(Block { contents, .. })
+                | Element::ListItem(ListItem { contents, .. }) => {
+                    self.parse_elements_children(contents, node);
                 }
-                | Element::ListItem {
-                    contents_begin,
-                    contents_end,
-                    ..
-                } => {
-                    self.parse_elements_children(contents_begin, contents_end, node);
+                Element::Paragraph { contents }
+                | Element::Bold { contents }
+                | Element::Underline { contents }
+                | Element::Italic { contents }
+                | Element::Strike { contents } => {
+                    self.parse_objects_children(contents, node);
                 }
-                Element::Paragraph {
-                    contents_begin,
-                    contents_end,
-                    ..
-                }
-                | Element::Bold {
-                    contents_begin,
-                    contents_end,
-                    ..
-                }
-                | Element::Underline {
-                    contents_begin,
-                    contents_end,
-                    ..
-                }
-                | Element::Italic {
-                    contents_begin,
-                    contents_end,
-                    ..
-                }
-                | Element::Strike {
-                    contents_begin,
-                    contents_end,
-                    ..
-                } => {
-                    self.parse_objects_children(contents_begin, contents_end, node);
-                }
-                Element::List {
-                    list: List { indent, .. },
-                    contents_begin,
-                    contents_end,
-                    ..
-                } => {
-                    self.parse_list_items(contents_begin, contents_end, indent, node);
+                Element::List(List {
+                    contents, indent, ..
+                }) => {
+                    self.parse_list_items(contents, indent, node);
                 }
                 _ => (),
             }
@@ -248,560 +133,316 @@ impl<'a> Org<'a> {
         }
     }
 
-    fn parse_elements_children(&mut self, begin: usize, end: usize, node: NodeId) {
-        let text = &self.text[begin..end];
-        let mut pos = skip_empty_lines(text);
+    fn parse_elements_children(&mut self, input: &'a str, node: NodeId) {
+        let mut tail = skip_empty_lines(input);
 
-        if let Some((ty, off)) = self.parse_element(begin + pos, end) {
-            let new_node = self.arena.new_node(ty);
+        if let Some((new_tail, element)) = self.parse_element(input) {
+            let new_node = self.arena.new_node(element);
             node.append(new_node, &mut self.arena).unwrap();
-            pos += off + skip_empty_lines(&text[off..]);
+            tail = skip_empty_lines(new_tail);
         }
 
-        let mut last_end = pos;
+        let mut text = tail;
+        let mut pos = 0;
 
-        while pos < text.len() {
-            let i = memchr(b'\n', &text.as_bytes()[pos..]).unwrap_or(text.len() - pos);
-            if text.as_bytes()[pos..pos + i]
-                .iter()
-                .all(u8::is_ascii_whitespace)
-            {
-                let end = skip_empty_lines(&text[pos + i..]);
+        while !tail.is_empty() {
+            let i = memchr(b'\n', tail.as_bytes())
+                .map(|i| i + 1)
+                .unwrap_or_else(|| tail.len());
+            if tail.as_bytes()[0..i].iter().all(u8::is_ascii_whitespace) {
+                tail = skip_empty_lines(&tail[i..]);
                 let new_node = self.arena.new_node(Element::Paragraph {
-                    begin: begin + last_end,
-                    end: begin + pos + i + end,
-                    contents_begin: begin + last_end,
-                    contents_end: begin
-                        + if text.as_bytes()[pos - 1] == b'\n' {
-                            pos - 1
-                        } else {
-                            pos
-                        },
+                    contents: if text.as_bytes()[pos - 1] == b'\n' {
+                        &text[0..pos - 1]
+                    } else {
+                        &text[0..pos]
+                    },
                 });
                 node.append(new_node, &mut self.arena).unwrap();
-                pos += i + end;
-                last_end = pos;
-            } else if let Some((ty, off)) = self.parse_element(begin + pos, end) {
-                if last_end != pos {
+                text = tail;
+                pos = 0;
+            } else if let Some((new_tail, element)) = self.parse_element(tail) {
+                if pos != 0 {
                     let new_node = self.arena.new_node(Element::Paragraph {
-                        begin: begin + last_end,
-                        end: begin + pos,
-                        contents_begin: begin + last_end,
-                        contents_end: begin
-                            + if text.as_bytes()[pos - 1] == b'\n' {
-                                pos - 1
-                            } else {
-                                pos
-                            },
+                        contents: if text.as_bytes()[pos - 1] == b'\n' {
+                            &text[0..pos - 1]
+                        } else {
+                            &text[0..pos]
+                        },
                     });
                     node.append(new_node, &mut self.arena).unwrap();
+                    pos = 0;
                 }
-                let new_node = self.arena.new_node(ty);
+                let new_node = self.arena.new_node(element);
                 node.append(new_node, &mut self.arena).unwrap();
-                pos += off + skip_empty_lines(&text[pos + off..]);
-                last_end = pos;
+                tail = skip_empty_lines(new_tail);
+                text = tail;
             } else {
-                pos += i + 1;
+                tail = &tail[i..];
+                pos += i;
             }
         }
 
-        if begin + last_end < end {
+        if !text.is_empty() {
             let new_node = self.arena.new_node(Element::Paragraph {
-                begin: begin + last_end,
-                end,
-                contents_begin: begin + last_end,
-                contents_end: if text.ends_with('\n') { end - 1 } else { end },
+                contents: if text.as_bytes()[pos - 1] == b'\n' {
+                    &text[0..pos - 1]
+                } else {
+                    &text[0..pos]
+                },
             });
             node.append(new_node, &mut self.arena).unwrap();
         }
     }
 
-    fn parse_element(&self, begin: usize, end: usize) -> Option<(Element<'a>, usize)> {
-        let text = &self.text[begin..end];
-
-        if let Some((fn_def, off, end)) = FnDef::parse(text) {
-            let fn_def = Element::FnDef {
-                begin,
-                end: begin + end,
-                contents_begin: begin + off,
-                contents_end: begin + end,
-                fn_def,
-            };
-            return Some((fn_def, end));
-        } else if let Some((list, limit, end)) = List::parse(text) {
-            let list = Element::List {
-                list,
-                begin,
-                end: begin + end,
-                contents_begin: begin,
-                contents_end: begin + limit,
-            };
-            return Some((list, end));
+    fn parse_element(&self, contents: &'a str) -> Option<(&'a str, Element<'a>)> {
+        if let Some((tail, fn_def)) = FnDef::parse(contents) {
+            let fn_def = Element::FnDef(fn_def);
+            return Some((tail, fn_def));
+        } else if let Some((tail, list)) = List::parse(contents) {
+            let list = Element::List(list);
+            return Some((tail, list));
         }
 
-        let line_begin = text.find(|c: char| !c.is_ascii_whitespace()).unwrap_or(0);
-        let tail = &text[line_begin..];
+        let tail = contents.trim_start();
 
-        if let Some((clock, end)) = Clock::parse(tail) {
-            let clock = Element::Clock {
-                clock,
-                begin,
-                end: begin + line_begin + end,
-            };
-            return Some((clock, line_begin + end));
+        if let Some((tail, clock)) = Clock::parse(tail) {
+            return Some((tail, clock));
         }
 
         // TODO: LaTeX environment
         if tail.starts_with("\\begin{") {}
 
         if tail.starts_with('-') {
-            if let Some(end) = Rule::parse(tail) {
-                let rule = Element::Rule {
-                    begin,
-                    end: begin + line_begin + end,
-                };
-                return Some((rule, line_begin + end));
+            if let Ok((tail, rule)) = Rule::parse(tail) {
+                return Some((tail, rule));
             }
         }
 
         if tail.starts_with(':') {
-            if let Some((drawer, off, limit, end)) = Drawer::parse(tail) {
-                let drawer = Element::Drawer {
-                    drawer,
-                    begin,
-                    end: begin + line_begin + end,
-                    contents_begin: begin + line_begin + off,
-                    contents_end: begin + line_begin + limit,
-                };
-                return Some((drawer, line_begin + end));
+            if let Some((tail, drawer)) = Drawer::parse(tail) {
+                return Some((tail, drawer));
             }
         }
 
         if tail == ":" || tail.starts_with(": ") || tail.starts_with(":\n") {
             let mut last_end = 1; // ":"
-            for i in memchr_iter(b'\n', text.as_bytes()) {
+            for i in memchr_iter(b'\n', contents.as_bytes()) {
                 last_end = i + 1;
-                let line = &text[last_end..];
+                let line = &contents[last_end..];
                 if !(line == ":" || line.starts_with(": ") || line.starts_with(":\n")) {
                     let fixed_width = Element::FixedWidth {
-                        value: &text[0..i + 1],
-                        begin,
-                        end: begin + i + 1,
+                        value: &contents[0..i + 1],
                     };
-                    return Some((fixed_width, i + 1));
+                    return Some((&contents[i + 1..], fixed_width));
                 }
             }
             let fixed_width = Element::FixedWidth {
-                value: &text[0..last_end],
-                begin,
-                end: begin + last_end,
+                value: &contents[0..last_end],
             };
-            return Some((fixed_width, last_end));
+            return Some((&contents[last_end..], fixed_width));
         }
 
         if tail == "#" || tail.starts_with("# ") || tail.starts_with("#\n") {
             let mut last_end = 1; // "#"
-            for i in memchr_iter(b'\n', text.as_bytes()) {
+            for i in memchr_iter(b'\n', contents.as_bytes()) {
                 last_end = i + 1;
-                let line = &text[last_end..];
+                let line = &contents[last_end..];
                 if !(line == "#" || line.starts_with("# ") || line.starts_with("#\n")) {
                     let fixed_width = Element::Comment {
-                        value: &text[0..i + 1],
-                        begin,
-                        end: begin + i + 1,
+                        value: &contents[0..i + 1],
                     };
-                    return Some((fixed_width, i + 1));
+                    return Some((&contents[i + 1..], fixed_width));
                 }
             }
             let fixed_width = Element::Comment {
-                value: &text[0..last_end],
-                begin,
-                end: begin + last_end,
+                value: &contents[0..last_end],
             };
-            return Some((fixed_width, last_end));
+            return Some((&contents[last_end..], fixed_width));
         }
 
         if tail.starts_with("#+") {
-            if let Some((block, off, limit, end)) = Block::parse(tail) {
-                let block = Element::Block {
-                    block,
-                    begin,
-                    end: begin + line_begin + end,
-                    contents_begin: begin + line_begin + off,
-                    contents_end: begin + line_begin + limit,
-                };
-                return Some((block, line_begin + end));
-            } else if let Some((dyn_block, off, limit, end)) = DynBlock::parse(tail) {
-                let dyn_block = Element::DynBlock {
-                    dyn_block,
-                    begin,
-                    end: begin + line_begin + end,
-                    contents_begin: begin + line_begin + off,
-                    contents_end: begin + line_begin + limit,
-                };
-                return Some((dyn_block, line_begin + end));
-            } else if let Some((key, option, value, end)) = Keyword::parse(tail) {
-                if key.eq_ignore_ascii_case("CALL") {
-                    let call = Element::BabelCall {
-                        call: BabelCall { key, value },
-                        begin,
-                        end: begin + line_begin + end,
-                    };
-                    return Some((call, line_begin + end));
-                } else {
-                    let kw = Element::Keyword {
-                        keyword: Keyword { key, option, value },
-                        begin,
-                        end: begin + line_begin + end,
-                    };
-                    return Some((kw, line_begin + end));
-                }
-            }
+            Block::parse(tail)
+                .or_else(|| DynBlock::parse(tail))
+                .or_else(|| Keyword::parse(tail).ok())
+        } else {
+            None
         }
-
-        None
     }
 
-    fn parse_objects_children(&mut self, begin: usize, end: usize, node: NodeId) {
-        if begin >= end {
-            return;
+    fn parse_objects_children(&mut self, contents: &'a str, node: NodeId) {
+        let mut tail = contents;
+
+        if let Some((new_tail, obj)) = self.parse_object(tail) {
+            let new_node = self.arena.new_node(obj);
+            node.append(new_node, &mut self.arena).unwrap();
+            tail = new_tail;
         }
 
+        let mut text = tail;
         let mut pos = 0;
 
-        if let Some((ty, off)) = self.parse_object(begin, end) {
-            let new_node = self.arena.new_node(ty);
-            node.append(new_node, &mut self.arena).unwrap();
-            pos += off;
-        }
+        let bs = bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n');
 
-        let mut last_end = pos;
-        let text = &self.text[begin..end];
-        while let Some(off) = bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n')
-            .find(&text[pos..].as_bytes())
-        {
-            pos += off;
-            match text.as_bytes()[pos] {
+        while let Some(off) = bs.find(tail.as_bytes()) {
+            match tail.as_bytes()[off] {
                 b'{' => {
-                    if let Some((ty, off)) = self.parse_object(begin + pos, end) {
-                        if last_end != pos {
+                    if let Some((new_tail, obj)) = self.parse_object(&tail[off..]) {
+                        if pos != 0 {
                             let new_node = self.arena.new_node(Element::Text {
-                                value: &text[last_end..pos],
-                                begin: begin + last_end,
-                                end: begin + pos,
+                                value: &text[0..pos + off],
                             });
                             node.append(new_node, &mut self.arena).unwrap();
+                            pos = 0;
                         }
-                        let new_node = self.arena.new_node(ty);
+                        let new_node = self.arena.new_node(obj);
                         node.append(new_node, &mut self.arena).unwrap();
-                        pos += off;
-                        last_end = pos;
-                    } else if let Some((ty, off)) = self.parse_object(begin + pos + 1, end) {
+                        tail = new_tail;
+                        text = new_tail;
+                    } else if let Some((new_tail, obj)) = self.parse_object(&tail[off + 1..]) {
                         let new_node = self.arena.new_node(Element::Text {
-                            value: &text[last_end..=pos],
-                            begin: begin + last_end,
-                            end: begin + pos + 1,
+                            value: &text[0..pos + off + 1],
                         });
                         node.append(new_node, &mut self.arena).unwrap();
-                        let new_node = self.arena.new_node(ty);
+                        pos = 0;
+                        let new_node = self.arena.new_node(obj);
                         node.append(new_node, &mut self.arena).unwrap();
-                        pos += off + 1;
-                        last_end = pos;
+                        tail = new_tail;
+                        text = new_tail;
                     } else {
-                        pos += 1;
+                        tail = &tail[off + 1..];
+                        pos += off + 1;
                     }
                 }
                 b' ' | b'(' | b'\'' | b'"' | b'\n' => {
-                    if let Some((ty, off)) = self.parse_object(begin + pos + 1, end) {
+                    if let Some((new_tail, obj)) = self.parse_object(&tail[off + 1..]) {
                         let new_node = self.arena.new_node(Element::Text {
-                            value: &text[last_end..=pos],
-                            begin: begin + last_end,
-                            end: begin + pos + 1,
+                            value: &text[0..pos + off + 1],
                         });
                         node.append(new_node, &mut self.arena).unwrap();
-                        let new_node = self.arena.new_node(ty);
+                        pos = 0;
+                        let new_node = self.arena.new_node(obj);
                         node.append(new_node, &mut self.arena).unwrap();
-                        pos += off + 1;
-                        last_end = pos;
+                        tail = new_tail;
+                        text = new_tail;
                     } else {
-                        pos += 1;
+                        tail = &tail[off + 1..];
+                        pos += off + 1;
                     }
                 }
                 _ => {
-                    if let Some((ty, off)) = self.parse_object(begin + pos, end) {
-                        if last_end != pos {
+                    if let Some((new_tail, obj)) = self.parse_object(&tail[off..]) {
+                        if pos != 0 {
                             let new_node = self.arena.new_node(Element::Text {
-                                value: &text[last_end..pos],
-                                begin: begin + last_end,
-                                end: begin + pos,
+                                value: &text[0..pos + off],
                             });
                             node.append(new_node, &mut self.arena).unwrap();
+                            pos = 0;
                         }
-                        let new_node = self.arena.new_node(ty);
+                        let new_node = self.arena.new_node(obj);
                         node.append(new_node, &mut self.arena).unwrap();
-                        pos += off;
-                        last_end = pos;
+                        tail = new_tail;
+                        text = new_tail;
                     } else {
-                        pos += 1;
+                        tail = &tail[off + 1..];
+                        pos += off + 1;
                     }
                 }
             }
         }
 
-        if begin + last_end < end {
-            let new_node = self.arena.new_node(Element::Text {
-                value: &text[last_end..],
-                begin: begin + last_end,
-                end,
-            });
+        if !text.is_empty() {
+            let new_node = self.arena.new_node(Element::Text { value: text });
             node.append(new_node, &mut self.arena).unwrap();
         }
     }
 
-    fn parse_object(&self, begin: usize, end: usize) -> Option<(Element<'a>, usize)> {
-        let text = &self.text[begin..end];
-        if text.len() < 3 {
-            None
-        } else {
-            let bytes = text.as_bytes();
-            match bytes[0] {
-                b'@' if bytes[1] == b'@' => Snippet::parse(text).map(|(snippet, off)| {
-                    (
-                        Element::Snippet {
-                            snippet,
-                            begin,
-                            end: begin + off,
-                        },
-                        off,
-                    )
-                }),
-                b'{' if bytes[1] == b'{' && bytes[2] == b'{' => {
-                    Macros::parse(text).map(|(macros, off)| {
-                        (
-                            Element::Macros {
-                                macros,
-                                begin,
-                                end: begin + off,
-                            },
-                            off,
-                        )
-                    })
-                }
-                b'<' if bytes[1] == b'<' => {
-                    if bytes[2] == b'<' {
-                        RadioTarget::parse(text).map(|(radio_target, off)| {
-                            (
-                                Element::RadioTarget {
-                                    radio_target,
-                                    begin,
-                                    end: begin + off,
-                                },
-                                off,
-                            )
+    fn parse_object(&self, contents: &'a str) -> Option<(&'a str, Element<'a>)> {
+        if contents.len() < 3 {
+            return None;
+        }
+
+        let bytes = contents.as_bytes();
+        match bytes[0] {
+            b'@' => Snippet::parse(contents).ok(),
+            b'{' => Macros::parse(contents).ok(),
+            b'<' => RadioTarget::parse(contents)
+                .or_else(|_| Target::parse(contents))
+                .or_else(|_| {
+                    Timestamp::parse_active(contents)
+                        .map(|(tail, timestamp)| (tail, timestamp.into()))
+                })
+                .or_else(|_| {
+                    Timestamp::parse_diary(contents)
+                        .map(|(tail, timestamp)| (tail, timestamp.into()))
+                })
+                .ok(),
+            b'[' => {
+                if contents[1..].starts_with("fn:") {
+                    FnRef::parse(contents).map(|(tail, fn_ref)| (tail, fn_ref.into()))
+                } else if bytes[1] == b'[' {
+                    Link::parse(contents).ok()
+                } else {
+                    Cookie::parse(contents)
+                        .map(|(tail, cookie)| (tail, cookie.into()))
+                        .or_else(|| {
+                            Timestamp::parse_inactive(contents)
+                                .map(|(tail, timestamp)| (tail, timestamp.into()))
+                                .ok()
                         })
-                    } else {
-                        Target::parse(text).map(|(target, off)| {
-                            (
-                                Element::Target {
-                                    target,
-                                    begin,
-                                    end: begin + off,
-                                },
-                                off,
-                            )
-                        })
-                    }
                 }
-                b'<' => Timestamp::parse_active(text)
-                    .or_else(|| (Timestamp::parse_diary(text)))
-                    .map(|(timestamp, off)| {
-                        (
-                            Element::Timestamp {
-                                timestamp,
-                                begin,
-                                end: begin + off,
-                            },
-                            off,
-                        )
-                    }),
-                b'[' => {
-                    if text[1..].starts_with("fn:") {
-                        FnRef::parse(text).map(|(fn_ref, off)| {
-                            (
-                                Element::FnRef {
-                                    fn_ref,
-                                    begin,
-                                    end: begin + off,
-                                },
-                                off,
-                            )
-                        })
-                    } else if bytes[1] == b'[' {
-                        Link::parse(text).map(|(link, off)| {
-                            (
-                                Element::Link {
-                                    link,
-                                    begin,
-                                    end: begin + off,
-                                },
-                                off,
-                            )
-                        })
-                    } else {
-                        Cookie::parse(text)
-                            .map(|(cookie, off)| {
-                                (
-                                    Element::Cookie {
-                                        cookie,
-                                        begin,
-                                        end: begin + off,
-                                    },
-                                    off,
-                                )
-                            })
-                            .or_else(|| {
-                                Timestamp::parse_inactive(text).map(|(timestamp, off)| {
-                                    (
-                                        Element::Timestamp {
-                                            timestamp,
-                                            begin,
-                                            end: begin + off,
-                                        },
-                                        off,
-                                    )
-                                })
-                            })
-                    }
-                }
-                b'*' => parse_emphasis(text, b'*').map(|off| {
-                    (
-                        Element::Bold {
-                            begin,
-                            contents_begin: begin + 1,
-                            contents_end: begin + off - 1,
-                            end: begin + off,
-                        },
-                        off,
-                    )
-                }),
-                b'+' => parse_emphasis(text, b'+').map(|off| {
-                    (
-                        Element::Strike {
-                            begin,
-                            contents_begin: begin + 1,
-                            contents_end: begin + off - 1,
-                            end: begin + off,
-                        },
-                        off,
-                    )
-                }),
-                b'/' => parse_emphasis(text, b'/').map(|off| {
-                    (
-                        Element::Italic {
-                            begin,
-                            contents_begin: begin + 1,
-                            contents_end: begin + off - 1,
-                            end: begin + off,
-                        },
-                        off,
-                    )
-                }),
-                b'_' => parse_emphasis(text, b'_').map(|off| {
-                    (
-                        Element::Underline {
-                            begin,
-                            contents_begin: begin + 1,
-                            contents_end: begin + off - 1,
-                            end: begin + off,
-                        },
-                        off,
-                    )
-                }),
-                b'=' => parse_emphasis(text, b'=').map(|off| {
-                    (
-                        Element::Verbatim {
-                            begin,
-                            end: begin + off,
-                            value: &text[1..off - 1],
-                        },
-                        off,
-                    )
-                }),
-                b'~' => parse_emphasis(text, b'~').map(|off| {
-                    (
-                        Element::Code {
-                            begin,
-                            end: begin + off,
-                            value: &text[1..off - 1],
-                        },
-                        off,
-                    )
-                }),
-                b's' if text.starts_with("src_") => {
-                    InlineSrc::parse(text).map(|(inline_src, off)| {
-                        (
-                            Element::InlineSrc {
-                                inline_src,
-                                begin,
-                                end: begin + off,
-                            },
-                            off,
-                        )
-                    })
-                }
-                b'c' if text.starts_with("call_") => {
-                    InlineCall::parse(text).map(|(inline_call, off)| {
-                        (
-                            Element::InlineCall {
-                                inline_call,
-                                begin,
-                                end: begin + off,
-                            },
-                            off,
-                        )
-                    })
-                }
-                _ => None,
             }
+            b'*' => parse_emphasis(contents, b'*')
+                .map(|(tail, contents)| (tail, Element::Bold { contents })),
+            b'+' => parse_emphasis(contents, b'+')
+                .map(|(tail, contents)| (tail, Element::Strike { contents })),
+            b'/' => parse_emphasis(contents, b'/')
+                .map(|(tail, contents)| (tail, Element::Italic { contents })),
+            b'_' => parse_emphasis(contents, b'_')
+                .map(|(tail, contents)| (tail, Element::Underline { contents })),
+            b'=' => parse_emphasis(contents, b'=')
+                .map(|(tail, value)| (tail, Element::Verbatim { value })),
+            b'~' => {
+                parse_emphasis(contents, b'~').map(|(tail, value)| (tail, Element::Code { value }))
+            }
+            b's' if contents.starts_with("src_") => InlineSrc::parse(contents).ok(),
+            b'c' if contents.starts_with("call_") => InlineCall::parse(contents).ok(),
+            _ => None,
         }
     }
 
-    fn parse_list_items(&mut self, mut begin: usize, end: usize, indent: usize, node: NodeId) {
-        while begin < end {
-            let text = &self.text[begin..end];
-            let (list_item, off, end) = ListItem::parse(text, indent);
-            let list_item = Element::ListItem {
-                list_item,
-                begin,
-                end: begin + end,
-                contents_begin: begin + off,
-                contents_end: begin + end,
-            };
+    fn parse_list_items(&mut self, mut contents: &'a str, indent: usize, node: NodeId) {
+        while !contents.is_empty() {
+            let (tail, list_item) = ListItem::parse(contents, indent);
+            let list_item = Element::ListItem(list_item);
             let new_node = self.arena.new_node(list_item);
             node.append(new_node, &mut self.arena).unwrap();
-            begin += end;
+            contents = tail;
         }
     }
 }
 
-fn skip_empty_lines(text: &str) -> usize {
+fn skip_empty_lines(contents: &str) -> &str {
     let mut i = 0;
-    for pos in memchr_iter(b'\n', text.as_bytes()) {
-        if text.as_bytes()[i..pos].iter().all(u8::is_ascii_whitespace) {
+    for pos in memchr_iter(b'\n', contents.as_bytes()) {
+        if contents.as_bytes()[i..pos]
+            .iter()
+            .all(u8::is_ascii_whitespace)
+        {
             i = pos + 1;
         } else {
             break;
         }
     }
-    i
+    &contents[i..]
 }
 
 #[test]
 fn test_skip_empty_lines() {
-    assert_eq!(skip_empty_lines("foo"), 0);
-    assert_eq!(skip_empty_lines(" foo"), 0);
-    assert_eq!(skip_empty_lines(" \nfoo\n"), " \n".len());
-    assert_eq!(skip_empty_lines(" \n\n\nfoo\n"), " \n\n\n".len());
-    assert_eq!(skip_empty_lines(" \n  \n\nfoo\n"), " \n  \n\n".len());
-    assert_eq!(skip_empty_lines(" \n  \n\n   foo\n"), " \n  \n\n".len());
+    assert_eq!(skip_empty_lines("foo"), "foo");
+    assert_eq!(skip_empty_lines(" foo"), " foo");
+    assert_eq!(skip_empty_lines(" \nfoo\n"), "foo\n");
+    assert_eq!(skip_empty_lines(" \n\n\nfoo\n"), "foo\n");
+    assert_eq!(skip_empty_lines(" \n  \n\nfoo\n"), "foo\n");
+    assert_eq!(skip_empty_lines(" \n  \n\n   foo\n"), "   foo\n");
 }

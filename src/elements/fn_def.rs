@@ -5,11 +5,13 @@ use memchr::memchr;
 #[derive(Debug)]
 pub struct FnDef<'a> {
     pub label: &'a str,
+    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+    pub contents: &'a str,
 }
 
 impl FnDef<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(FnDef<'_>, usize, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, FnDef<'_>)> {
         if text.starts_with("[fn:") {
             let (label, off) = memchr(b']', text.as_bytes())
                 .filter(|&i| {
@@ -22,7 +24,13 @@ impl FnDef<'_> {
 
             let end = memchr(b'\n', text.as_bytes()).unwrap_or_else(|| text.len());
 
-            Some((FnDef { label }, off, end))
+            Some((
+                &text[end..],
+                FnDef {
+                    label,
+                    contents: &text[off..end],
+                },
+            ))
         } else {
             None
         }
@@ -34,33 +42,41 @@ fn parse() {
     assert_eq!(
         FnDef::parse("[fn:1] https://orgmode.org"),
         Some((
-            FnDef { label: "1" },
-            "[fn:1]".len(),
-            "[fn:1] https://orgmode.org".len()
+            "",
+            FnDef {
+                label: "1",
+                contents: " https://orgmode.org"
+            },
         ))
     );
     assert_eq!(
         FnDef::parse("[fn:word_1] https://orgmode.org"),
         Some((
-            FnDef { label: "word_1" },
-            "[fn:word_1]".len(),
-            "[fn:word_1] https://orgmode.org".len()
+            "",
+            FnDef {
+                label: "word_1",
+                contents: " https://orgmode.org"
+            },
         ))
     );
     assert_eq!(
         FnDef::parse("[fn:WORD-1] https://orgmode.org"),
         Some((
-            FnDef { label: "WORD-1" },
-            "[fn:WORD-1]".len(),
-            "[fn:WORD-1] https://orgmode.org".len()
+            "",
+            FnDef {
+                label: "WORD-1",
+                contents: " https://orgmode.org"
+            },
         ))
     );
     assert_eq!(
         FnDef::parse("[fn:WORD]"),
         Some((
-            FnDef { label: "WORD" },
-            "[fn:WORD]".len(),
-            "[fn:WORD]".len()
+            "",
+            FnDef {
+                label: "WORD",
+                contents: ""
+            },
         ))
     );
     assert_eq!(FnDef::parse("[fn:] https://orgmode.org"), None);

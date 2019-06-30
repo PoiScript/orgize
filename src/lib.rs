@@ -54,17 +54,17 @@
 //!
 //! # Render html
 //!
-//! You can call the [`Org::html_default`] function to generate html directly, which
+//! You can call the [`Org::html`] function to generate html directly, which
 //! uses the [`DefaultHtmlHandler`] internally:
 //!
-//! [`Org::html_default`]: org/struct.Org.html#method.html_default
+//! [`Org::html`]: org/struct.Org.html#method.html
 //! [`DefaultHtmlHandler`]: export/html/struct.DefaultHtmlHandler.html
 //!
 //! ```rust
 //! use orgize::Org;
 //!
 //! let mut writer = Vec::new();
-//! Org::parse("* title\n*section*").html_default(&mut writer).unwrap();
+//! Org::parse("* title\n*section*").html(&mut writer).unwrap();
 //!
 //! assert_eq!(
 //!     String::from_utf8(writer).unwrap(),
@@ -75,10 +75,10 @@
 //! # Render html with custom HtmlHandler
 //!
 //! To customize html rendering, simply implementing [`HtmlHandler`] trait and passing
-//! it to the [`Org::html`] function.
+//! it to the [`Org::html_with_handler`] function.
 //!
 //! [`HtmlHandler`]: export/html/trait.HtmlHandler.html
-//! [`Org::html`]: org/struct.Org.html#method.html
+//! [`Org::html_with_handler`]: org/struct.Org.html#method.html_with_handler
 //!
 //! The following code demonstrates how to add a id for every headline and return
 //! own error type while rendering.
@@ -118,7 +118,7 @@
 //!     fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
 //!         let mut default_handler = DefaultHtmlHandler;
 //!         match element {
-//!             Element::Headline { headline, .. } => {
+//!             Element::Headline(headline) => {
 //!                 if headline.level > 6 {
 //!                     return Err(MyError::Heading);
 //!                 } else {
@@ -141,7 +141,7 @@
 //!
 //! fn main() -> Result<(), MyError> {
 //!     let mut writer = Vec::new();
-//!     Org::parse("* title\n*section*").html(&mut writer, MyHtmlHandler)?;
+//!     Org::parse("* title\n*section*").html_with_handler(&mut writer, MyHtmlHandler)?;
 //!
 //!     assert_eq!(
 //!         String::from_utf8(writer)?,
@@ -208,6 +208,8 @@
 //! # License
 //!
 //! MIT
+
+#![allow(clippy::range_plus_one)]
 
 pub mod config;
 pub mod elements;

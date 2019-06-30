@@ -1,5 +1,6 @@
-use crate::elements::Timestamp;
 use memchr::memchr;
+
+use crate::elements::Timestamp;
 
 /// palnning elements
 #[cfg_attr(test, derive(PartialEq))]
@@ -8,26 +9,18 @@ use memchr::memchr;
 pub struct Planning<'a> {
     /// the date when the task should be done
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub deadline: Option<&'a Timestamp<'a>>,
+    pub deadline: Option<Box<Timestamp<'a>>>,
     /// the date when you should start working on the task
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub scheduled: Option<&'a Timestamp<'a>>,
+    pub scheduled: Option<Box<Timestamp<'a>>>,
     /// the date when the task is closed
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub closed: Option<&'a Timestamp<'a>>,
+    pub closed: Option<Box<Timestamp<'a>>>,
 }
 
 impl Planning<'_> {
     #[inline]
-    pub(crate) fn parse(
-        text: &str,
-    ) -> Option<(
-        // TODO: timestamp position
-        Option<(Timestamp<'_>, usize, usize)>,
-        Option<(Timestamp<'_>, usize, usize)>,
-        Option<(Timestamp<'_>, usize, usize)>,
-        usize,
-    )> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Planning<'_>)> {
         let (mut deadline, mut scheduled, mut closed) = (None, None, None);
         let (mut tail, off) = memchr(b'\n', text.as_bytes())
             .map(|i| (text[..i].trim(), i + 1))
@@ -39,9 +32,11 @@ impl Planning<'_> {
             macro_rules! set_timestamp {
                 ($timestamp:expr) => {
                     if $timestamp.is_none() {
-                        let (timestamp, off) = Timestamp::parse(next)?;
-                        $timestamp = Some((timestamp, 0, 0));
-                        tail = &next[off..].trim_start();
+                        let (new_tail, timestamp) = Timestamp::parse_active(next)
+                            .or_else(|_| Timestamp::parse_inactive(next))
+                            .ok()?;
+                        $timestamp = Some(Box::new(timestamp));
+                        tail = new_tail.trim_start();
                     } else {
                         return None;
                     }
@@ -59,34 +54,41 @@ impl Planning<'_> {
         if deadline.is_none() && scheduled.is_none() && closed.is_none() {
             None
         } else {
-            Some((deadline, scheduled, closed, off))
+            Some((
+                &text[off..],
+                Planning {
+                    deadline,
+                    scheduled,
+                    closed,
+                },
+            ))
         }
     }
 }
 
 #[test]
 fn prase() {
-    use crate::elements::Datetime;
+    use crate::elements::Date;
 
     assert_eq!(
         Planning::parse("SCHEDULED: <2019-04-08 Mon>\n"),
         Some((
-            None,
-            Some((
-                Timestamp::Active {
-                    start: Datetime {
-                        date: "2019-04-08",
-                        time: None,
+            "",
+            Planning {
+                scheduled: Some(Box::new(Timestamp::Active {
+                    start_date: Date {
+                        year: 2019,
+                        month: 4,
+                        day: 8,
                         dayname: "Mon"
                     },
+                    start_time: None,
                     repeater: None,
                     delay: None
-                },
-                0,
-                0
-            )),
-            None,
-            "SCHEDULED: <2019-04-08 Mon>\n".len()
+                })),
+                deadline: None,
+                closed: None,
+            }
         ))
     )
 }

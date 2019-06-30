@@ -1,5 +1,10 @@
-use jetscii::Substring;
-use memchr::memchr2;
+use nom::{
+    bytes::complete::{tag, take, take_until, take_while1},
+    combinator::{opt, verify},
+    IResult,
+};
+
+use crate::elements::Element;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -12,34 +17,21 @@ pub struct Macros<'a> {
 
 impl Macros<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(Macros<'_>, usize)> {
-        debug_assert!(text.starts_with("{{{"));
+    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+        let (input, _) = tag("{{{")(input)?;
+        let (input, name) = verify(
+            take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
+            |s: &str| s.starts_with(|c: char| c.is_ascii_alphabetic()),
+        )(input)?;
+        let (input, arguments) = opt(|input| {
+            let (input, _) = tag("(")(input)?;
+            let (input, args) = take_until(")}}}")(input)?;
+            let (input, _) = take(1usize)(input)?;
+            Ok((input, args))
+        })(input)?;
+        let (input, _) = tag("}}}")(input)?;
 
-        let bytes = text.as_bytes();
-        if text.len() <= 3 || !bytes[3].is_ascii_alphabetic() {
-            return None;
-        }
-
-        let (name, off) = memchr2(b'}', b'(', bytes)
-            .filter(|&i| {
-                bytes[3..i]
-                    .iter()
-                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-            })
-            .map(|i| (&text[3..i], i))?;
-
-        let (arguments, off) = if bytes[off] == b'}' {
-            if text.len() <= off + 2 || bytes[off + 1] != b'}' || bytes[off + 2] != b'}' {
-                return None;
-            }
-            (None, off + "}}}".len())
-        } else {
-            Substring::new(")}}}")
-                .find(&text[off..])
-                .map(|i| (Some(&text[off + 1..off + i]), off + i + ")}}}".len()))?
-        };
-
-        Some((Macros { name, arguments }, off))
+        Ok((input, Element::Macros(Macros { name, arguments })))
     }
 }
 
@@ -47,36 +39,36 @@ impl Macros<'_> {
 fn parse() {
     assert_eq!(
         Macros::parse("{{{poem(red,blue)}}}"),
-        Some((
-            Macros {
+        Ok((
+            "",
+            Element::Macros(Macros {
                 name: "poem",
                 arguments: Some("red,blue")
-            },
-            "{{{poem(red,blue)}}}".len()
+            },)
         ))
     );
     assert_eq!(
         Macros::parse("{{{poem())}}}"),
-        Some((
-            Macros {
+        Ok((
+            "",
+            Element::Macros(Macros {
                 name: "poem",
                 arguments: Some(")")
-            },
-            "{{{poem())}}}".len()
+            },)
         ))
     );
     assert_eq!(
         Macros::parse("{{{author}}}"),
-        Some((
-            Macros {
+        Ok((
+            "",
+            Element::Macros(Macros {
                 name: "author",
                 arguments: None
-            },
-            "{{{author}}}".len()
+            },)
         ))
     );
-    assert_eq!(Macros::parse("{{{0uthor}}}"), None);
-    assert_eq!(Macros::parse("{{{author}}"), None);
-    assert_eq!(Macros::parse("{{{poem(}}}"), None);
-    assert_eq!(Macros::parse("{{{poem)}}}"), None);
+    assert!(Macros::parse("{{{0uthor}}}").is_err());
+    assert!(Macros::parse("{{{author}}").is_err());
+    assert!(Macros::parse("{{{poem(}}}").is_err());
+    assert!(Macros::parse("{{{poem)}}}").is_err());
 }

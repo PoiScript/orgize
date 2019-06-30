@@ -1,3 +1,5 @@
+use crate::elements::Element;
+
 use memchr::{memchr, memchr_iter};
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -7,12 +9,14 @@ pub struct DynBlock<'a> {
     pub block_name: &'a str,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub arguments: Option<&'a str>,
+    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
+    pub contents: &'a str,
 }
 
 impl DynBlock<'_> {
     #[inline]
     // return (dyn_block, contents-begin, contents-end, end)
-    pub(crate) fn parse(text: &str) -> Option<(DynBlock<'_>, usize, usize, usize)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>)> {
         debug_assert!(text.starts_with("#+"));
 
         if text.len() <= "#+BEGIN: ".len() || !text[2..9].eq_ignore_ascii_case("BEGIN: ") {
@@ -42,13 +46,12 @@ impl DynBlock<'_> {
         for i in lines {
             if text[pos..i].trim().eq_ignore_ascii_case("#+END:") {
                 return Some((
-                    DynBlock {
+                    &text[i + 1..],
+                    Element::DynBlock(DynBlock {
                         block_name: name,
                         arguments: para,
-                    },
-                    off,
-                    pos,
-                    i + 1,
+                        contents: &text[off..pos],
+                    }),
                 ));
             }
 
@@ -57,13 +60,12 @@ impl DynBlock<'_> {
 
         if text[pos..].trim().eq_ignore_ascii_case("#+END:") {
             Some((
-                DynBlock {
+                "",
+                Element::DynBlock(DynBlock {
                     block_name: name,
                     arguments: para,
-                },
-                off,
-                pos,
-                text.len(),
+                    contents: &text[off..pos],
+                }),
             ))
         } else {
             None
@@ -77,13 +79,12 @@ fn parse() {
     assert_eq!(
         DynBlock::parse("#+BEGIN: clocktable :scope file\nCONTENTS\n#+END:\n"),
         Some((
-            DynBlock {
+            "",
+            Element::DynBlock(DynBlock {
                 block_name: "clocktable",
                 arguments: Some(":scope file"),
-            },
-            "#+BEGIN: clocktable :scope file\n".len(),
-            "#+BEGIN: clocktable :scope file\nCONTENTS\n".len(),
-            "#+BEGIN: clocktable :scope file\nCONTENTS\n#+END:\n".len(),
+                contents: "CONTENTS\n"
+            },)
         ))
     );
 }
