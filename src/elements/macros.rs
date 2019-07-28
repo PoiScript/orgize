@@ -44,7 +44,7 @@ fn parse() {
             Element::Macros(Macros {
                 name: "poem",
                 arguments: Some("red,blue")
-            },)
+            })
         ))
     );
     assert_eq!(
@@ -54,7 +54,7 @@ fn parse() {
             Element::Macros(Macros {
                 name: "poem",
                 arguments: Some(")")
-            },)
+            })
         ))
     );
     assert_eq!(
@@ -64,7 +64,7 @@ fn parse() {
             Element::Macros(Macros {
                 name: "author",
                 arguments: None
-            },)
+            })
         ))
     );
     assert!(Macros::parse("{{{0uthor}}}").is_err());

@@ -7,13 +7,11 @@ use crate::elements::Element;
 #[derive(Debug)]
 pub struct Drawer<'a> {
     pub name: &'a str,
-    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-    pub contents: &'a str,
 }
 
 impl Drawer<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>, &str)> {
         debug_assert!(text.starts_with(':'));
 
         let mut lines = memchr_iter(b'\n', text.as_bytes());
@@ -36,8 +34,8 @@ impl Drawer<'_> {
                     &text[i + 1..],
                     Element::Drawer(Drawer {
                         name: &name[0..name.len() - 1],
-                        contents: &text[off..pos],
                     }),
+                    &text[off..pos],
                 ));
             }
             pos = i + 1;
@@ -48,8 +46,8 @@ impl Drawer<'_> {
                 "",
                 Element::Drawer(Drawer {
                     name: &name[0..name.len() - 1],
-                    contents: &text[off..pos],
                 }),
+                &text[off..pos],
             ))
         } else {
             None
@@ -63,10 +61,8 @@ fn parse() {
         Drawer::parse(":PROPERTIES:\n  :CUSTOM_ID: id\n  :END:"),
         Some((
             "",
-            Element::Drawer(Drawer {
-                name: "PROPERTIES",
-                contents: "  :CUSTOM_ID: id\n"
-            })
+            Element::Drawer(Drawer { name: "PROPERTIES" }),
+            "  :CUSTOM_ID: id\n"
         ))
     )
 }

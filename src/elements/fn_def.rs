@@ -1,39 +1,32 @@
 use memchr::memchr;
+use nom::{
+    bytes::complete::{tag, take_while1},
+    IResult,
+};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct FnDef<'a> {
     pub label: &'a str,
-    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-    pub contents: &'a str,
+}
+
+fn parse_label(input: &str) -> IResult<&str, &str> {
+    let (input, _) = tag("[fn:")(input)?;
+    let (input, label) =
+        take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_')(input)?;
+    let (input, _) = tag("]")(input)?;
+    Ok((input, label))
 }
 
 impl FnDef<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, FnDef<'_>)> {
-        if text.starts_with("[fn:") {
-            let (label, off) = memchr(b']', text.as_bytes())
-                .filter(|&i| {
-                    i != 4
-                        && text.as_bytes()["[fn:".len()..i]
-                            .iter()
-                            .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-                })
-                .map(|i| (&text["[fn:".len()..i], i + 1))?;
+    pub(crate) fn parse(text: &str) -> Option<(&str, FnDef<'_>, &str)> {
+        let (tail, label) = parse_label(text).ok()?;
 
-            let end = memchr(b'\n', text.as_bytes()).unwrap_or_else(|| text.len());
+        let end = memchr(b'\n', tail.as_bytes()).unwrap_or_else(|| tail.len());
 
-            Some((
-                &text[end..],
-                FnDef {
-                    label,
-                    contents: &text[off..end],
-                },
-            ))
-        } else {
-            None
-        }
+        Some((&tail[end..], FnDef { label }, &tail[0..end]))
     }
 }
 
@@ -41,43 +34,19 @@ impl FnDef<'_> {
 fn parse() {
     assert_eq!(
         FnDef::parse("[fn:1] https://orgmode.org"),
-        Some((
-            "",
-            FnDef {
-                label: "1",
-                contents: " https://orgmode.org"
-            },
-        ))
+        Some(("", FnDef { label: "1" }, " https://orgmode.org"))
     );
     assert_eq!(
         FnDef::parse("[fn:word_1] https://orgmode.org"),
-        Some((
-            "",
-            FnDef {
-                label: "word_1",
-                contents: " https://orgmode.org"
-            },
-        ))
+        Some(("", FnDef { label: "word_1" }, " https://orgmode.org"))
     );
     assert_eq!(
         FnDef::parse("[fn:WORD-1] https://orgmode.org"),
-        Some((
-            "",
-            FnDef {
-                label: "WORD-1",
-                contents: " https://orgmode.org"
-            },
-        ))
+        Some(("", FnDef { label: "WORD-1" }, " https://orgmode.org"))
     );
     assert_eq!(
         FnDef::parse("[fn:WORD]"),
-        Some((
-            "",
-            FnDef {
-                label: "WORD",
-                contents: ""
-            },
-        ))
+        Some(("", FnDef { label: "WORD" }, ""))
     );
     assert_eq!(FnDef::parse("[fn:] https://orgmode.org"), None);
     assert_eq!(FnDef::parse("[fn:wor d] https://orgmode.org"), None);

@@ -9,14 +9,11 @@ pub struct DynBlock<'a> {
     pub block_name: &'a str,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub arguments: Option<&'a str>,
-    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-    pub contents: &'a str,
 }
 
 impl DynBlock<'_> {
     #[inline]
-    // return (dyn_block, contents-begin, contents-end, end)
-    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>, &str)> {
         debug_assert!(text.starts_with("#+"));
 
         if text.len() <= "#+BEGIN: ".len() || !text[2..9].eq_ignore_ascii_case("BEGIN: ") {
@@ -50,8 +47,8 @@ impl DynBlock<'_> {
                     Element::DynBlock(DynBlock {
                         block_name: name,
                         arguments: para,
-                        contents: &text[off..pos],
                     }),
+                    &text[off..pos],
                 ));
             }
 
@@ -64,8 +61,8 @@ impl DynBlock<'_> {
                 Element::DynBlock(DynBlock {
                     block_name: name,
                     arguments: para,
-                    contents: &text[off..pos],
                 }),
+                &text[off..pos],
             ))
         } else {
             None
@@ -83,8 +80,8 @@ fn parse() {
             Element::DynBlock(DynBlock {
                 block_name: "clocktable",
                 arguments: Some(":scope file"),
-                contents: "CONTENTS\n"
-            },)
+            }),
+            "CONTENTS\n"
         ))
     );
 }

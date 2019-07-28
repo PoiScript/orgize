@@ -10,14 +10,11 @@ use crate::elements::Element;
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
-pub struct RadioTarget<'a> {
-    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-    contents: &'a str,
-}
+pub struct RadioTarget;
 
-impl RadioTarget<'_> {
+impl RadioTarget {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, (Element, &str)> {
         let (input, _) = tag("<<<")(input)?;
         let (input, contents) = verify(
             take_while(|c: char| c != '<' && c != '\n' && c != '>'),
@@ -25,7 +22,7 @@ impl RadioTarget<'_> {
         )(input)?;
         let (input, _) = tag(">>>")(input)?;
 
-        Ok((input, Element::RadioTarget(RadioTarget { contents })))
+        Ok((input, (Element::RadioTarget(RadioTarget), contents)))
     }
 }
 
@@ -33,16 +30,11 @@ impl RadioTarget<'_> {
 fn parse() {
     assert_eq!(
         RadioTarget::parse("<<<target>>>"),
-        Ok(("", Element::RadioTarget(RadioTarget { contents: "target" })))
+        Ok(("", (Element::RadioTarget(RadioTarget), "target")))
     );
     assert_eq!(
         RadioTarget::parse("<<<tar get>>>"),
-        Ok((
-            "",
-            Element::RadioTarget(RadioTarget {
-                contents: "tar get"
-            },)
-        ))
+        Ok(("", (Element::RadioTarget(RadioTarget), "tar get")))
     );
     assert!(RadioTarget::parse("<<<target >>>").is_err());
     assert!(RadioTarget::parse("<<< target>>>").is_err());

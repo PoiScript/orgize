@@ -5,7 +5,7 @@ use std::io::{Error, Write};
 
 use crate::config::ParseConfig;
 use crate::elements::*;
-use crate::export::{DefaultHtmlHandler, HtmlHandler};
+use crate::export::*;
 use crate::iter::Iter;
 
 pub struct Org<'a> {
@@ -13,19 +13,104 @@ pub struct Org<'a> {
     pub(crate) document: NodeId,
 }
 
+enum Container<'a> {
+    // List
+    List {
+        content: &'a str,
+        node: NodeId,
+        indent: usize,
+    },
+    // Block, List Item
+    Block {
+        content: &'a str,
+        node: NodeId,
+    },
+    // Pargraph, Inline Markup
+    Inline {
+        content: &'a str,
+        node: NodeId,
+    },
+    // Headline, Document
+    Headline {
+        content: &'a str,
+        node: NodeId,
+    },
+    // Section
+    Section {
+        content: &'a str,
+        node: NodeId,
+    },
+}
+
 impl<'a> Org<'a> {
     pub fn parse(text: &'a str) -> Self {
         Org::parse_with_config(text, ParseConfig::default())
     }
 
-    pub fn parse_with_config(text: &'a str, config: ParseConfig<'_>) -> Self {
+    pub fn parse_with_config(content: &'a str, config: ParseConfig<'_>) -> Self {
         let mut arena = Arena::new();
-        let document = arena.new_node(Element::Document { contents: text });
+        let document = arena.new_node(Element::Document);
 
-        let mut org = Org { arena, document };
-        org.parse_internal(config);
+        let mut containers = vec![Container::Headline {
+            content,
+            node: document,
+        }];
 
-        org
+        while let Some(container) = containers.pop() {
+            match container {
+                Container::Headline {
+                    mut content,
+                    node: parent,
+                } => {
+                    if !content.is_empty() {
+                        let off = Headline::find_level(content, std::usize::MAX);
+                        if off != 0 {
+                            let node = arena.new_node(Element::Section);
+                            parent.append(node, &mut arena).unwrap();
+                            containers.push(Container::Section {
+                                content: &content[0..off],
+                                node,
+                            });
+                            content = &content[off..];
+                        }
+                    }
+                    while !content.is_empty() {
+                        let (tail, headline, headline_content) = Headline::parse(content, &config);
+                        let headline = Element::Headline(headline);
+                        let node = arena.new_node(headline);
+                        parent.append(node, &mut arena).unwrap();
+                        containers.push(Container::Headline {
+                            content: headline_content,
+                            node,
+                        });
+                        content = tail;
+                    }
+                }
+                Container::Section { content, node } => {
+                    // TODO
+                    if let Some((tail, _planning)) = Planning::parse(content) {
+                        parse_elements_children(&mut arena, tail, node, &mut containers);
+                    } else {
+                        parse_elements_children(&mut arena, content, node, &mut containers);
+                    }
+                }
+                Container::Block { content, node } => {
+                    parse_elements_children(&mut arena, content, node, &mut containers);
+                }
+                Container::Inline { content, node } => {
+                    parse_objects_children(&mut arena, content, node, &mut containers);
+                }
+                Container::List {
+                    content,
+                    node,
+                    indent,
+                } => {
+                    parse_list_items(&mut arena, content, indent, node, &mut containers);
+                }
+            }
+        }
+
+        Org { arena, document }
     }
 
     pub fn iter(&'a self) -> Iter<'a> {
@@ -49,376 +134,370 @@ impl<'a> Org<'a> {
 
         for event in self.iter() {
             match event {
-                Start(e) => handler.start(&mut writer, e)?,
-                End(e) => handler.end(&mut writer, e)?,
+                Start(element) => handler.start(&mut writer, element)?,
+                End(element) => handler.end(&mut writer, element)?,
             }
         }
 
         Ok(())
     }
+}
 
-    fn parse_internal(&mut self, config: ParseConfig<'_>) {
-        let mut node = self.document;
-        loop {
-            match self.arena[node].data {
-                Element::Document { mut contents }
-                | Element::Headline(Headline { mut contents, .. }) => {
-                    if !contents.is_empty() {
-                        let off = Headline::find_level(contents, std::usize::MAX);
-                        if off != 0 {
-                            let section = Element::Section {
-                                contents: &contents[0..off],
-                            };
-                            let new_node = self.arena.new_node(section);
-                            node.append(new_node, &mut self.arena).unwrap();
-                            contents = &contents[off..];
-                        }
-                    }
-                    while !contents.is_empty() {
-                        let (tail, headline) = Headline::parse(contents, &config);
-                        let headline = Element::Headline(headline);
-                        let new_node = self.arena.new_node(headline);
-                        node.append(new_node, &mut self.arena).unwrap();
-                        contents = tail;
-                    }
-                }
-                Element::Section { contents } => {
-                    // TODO
-                    if let Some((tail, _planning)) = Planning::parse(contents) {
-                        self.parse_elements_children(tail, node);
-                    } else {
-                        self.parse_elements_children(contents, node);
-                    }
-                }
-                Element::Block(Block { contents, .. })
-                | Element::ListItem(ListItem { contents, .. }) => {
-                    self.parse_elements_children(contents, node);
-                }
-                Element::Paragraph { contents }
-                | Element::Bold { contents }
-                | Element::Underline { contents }
-                | Element::Italic { contents }
-                | Element::Strike { contents } => {
-                    self.parse_objects_children(contents, node);
-                }
-                Element::List(List {
-                    contents, indent, ..
-                }) => {
-                    self.parse_list_items(contents, indent, node);
-                }
-                _ => (),
-            }
+fn parse_elements_children<'a>(
+    arena: &mut Arena<Element<'a>>,
+    content: &'a str,
+    parent: NodeId,
+    containers: &mut Vec<Container<'a>>,
+) {
+    let mut tail = skip_empty_lines(content);
 
-            if let Some(next_node) = self.next_node(node) {
-                node = next_node;
-            } else {
-                break;
-            }
-        }
+    if let Some((new_tail, element)) = parse_element(content, arena, containers) {
+        parent.append(element, arena).unwrap();
+        tail = skip_empty_lines(new_tail);
     }
 
-    fn next_node(&self, mut node: NodeId) -> Option<NodeId> {
-        if let Some(child) = self.arena[node].first_child() {
-            return Some(child);
-        }
+    let mut text = tail;
+    let mut pos = 0;
 
-        loop {
-            if let Some(sibling) = self.arena[node].next_sibling() {
-                return Some(sibling);
-            } else if let Some(parent) = self.arena[node].parent() {
-                node = parent;
-            } else {
-                return None;
-            }
-        }
-    }
-
-    fn parse_elements_children(&mut self, input: &'a str, node: NodeId) {
-        let mut tail = skip_empty_lines(input);
-
-        if let Some((new_tail, element)) = self.parse_element(input) {
-            let new_node = self.arena.new_node(element);
-            node.append(new_node, &mut self.arena).unwrap();
-            tail = skip_empty_lines(new_tail);
-        }
-
-        let mut text = tail;
-        let mut pos = 0;
-
-        while !tail.is_empty() {
-            let i = memchr(b'\n', tail.as_bytes())
-                .map(|i| i + 1)
-                .unwrap_or_else(|| tail.len());
-            if tail.as_bytes()[0..i].iter().all(u8::is_ascii_whitespace) {
-                tail = skip_empty_lines(&tail[i..]);
-                let new_node = self.arena.new_node(Element::Paragraph {
-                    contents: if text.as_bytes()[pos - 1] == b'\n' {
-                        &text[0..pos - 1]
-                    } else {
-                        &text[0..pos]
-                    },
-                });
-                node.append(new_node, &mut self.arena).unwrap();
-                text = tail;
-                pos = 0;
-            } else if let Some((new_tail, element)) = self.parse_element(tail) {
-                if pos != 0 {
-                    let new_node = self.arena.new_node(Element::Paragraph {
-                        contents: if text.as_bytes()[pos - 1] == b'\n' {
-                            &text[0..pos - 1]
-                        } else {
-                            &text[0..pos]
-                        },
-                    });
-                    node.append(new_node, &mut self.arena).unwrap();
-                    pos = 0;
-                }
-                let new_node = self.arena.new_node(element);
-                node.append(new_node, &mut self.arena).unwrap();
-                tail = skip_empty_lines(new_tail);
-                text = tail;
-            } else {
-                tail = &tail[i..];
-                pos += i;
-            }
-        }
-
-        if !text.is_empty() {
-            let new_node = self.arena.new_node(Element::Paragraph {
-                contents: if text.as_bytes()[pos - 1] == b'\n' {
-                    &text[0..pos - 1]
-                } else {
-                    &text[0..pos]
-                },
+    while !tail.is_empty() {
+        let i = memchr(b'\n', tail.as_bytes())
+            .map(|i| i + 1)
+            .unwrap_or_else(|| tail.len());
+        if tail.as_bytes()[0..i].iter().all(u8::is_ascii_whitespace) {
+            tail = skip_empty_lines(&tail[i..]);
+            let node = arena.new_node(Element::Paragraph);
+            parent.append(node, arena).unwrap();
+            containers.push(Container::Inline {
+                content: &text[0..pos].trim_end_matches('\n'),
+                node,
             });
-            node.append(new_node, &mut self.arena).unwrap();
-        }
-    }
-
-    fn parse_element(&self, contents: &'a str) -> Option<(&'a str, Element<'a>)> {
-        if let Some((tail, fn_def)) = FnDef::parse(contents) {
-            let fn_def = Element::FnDef(fn_def);
-            return Some((tail, fn_def));
-        } else if let Some((tail, list)) = List::parse(contents) {
-            let list = Element::List(list);
-            return Some((tail, list));
-        }
-
-        let tail = contents.trim_start();
-
-        if let Some((tail, clock)) = Clock::parse(tail) {
-            return Some((tail, clock));
-        }
-
-        // TODO: LaTeX environment
-        if tail.starts_with("\\begin{") {}
-
-        if tail.starts_with('-') {
-            if let Ok((tail, rule)) = Rule::parse(tail) {
-                return Some((tail, rule));
+            text = tail;
+            pos = 0;
+        } else if let Some((new_tail, element)) = parse_element(tail, arena, containers) {
+            if pos != 0 {
+                let node = arena.new_node(Element::Paragraph);
+                parent.append(node, arena).unwrap();
+                containers.push(Container::Inline {
+                    content: &text[0..pos].trim_end_matches('\n'),
+                    node,
+                });
+                pos = 0;
             }
-        }
-
-        if tail.starts_with(':') {
-            if let Some((tail, drawer)) = Drawer::parse(tail) {
-                return Some((tail, drawer));
-            }
-        }
-
-        if tail == ":" || tail.starts_with(": ") || tail.starts_with(":\n") {
-            let mut last_end = 1; // ":"
-            for i in memchr_iter(b'\n', contents.as_bytes()) {
-                last_end = i + 1;
-                let line = &contents[last_end..];
-                if !(line == ":" || line.starts_with(": ") || line.starts_with(":\n")) {
-                    let fixed_width = Element::FixedWidth {
-                        value: &contents[0..i + 1],
-                    };
-                    return Some((&contents[i + 1..], fixed_width));
-                }
-            }
-            let fixed_width = Element::FixedWidth {
-                value: &contents[0..last_end],
-            };
-            return Some((&contents[last_end..], fixed_width));
-        }
-
-        if tail == "#" || tail.starts_with("# ") || tail.starts_with("#\n") {
-            let mut last_end = 1; // "#"
-            for i in memchr_iter(b'\n', contents.as_bytes()) {
-                last_end = i + 1;
-                let line = &contents[last_end..];
-                if !(line == "#" || line.starts_with("# ") || line.starts_with("#\n")) {
-                    let fixed_width = Element::Comment {
-                        value: &contents[0..i + 1],
-                    };
-                    return Some((&contents[i + 1..], fixed_width));
-                }
-            }
-            let fixed_width = Element::Comment {
-                value: &contents[0..last_end],
-            };
-            return Some((&contents[last_end..], fixed_width));
-        }
-
-        if tail.starts_with("#+") {
-            Block::parse(tail)
-                .or_else(|| DynBlock::parse(tail))
-                .or_else(|| Keyword::parse(tail).ok())
+            parent.append(element, arena).unwrap();
+            tail = skip_empty_lines(new_tail);
+            text = tail;
         } else {
-            None
+            tail = &tail[i..];
+            pos += i;
         }
     }
 
-    fn parse_objects_children(&mut self, contents: &'a str, node: NodeId) {
-        let mut tail = contents;
+    if !text.is_empty() {
+        let node = arena.new_node(Element::Paragraph);
+        parent.append(node, arena).unwrap();
+        containers.push(Container::Inline {
+            content: &text[0..pos].trim_end_matches('\n'),
+            node,
+        });
+    }
+}
 
-        if let Some((new_tail, obj)) = self.parse_object(tail) {
-            let new_node = self.arena.new_node(obj);
-            node.append(new_node, &mut self.arena).unwrap();
-            tail = new_tail;
+fn parse_element<'a>(
+    contents: &'a str,
+    arena: &mut Arena<Element<'a>>,
+    containers: &mut Vec<Container<'a>>,
+) -> Option<(&'a str, NodeId)> {
+    if let Some((tail, fn_def, content)) = FnDef::parse(contents) {
+        let node = arena.new_node(Element::FnDef(fn_def));
+        containers.push(Container::Block { content, node });
+        return Some((tail, node));
+    } else if let Some((tail, list, content)) = List::parse(contents) {
+        let indent = list.indent;
+        let node = arena.new_node(Element::List(list));
+        containers.push(Container::List {
+            content,
+            node,
+            indent,
+        });
+        return Some((tail, node));
+    }
+
+    let tail = contents.trim_start();
+
+    if let Some((tail, clock)) = Clock::parse(tail) {
+        return Some((tail, arena.new_node(clock)));
+    }
+
+    // TODO: LaTeX environment
+    if tail.starts_with("\\begin{") {}
+
+    if tail.starts_with('-') {
+        if let Ok((tail, rule)) = Rule::parse(tail) {
+            return Some((tail, arena.new_node(rule)));
         }
+    }
 
-        let mut text = tail;
-        let mut pos = 0;
+    if tail.starts_with(':') {
+        if let Some((tail, drawer, content)) = Drawer::parse(tail) {
+            return Some((tail, arena.new_node(drawer)));
+        }
+    }
 
-        let bs = bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n');
+    // FixedWidth
+    if tail == ":" || tail.starts_with(": ") || tail.starts_with(":\n") {
+        let mut last_end = 1; // ":"
+        for i in memchr_iter(b'\n', contents.as_bytes()) {
+            last_end = i + 1;
+            let line = &contents[last_end..];
+            if !(line == ":" || line.starts_with(": ") || line.starts_with(":\n")) {
+                let fixed_width = arena.new_node(Element::FixedWidth {
+                    value: &contents[0..i + 1],
+                });
+                return Some((&contents[i + 1..], fixed_width));
+            }
+        }
+        let fixed_width = arena.new_node(Element::FixedWidth {
+            value: &contents[0..last_end],
+        });
+        return Some((&contents[last_end..], fixed_width));
+    }
 
-        while let Some(off) = bs.find(tail.as_bytes()) {
-            match tail.as_bytes()[off] {
-                b'{' => {
-                    if let Some((new_tail, obj)) = self.parse_object(&tail[off..]) {
-                        if pos != 0 {
-                            let new_node = self.arena.new_node(Element::Text {
-                                value: &text[0..pos + off],
-                            });
-                            node.append(new_node, &mut self.arena).unwrap();
-                            pos = 0;
-                        }
-                        let new_node = self.arena.new_node(obj);
-                        node.append(new_node, &mut self.arena).unwrap();
-                        tail = new_tail;
-                        text = new_tail;
-                    } else if let Some((new_tail, obj)) = self.parse_object(&tail[off + 1..]) {
-                        let new_node = self.arena.new_node(Element::Text {
-                            value: &text[0..pos + off + 1],
+    // Comment
+    if tail == "#" || tail.starts_with("# ") || tail.starts_with("#\n") {
+        let mut last_end = 1; // "#"
+        for i in memchr_iter(b'\n', contents.as_bytes()) {
+            last_end = i + 1;
+            let line = &contents[last_end..];
+            if !(line == "#" || line.starts_with("# ") || line.starts_with("#\n")) {
+                let comment = arena.new_node(Element::Comment {
+                    value: &contents[0..i + 1],
+                });
+                return Some((&contents[i + 1..], comment));
+            }
+        }
+        let comment = arena.new_node(Element::Comment {
+            value: &contents[0..last_end],
+        });
+        return Some((&contents[last_end..], comment));
+    }
+
+    if tail.starts_with("#+") {
+        if let Some((tail, block, content)) = Block::parse(tail) {
+            let node = arena.new_node(block);
+            containers.push(Container::Block { content, node });
+            Some((tail, node))
+        } else if let Some((tail, dyn_block, content)) = DynBlock::parse(tail) {
+            let node = arena.new_node(dyn_block);
+            containers.push(Container::Block { content, node });
+            Some((tail, node))
+        } else {
+            Keyword::parse(tail)
+                .ok()
+                .map(|(tail, kw)| (tail, arena.new_node(kw)))
+        }
+    } else {
+        None
+    }
+}
+
+fn parse_objects_children<'a>(
+    arena: &mut Arena<Element<'a>>,
+    content: &'a str,
+    parent: NodeId,
+    containers: &mut Vec<Container<'a>>,
+) {
+    let mut tail = content;
+
+    if let Some((new_tail, obj)) = parse_object(tail, arena, containers) {
+        parent.append(obj, arena).unwrap();
+        tail = new_tail;
+    }
+
+    let mut text = tail;
+    let mut pos = 0;
+
+    let bs = bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n');
+
+    while let Some(off) = bs.find(tail.as_bytes()) {
+        match tail.as_bytes()[off] {
+            b'{' => {
+                if let Some((new_tail, obj)) = parse_object(&tail[off..], arena, containers) {
+                    if pos != 0 {
+                        let node = arena.new_node(Element::Text {
+                            value: &text[0..pos + off],
                         });
-                        node.append(new_node, &mut self.arena).unwrap();
+                        parent.append(node, arena).unwrap();
                         pos = 0;
-                        let new_node = self.arena.new_node(obj);
-                        node.append(new_node, &mut self.arena).unwrap();
-                        tail = new_tail;
-                        text = new_tail;
-                    } else {
-                        tail = &tail[off + 1..];
-                        pos += off + 1;
                     }
+                    parent.append(obj, arena).unwrap();
+                    tail = new_tail;
+                    text = new_tail;
+                    continue;
+                } else if let Some((new_tail, obj)) =
+                    parse_object(&tail[off + 1..], arena, containers)
+                {
+                    let node = arena.new_node(Element::Text {
+                        value: &text[0..pos + off + 1],
+                    });
+                    parent.append(node, arena).unwrap();
+                    pos = 0;
+                    parent.append(obj, arena).unwrap();
+                    tail = new_tail;
+                    text = new_tail;
+                    continue;
                 }
-                b' ' | b'(' | b'\'' | b'"' | b'\n' => {
-                    if let Some((new_tail, obj)) = self.parse_object(&tail[off + 1..]) {
-                        let new_node = self.arena.new_node(Element::Text {
-                            value: &text[0..pos + off + 1],
+            }
+            b' ' | b'(' | b'\'' | b'"' | b'\n' => {
+                if let Some((new_tail, obj)) = parse_object(&tail[off + 1..], arena, containers) {
+                    let node = arena.new_node(Element::Text {
+                        value: &text[0..pos + off + 1],
+                    });
+                    parent.append(node, arena).unwrap();
+                    pos = 0;
+                    parent.append(obj, arena).unwrap();
+                    tail = new_tail;
+                    text = new_tail;
+                    continue;
+                }
+            }
+            _ => {
+                if let Some((new_tail, obj)) = parse_object(&tail[off..], arena, containers) {
+                    if pos != 0 {
+                        let node = arena.new_node(Element::Text {
+                            value: &text[0..pos + off],
                         });
-                        node.append(new_node, &mut self.arena).unwrap();
+                        parent.append(node, arena).unwrap();
                         pos = 0;
-                        let new_node = self.arena.new_node(obj);
-                        node.append(new_node, &mut self.arena).unwrap();
-                        tail = new_tail;
-                        text = new_tail;
-                    } else {
-                        tail = &tail[off + 1..];
-                        pos += off + 1;
                     }
-                }
-                _ => {
-                    if let Some((new_tail, obj)) = self.parse_object(&tail[off..]) {
-                        if pos != 0 {
-                            let new_node = self.arena.new_node(Element::Text {
-                                value: &text[0..pos + off],
-                            });
-                            node.append(new_node, &mut self.arena).unwrap();
-                            pos = 0;
-                        }
-                        let new_node = self.arena.new_node(obj);
-                        node.append(new_node, &mut self.arena).unwrap();
-                        tail = new_tail;
-                        text = new_tail;
-                    } else {
-                        tail = &tail[off + 1..];
-                        pos += off + 1;
-                    }
+                    parent.append(obj, arena).unwrap();
+                    tail = new_tail;
+                    text = new_tail;
+                    continue;
                 }
             }
         }
-
-        if !text.is_empty() {
-            let new_node = self.arena.new_node(Element::Text { value: text });
-            node.append(new_node, &mut self.arena).unwrap();
-        }
+        tail = &tail[off + 1..];
+        pos += off + 1;
     }
 
-    fn parse_object(&self, contents: &'a str) -> Option<(&'a str, Element<'a>)> {
-        if contents.len() < 3 {
-            return None;
-        }
+    if !text.is_empty() {
+        let node = arena.new_node(Element::Text { value: text });
+        parent.append(node, arena).unwrap();
+    }
+}
 
-        let bytes = contents.as_bytes();
-        match bytes[0] {
-            b'@' => Snippet::parse(contents).ok(),
-            b'{' => Macros::parse(contents).ok(),
-            b'<' => RadioTarget::parse(contents)
-                .or_else(|_| Target::parse(contents))
-                .or_else(|_| {
-                    Timestamp::parse_active(contents)
-                        .map(|(tail, timestamp)| (tail, timestamp.into()))
-                })
-                .or_else(|_| {
-                    Timestamp::parse_diary(contents)
-                        .map(|(tail, timestamp)| (tail, timestamp.into()))
-                })
-                .ok(),
-            b'[' => {
-                if contents[1..].starts_with("fn:") {
-                    FnRef::parse(contents).map(|(tail, fn_ref)| (tail, fn_ref.into()))
-                } else if bytes[1] == b'[' {
-                    Link::parse(contents).ok()
-                } else {
-                    Cookie::parse(contents)
-                        .map(|(tail, cookie)| (tail, cookie.into()))
-                        .or_else(|| {
-                            Timestamp::parse_inactive(contents)
-                                .map(|(tail, timestamp)| (tail, timestamp.into()))
-                                .ok()
-                        })
-                }
-            }
-            b'*' => parse_emphasis(contents, b'*')
-                .map(|(tail, contents)| (tail, Element::Bold { contents })),
-            b'+' => parse_emphasis(contents, b'+')
-                .map(|(tail, contents)| (tail, Element::Strike { contents })),
-            b'/' => parse_emphasis(contents, b'/')
-                .map(|(tail, contents)| (tail, Element::Italic { contents })),
-            b'_' => parse_emphasis(contents, b'_')
-                .map(|(tail, contents)| (tail, Element::Underline { contents })),
-            b'=' => parse_emphasis(contents, b'=')
-                .map(|(tail, value)| (tail, Element::Verbatim { value })),
-            b'~' => {
-                parse_emphasis(contents, b'~').map(|(tail, value)| (tail, Element::Code { value }))
-            }
-            b's' if contents.starts_with("src_") => InlineSrc::parse(contents).ok(),
-            b'c' if contents.starts_with("call_") => InlineCall::parse(contents).ok(),
-            _ => None,
-        }
+fn parse_object<'a>(
+    contents: &'a str,
+    arena: &mut Arena<Element<'a>>,
+    containers: &mut Vec<Container<'a>>,
+) -> Option<(&'a str, NodeId)> {
+    if contents.len() < 3 {
+        return None;
     }
 
-    fn parse_list_items(&mut self, mut contents: &'a str, indent: usize, node: NodeId) {
-        while !contents.is_empty() {
-            let (tail, list_item) = ListItem::parse(contents, indent);
-            let list_item = Element::ListItem(list_item);
-            let new_node = self.arena.new_node(list_item);
-            node.append(new_node, &mut self.arena).unwrap();
-            contents = tail;
+    let bytes = contents.as_bytes();
+    match bytes[0] {
+        b'@' => Snippet::parse(contents)
+            .ok()
+            .map(|(tail, element)| (tail, arena.new_node(element))),
+        b'{' => Macros::parse(contents)
+            .ok()
+            .map(|(tail, element)| (tail, arena.new_node(element))),
+        b'<' => RadioTarget::parse(contents)
+            .map(|(tail, (radio, content))| (tail, radio))
+            .or_else(|_| Target::parse(contents))
+            .or_else(|_| {
+                Timestamp::parse_active(contents).map(|(tail, timestamp)| (tail, timestamp.into()))
+            })
+            .or_else(|_| {
+                Timestamp::parse_diary(contents).map(|(tail, timestamp)| (tail, timestamp.into()))
+            })
+            .ok()
+            .map(|(tail, element)| (tail, arena.new_node(element))),
+        b'[' => {
+            if contents[1..].starts_with("fn:") {
+                FnRef::parse(contents)
+                    .map(|(tail, fn_ref)| (tail, fn_ref.into()))
+                    .map(|(tail, element)| (tail, arena.new_node(element)))
+            } else if bytes[1] == b'[' {
+                Link::parse(contents)
+                    .ok()
+                    .map(|(tail, element)| (tail, arena.new_node(element)))
+            } else {
+                Cookie::parse(contents)
+                    .map(|(tail, cookie)| (tail, cookie.into()))
+                    .or_else(|| {
+                        Timestamp::parse_inactive(contents)
+                            .map(|(tail, timestamp)| (tail, timestamp.into()))
+                            .ok()
+                    })
+                    .map(|(tail, element)| (tail, arena.new_node(element)))
+            }
         }
+        b'*' => {
+            if let Some((tail, content)) = parse_emphasis(contents, b'*') {
+                let node = arena.new_node(Element::Bold);
+                containers.push(Container::Inline { content, node });
+                Some((tail, node))
+            } else {
+                None
+            }
+        }
+        b'+' => {
+            if let Some((tail, content)) = parse_emphasis(contents, b'+') {
+                let node = arena.new_node(Element::Strike);
+                containers.push(Container::Inline { content, node });
+                Some((tail, node))
+            } else {
+                None
+            }
+        }
+        b'/' => {
+            if let Some((tail, content)) = parse_emphasis(contents, b'/') {
+                let node = arena.new_node(Element::Italic);
+                containers.push(Container::Inline { content, node });
+                Some((tail, node))
+            } else {
+                None
+            }
+        }
+        b'_' => {
+            if let Some((tail, content)) = parse_emphasis(contents, b'_') {
+                let node = arena.new_node(Element::Underline);
+                containers.push(Container::Inline { content, node });
+                Some((tail, node))
+            } else {
+                None
+            }
+        }
+        b'=' => parse_emphasis(contents, b'=')
+            .map(|(tail, value)| (tail, arena.new_node(Element::Verbatim { value }))),
+        b'~' => parse_emphasis(contents, b'~')
+            .map(|(tail, value)| (tail, arena.new_node(Element::Code { value }))),
+        b's' => InlineSrc::parse(contents)
+            .ok()
+            .map(|(tail, element)| (tail, arena.new_node(element))),
+        b'c' => InlineCall::parse(contents)
+            .ok()
+            .map(|(tail, element)| (tail, arena.new_node(element))),
+        _ => None,
+    }
+}
+
+fn parse_list_items<'a>(
+    arena: &mut Arena<Element<'a>>,
+    mut contents: &'a str,
+    indent: usize,
+    parent: NodeId,
+    containers: &mut Vec<Container<'a>>,
+) {
+    while !contents.is_empty() {
+        let (tail, list_item, content) = ListItem::parse(contents, indent);
+        let list_item = Element::ListItem(list_item);
+        let node = arena.new_node(list_item);
+        parent.append(node, arena).unwrap();
+        containers.push(Container::Block { content, node });
+        contents = tail;
     }
 }
 

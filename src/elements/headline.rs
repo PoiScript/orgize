@@ -22,12 +22,13 @@ pub struct Headline<'a> {
     /// headline keyword
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub keyword: Option<&'a str>,
-    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-    pub contents: &'a str,
 }
 
 impl Headline<'_> {
-    pub(crate) fn parse<'a>(text: &'a str, config: &ParseConfig<'_>) -> (&'a str, Headline<'a>) {
+    pub(crate) fn parse<'a>(
+        text: &'a str,
+        config: &ParseConfig<'_>,
+    ) -> (&'a str, Headline<'a>, &'a str) {
         let level = memchr2(b'\n', b' ', text.as_bytes()).unwrap_or_else(|| text.len());
 
         debug_assert!(level > 0);
@@ -55,8 +56,8 @@ impl Headline<'_> {
                     priority: None,
                     title: "",
                     tags: Vec::new(),
-                    contents: &text[off..end],
                 },
+                &text[off..end],
             );
         }
 
@@ -108,8 +109,8 @@ impl Headline<'_> {
                 priority,
                 title,
                 tags: tags.split(':').filter(|s| !s.is_empty()).collect(),
-                contents: &text[off..end],
             },
+            &text[off..end],
         )
     }
 
@@ -165,8 +166,8 @@ fn parse() {
                 keyword: Some("DONE"),
                 title: "COMMENT Title",
                 tags: vec!["tag", "a2%"],
-                contents: ""
             },
+            ""
         )
     );
     assert_eq!(
@@ -179,8 +180,8 @@ fn parse() {
                 tags: vec!["tag", "a2%"],
                 title: "ToDO [#A] COMMENT Title",
                 keyword: None,
-                contents: ""
             },
+            ""
         )
     );
     assert_eq!(
@@ -193,8 +194,8 @@ fn parse() {
                 tags: vec!["tag", "a2%"],
                 title: "T0DO [#A] COMMENT Title",
                 keyword: None,
-                contents: ""
             },
+            ""
         )
     );
     assert_eq!(
@@ -207,8 +208,8 @@ fn parse() {
                 tags: vec!["tag", "a2%"],
                 title: "[#1] COMMENT Title",
                 keyword: Some("DONE"),
-                contents: "",
             },
+            ""
         )
     );
     assert_eq!(
@@ -221,8 +222,8 @@ fn parse() {
                 tags: vec!["tag", "a2%"],
                 title: "[#a] COMMENT Title",
                 keyword: Some("DONE"),
-                contents: "",
             },
+            ""
         )
     );
     assert_eq!(
@@ -235,8 +236,8 @@ fn parse() {
                 tags: Vec::new(),
                 title: "COMMENT Title :tag:a2%",
                 keyword: Some("DONE"),
-                contents: ""
             },
+            ""
         )
     );
     assert_eq!(
@@ -249,8 +250,8 @@ fn parse() {
                 tags: Vec::new(),
                 title: "COMMENT Title tag:a2%:",
                 keyword: Some("DONE"),
-                contents: ""
             },
+            ""
         )
     );
     assert_eq!(
@@ -263,8 +264,8 @@ fn parse() {
                 tags: Vec::new(),
                 title: "COMMENT Title tag:a2%:",
                 keyword: None,
-                contents: ""
             },
+            ""
         )
     );
 }
@@ -287,8 +288,8 @@ fn parse_todo_keywords() {
                 keyword: None,
                 title: "DONE [#A] COMMENT Title",
                 tags: vec!["tag", "a2%"],
-                contents: ""
             },
+            ""
         )
     );
     assert_eq!(
@@ -307,8 +308,8 @@ fn parse_todo_keywords() {
                 keyword: Some("TASK"),
                 title: "COMMENT Title",
                 tags: vec!["tag", "a2%"],
-                contents: ""
             },
+            ""
         )
     );
 }

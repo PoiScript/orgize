@@ -9,13 +9,11 @@ pub struct Block<'a> {
     pub name: &'a str,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub args: Option<&'a str>,
-    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-    pub contents: &'a str,
 }
 
 impl Block<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>, &str)> {
         debug_assert!(text.starts_with("#+"));
 
         if text.len() <= 8 || text[2..8].to_uppercase() != "BEGIN_" {
@@ -40,11 +38,8 @@ impl Block<'_> {
             if text[pos..i].trim().eq_ignore_ascii_case(&end) {
                 return Some((
                     &text[i + 1..],
-                    Element::Block(Block {
-                        name,
-                        args,
-                        contents: &text[off..pos],
-                    }),
+                    Element::Block(Block { name, args }),
+                    &text[off..pos],
                 ));
             }
 
@@ -52,14 +47,7 @@ impl Block<'_> {
         }
 
         if text[pos..].trim().eq_ignore_ascii_case(&end) {
-            Some((
-                "",
-                Element::Block(Block {
-                    name,
-                    args,
-                    contents: &text[off..pos],
-                }),
-            ))
+            Some(("", Element::Block(Block { name, args }), &text[off..pos]))
         } else {
             None
         }
@@ -75,8 +63,8 @@ fn parse() {
             Element::Block(Block {
                 name: "SRC",
                 args: None,
-                contents: ""
             }),
+            ""
         ))
     );
     assert_eq!(
@@ -86,8 +74,8 @@ fn parse() {
             Element::Block(Block {
                 name: "SRC",
                 args: Some("javascript"),
-                contents: "console.log('Hello World!');\n"
             }),
+            "console.log('Hello World!');\n"
         ))
     );
     // TODO: more testing

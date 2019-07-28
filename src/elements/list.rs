@@ -4,16 +4,14 @@ use std::iter::once;
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
-pub struct List<'a> {
+pub struct List {
     pub indent: usize,
     pub ordered: bool,
-    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-    pub contents: &'a str,
 }
 
-impl List<'_> {
+impl List {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, List<'_>)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, List, &str)> {
         let (indent, tail) = text
             .find(|c| c != ' ')
             .map(|off| (off, &text[off..]))
@@ -33,14 +31,7 @@ impl List<'_> {
                 if line_indent < indent
                     || (line_indent == indent && is_item(&line[line_indent..]).is_none())
                 {
-                    Some((
-                        &text[pos..],
-                        List {
-                            indent,
-                            ordered,
-                            contents: &text[0..pos],
-                        },
-                    ))
+                    Some((&text[pos..], List { indent, ordered }, &text[0..pos]))
                 } else {
                     pos = i;
                     continue;
@@ -52,48 +43,20 @@ impl List<'_> {
                     if line_indent < indent
                         || (line_indent == indent && is_item(&line[line_indent..]).is_none())
                     {
-                        Some((
-                            &text[pos..],
-                            List {
-                                indent,
-                                ordered,
-                                contents: &text[0..pos],
-                            },
-                        ))
+                        Some((&text[pos..], List { indent, ordered }, &text[0..pos]))
                     } else {
                         pos = next_i;
                         continue;
                     }
                 } else {
-                    Some((
-                        &text[next_i..],
-                        List {
-                            indent,
-                            ordered,
-                            contents: &text[0..pos],
-                        },
-                    ))
+                    Some((&text[next_i..], List { indent, ordered }, &text[0..pos]))
                 }
             } else {
-                Some((
-                    &text[i..],
-                    List {
-                        indent,
-                        ordered,
-                        contents: &text[0..pos],
-                    },
-                ))
+                Some((&text[i..], List { indent, ordered }, &text[0..pos]))
             };
         }
 
-        Some((
-            &text[pos..],
-            List {
-                indent,
-                ordered,
-                contents: &text[0..pos],
-            },
-        ))
+        Some((&text[pos..], List { indent, ordered }, &text[0..pos]))
     }
 }
 
@@ -102,12 +65,11 @@ impl List<'_> {
 #[derive(Debug)]
 pub struct ListItem<'a> {
     pub bullet: &'a str,
-    #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-    pub contents: &'a str,
 }
 
 impl ListItem<'_> {
-    pub(crate) fn parse(text: &str, indent: usize) -> (&str, ListItem<'_>) {
+    #[inline]
+    pub(crate) fn parse(text: &str, indent: usize) -> (&str, ListItem<'_>, &str) {
         debug_assert!(&text[0..indent].trim().is_empty());
         let off = &text[indent..].find(' ').unwrap() + 1 + indent;
 
@@ -125,8 +87,8 @@ impl ListItem<'_> {
                         &text[pos..],
                         ListItem {
                             bullet: &text[indent..off],
-                            contents: &text[off..pos],
                         },
+                        &text[off..pos],
                     );
                 }
             }
@@ -137,8 +99,8 @@ impl ListItem<'_> {
             "",
             ListItem {
                 bullet: &text[indent..off],
-                contents: &text[off..],
             },
+            &text[off..],
         )
     }
 }
@@ -197,8 +159,8 @@ fn list_parse() {
             List {
                 indent: 0,
                 ordered: false,
-                contents: "+ item1\n+ item2"
             },
+            "+ item1\n+ item2"
         ))
     );
     assert_eq!(
@@ -208,8 +170,8 @@ fn list_parse() {
             List {
                 indent: 0,
                 ordered: false,
-                contents: "* item1\n  \n* item2"
             },
+            "* item1\n  \n* item2"
         ))
     );
     assert_eq!(
@@ -219,8 +181,8 @@ fn list_parse() {
             List {
                 indent: 0,
                 ordered: false,
-                contents: "* item1\n"
             },
+            "* item1\n"
         ))
     );
     assert_eq!(
@@ -230,8 +192,8 @@ fn list_parse() {
             List {
                 indent: 0,
                 ordered: false,
-                contents: "* item1\n"
             },
+            "* item1\n"
         ))
     );
     assert_eq!(
@@ -241,8 +203,8 @@ fn list_parse() {
             List {
                 indent: 0,
                 ordered: false,
-                contents: "+ item1\n  + item2\n"
             },
+            "+ item1\n  + item2\n"
         ))
     );
     assert_eq!(
@@ -252,8 +214,8 @@ fn list_parse() {
             List {
                 indent: 0,
                 ordered: false,
-                contents: "+ item1\n  \n  + item2\n   \n+ item 3"
             },
+            "+ item1\n  \n  + item2\n   \n+ item 3"
         ))
     );
     assert_eq!(
@@ -263,8 +225,8 @@ fn list_parse() {
             List {
                 indent: 2,
                 ordered: false,
-                contents: "  + item1\n  \n  + item2"
             },
+            "  + item1\n  \n  + item2"
         ))
     );
     assert_eq!(
@@ -274,8 +236,8 @@ fn list_parse() {
             List {
                 indent: 0,
                 ordered: false,
-                contents: "+ 1\n\n  - 2\n\n  - 3\n\n+ 4"
             },
+            "+ 1\n\n  - 2\n\n  - 3\n\n+ 4"
         ))
     );
 }

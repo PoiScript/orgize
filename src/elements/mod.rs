@@ -56,23 +56,16 @@ pub use self::{
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type"))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
 pub enum Element<'a> {
     Block(Block<'a>),
     BabelCall(BabelCall<'a>),
-    Section {
-        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-        contents: &'a str,
-    },
+    Section,
     Clock(Clock<'a>),
     Cookie(Cookie<'a>),
-    RadioTarget(RadioTarget<'a>),
+    RadioTarget(RadioTarget),
     Drawer(Drawer<'a>),
-    Document {
-        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-        contents: &'a str,
-    },
+    Document,
     DynBlock(DynBlock<'a>),
     FnDef(FnDef<'a>),
     FnRef(FnRef<'a>),
@@ -81,49 +74,24 @@ pub enum Element<'a> {
     InlineSrc(InlineSrc<'a>),
     Keyword(Keyword<'a>),
     Link(Link<'a>),
-    List(List<'a>),
+    List(List),
     ListItem(ListItem<'a>),
     Macros(Macros<'a>),
     Planning(Planning<'a>),
     Snippet(Snippet<'a>),
-    Text {
-        value: &'a str,
-    },
-    Paragraph {
-        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-        contents: &'a str,
-    },
+    Text { value: &'a str },
+    Paragraph,
     Rule,
     Timestamp(Timestamp<'a>),
     Target(Target<'a>),
-    Bold {
-        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-        contents: &'a str,
-    },
-    Strike {
-        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-        contents: &'a str,
-    },
-    Italic {
-        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-        contents: &'a str,
-    },
-    Underline {
-        #[cfg_attr(all(feature = "serde", not(feature = "extra-serde-info")), serde(skip))]
-        contents: &'a str,
-    },
-    Verbatim {
-        value: &'a str,
-    },
-    Code {
-        value: &'a str,
-    },
-    Comment {
-        value: &'a str,
-    },
-    FixedWidth {
-        value: &'a str,
-    },
+    Bold,
+    Strike,
+    Italic,
+    Underline,
+    Verbatim { value: &'a str },
+    Code { value: &'a str },
+    Comment { value: &'a str },
+    FixedWidth { value: &'a str },
 }
 
 macro_rules! impl_from {
@@ -140,7 +108,6 @@ impl_from!(Block);
 impl_from!(BabelCall);
 impl_from!(Clock);
 impl_from!(Cookie);
-impl_from!(RadioTarget);
 impl_from!(Drawer);
 impl_from!(DynBlock);
 impl_from!(FnDef);
@@ -150,7 +117,6 @@ impl_from!(InlineCall);
 impl_from!(InlineSrc);
 impl_from!(Keyword);
 impl_from!(Link);
-impl_from!(List);
 impl_from!(ListItem);
 impl_from!(Macros);
 impl_from!(Planning);
