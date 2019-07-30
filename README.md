@@ -21,11 +21,11 @@ or `Org::parse_with_config`:
 ``` rust
 use orgize::{Org, ParseConfig};
 
-let org = Org::parse_with_config(
+Org::parse_with_config(
     "* TASK Title 1",
-    ParseConfig {
+    &ParseConfig {
         // custom todo keywords
-        todo_keywords: &["TASK"],
+        todo_keywords: vec!["TASK".to_string()],
         ..Default::default()
     },
 );
@@ -64,7 +64,7 @@ assert_eq!(
 );
 ```
 
-## Render html with custom HtmlHandler
+## Render html with custom `HtmlHandler`
 
 To customize html rendering, simply implementing `HtmlHandler` trait and passing
 it to the `Org::html_with_handler` function.
@@ -101,28 +101,26 @@ impl From<FromUtf8Error> for MyError {
     }
 }
 
-struct MyHtmlHandler;
+struct MyHtmlHandler(DefaultHtmlHandler);
 
 impl HtmlHandler<MyError> for MyHtmlHandler {
     fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
-        let mut default_handler = DefaultHtmlHandler;
         match element {
             Element::Headline(headline) => {
                 if headline.level > 6 {
                     return Err(MyError::Heading);
                 } else {
-                    let slugify = slugify!(headline.title);
                     write!(
                         w,
                         "<h{0}><a id=\"{1}\" href=\"#{1}\">{2}</a></h{0}>",
                         headline.level,
-                        slugify,
+                        slugify!(headline.title),
                         Escape(headline.title),
                     )?;
                 }
             }
             // fallthrough to default handler
-            _ => default_handler.start(w, element)?,
+            _ => self.0.start(w, element)?,
         }
         Ok(())
     }
@@ -130,7 +128,7 @@ impl HtmlHandler<MyError> for MyHtmlHandler {
 
 fn main() -> Result<(), MyError> {
     let mut writer = Vec::new();
-    Org::parse("* title\n*section*").html_with_handler(&mut writer, MyHtmlHandler)?;
+    Org::parse("* title\n*section*").html_with_handler(&mut writer, MyHtmlHandler(DefaultHtmlHandler))?;
 
     assert_eq!(
         String::from_utf8(writer)?,
@@ -145,13 +143,13 @@ fn main() -> Result<(), MyError> {
 **Note**: as I mentioned above, each element will appears two times while iterating.
 And handler will silently ignores all end events from non-container elements.
 
-So if you want to change how a non-container element renders, just redefine the start
-function and leave the end function untouched.
+So if you want to change how a non-container element renders, just redefine the `start`
+function and leave the `end` function unchanged.
 
-## Serde
+# Serde
 
 `Org` struct have already implemented serde's `Serialize` trait. It means you can
-freely serialize it into any format that serde supports such as json:
+serialize it into any format supported by serde, such as json:
 
 ```rust
 use orgize::Org;
@@ -186,11 +184,11 @@ println!("{}", to_string(&org).unwrap());
 
 ## Features
 
-By now, orgize provides three features:
+By now, orgize provides two features:
 
 + `serde`: adds the ability to serialize `Org` and other elements using `serde`, enabled by default.
 
-+ `chrono`: adds the ability to convert `Datetime` into `chrono` struct, disabled by default.
++ `chrono`: adds the ability to convert `Datetime` into `chrono` structs, disabled by default.
 
 ## License
 

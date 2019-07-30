@@ -27,7 +27,7 @@ pub struct Headline<'a> {
 impl Headline<'_> {
     pub(crate) fn parse<'a>(
         text: &'a str,
-        config: &ParseConfig<'_>,
+        config: &ParseConfig,
     ) -> (&'a str, Headline<'a>, &'a str) {
         let level = memchr2(b'\n', b' ', text.as_bytes()).unwrap_or_else(|| text.len());
 
@@ -67,7 +67,8 @@ impl Headline<'_> {
             let (word, off) = memchr(b' ', tail.as_bytes())
                 .map(|i| (&tail[0..i], i + 1))
                 .unwrap_or_else(|| (tail, tail.len()));
-            if config.todo_keywords.contains(&word) || config.default_todo_keywords.contains(&word)
+            if config.todo_keywords.iter().any(|x| x == word)
+                || config.done_keywords.iter().any(|x| x == word)
             {
                 (Some(word), &tail[off..])
             } else {
@@ -151,7 +152,7 @@ impl Headline<'_> {
 
 #[cfg(test)]
 lazy_static::lazy_static! {
-    static ref CONFIG: ParseConfig<'static> = ParseConfig::default();
+    static ref CONFIG: ParseConfig = ParseConfig::default();
 }
 
 #[test]
@@ -276,7 +277,7 @@ fn parse_todo_keywords() {
         Headline::parse(
             "**** DONE [#A] COMMENT Title :tag:a2%:",
             &ParseConfig {
-                default_todo_keywords: &[],
+                done_keywords: vec![],
                 ..Default::default()
             }
         ),
@@ -296,7 +297,7 @@ fn parse_todo_keywords() {
         Headline::parse(
             "**** TASK [#A] COMMENT Title :tag:a2%:",
             &ParseConfig {
-                todo_keywords: &["TASK"],
+                todo_keywords: vec!["TASK".to_string()],
                 ..Default::default()
             }
         ),

@@ -2,18 +2,18 @@
 
 /// Parse configuration
 #[derive(Clone, Debug)]
-pub struct ParseConfig<'a> {
-    /// Default headline todo keywords, it shouldn't be changed.
-    pub default_todo_keywords: &'a [&'a str],
-    /// Custom headline todo keywords
-    pub todo_keywords: &'a [&'a str],
+pub struct ParseConfig {
+    /// Headline's TODO keywords, todo type
+    pub todo_keywords: Vec<String>,
+    /// Headline's TODO keywords, done type
+    pub done_keywords: Vec<String>,
 }
 
-impl Default for ParseConfig<'_> {
+impl Default for ParseConfig {
     fn default() -> Self {
         ParseConfig {
-            default_todo_keywords: &["TODO", "DONE", "NEXT", "WAITING", "LATER", "CANCELLED"],
-            todo_keywords: &[],
+            todo_keywords: vec![String::from("TODO")],
+            done_keywords: vec![String::from("DONE")],
         }
     }
 }

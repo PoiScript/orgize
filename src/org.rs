@@ -44,10 +44,10 @@ enum Container<'a> {
 
 impl<'a> Org<'a> {
     pub fn parse(text: &'a str) -> Self {
-        Org::parse_with_config(text, ParseConfig::default())
+        Org::parse_with_config(text, &ParseConfig::default())
     }
 
-    pub fn parse_with_config(content: &'a str, config: ParseConfig<'_>) -> Self {
+    pub fn parse_with_config(content: &'a str, config: &ParseConfig) -> Self {
         let mut arena = Arena::new();
         let document = arena.new_node(Element::Document);
 
@@ -238,7 +238,7 @@ fn parse_element<'a>(
     }
 
     if tail.starts_with(':') {
-        if let Some((tail, drawer, content)) = Drawer::parse(tail) {
+        if let Some((tail, drawer, _content)) = Drawer::parse(tail) {
             return Some((tail, arena.new_node(drawer)));
         }
     }
@@ -404,7 +404,7 @@ fn parse_object<'a>(
             .ok()
             .map(|(tail, element)| (tail, arena.new_node(element))),
         b'<' => RadioTarget::parse(contents)
-            .map(|(tail, (radio, content))| (tail, radio))
+            .map(|(tail, (radio, _content))| (tail, radio))
             .or_else(|_| Target::parse(contents))
             .or_else(|_| {
                 Timestamp::parse_active(contents).map(|(tail, timestamp)| (tail, timestamp.into()))

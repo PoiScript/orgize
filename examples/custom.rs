@@ -29,28 +29,26 @@ impl From<FromUtf8Error> for MyError {
     }
 }
 
-struct MyHtmlHandler;
+struct MyHtmlHandler(DefaultHtmlHandler);
 
 impl HtmlHandler<MyError> for MyHtmlHandler {
     fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
-        let mut default_handler = DefaultHtmlHandler;
         match element {
             Element::Headline(headline) => {
                 if headline.level > 6 {
                     return Err(MyError::Heading);
                 } else {
-                    let slugify = slugify!(headline.title);
                     write!(
                         w,
                         "<h{0}><a id=\"{1}\" href=\"#{1}\">{2}</a></h{0}>",
                         headline.level,
-                        slugify,
+                        slugify!(headline.title),
                         Escape(headline.title),
                     )?;
                 }
             }
             // fallthrough to default handler
-            _ => default_handler.start(w, element)?,
+            _ => self.0.start(w, element)?,
         }
         Ok(())
     }
@@ -65,7 +63,7 @@ fn main() -> Result<(), MyError> {
         let contents = String::from_utf8(fs::read(&args[1])?)?;
 
         let mut writer = Vec::new();
-        Org::parse(&contents).html_with_handler(&mut writer, MyHtmlHandler)?;
+        Org::parse(&contents).html_with_handler(&mut writer, MyHtmlHandler(DefaultHtmlHandler))?;
 
         println!("{}", String::from_utf8(writer)?);
     }
