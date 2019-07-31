@@ -3,7 +3,7 @@
 Check out https://orgmode.org/worg/dev/org-syntax.html for more information.
 
 - [x] Headline
-  - [ ] Objects insides headline title
+  - [X] Objects insides headline title
 - [ ] Affiliated Keywords
 
 ## Greater Elements
@@ -28,7 +28,7 @@ Check out https://orgmode.org/worg/dev/org-syntax.html for more information.
 - [x] Blocks
   - [ ] Escape characters (`#`,`*`, etc)
   - [ ] Line numbers
-- [ ] Clock, Diary Sexp and Planning
+- [X] Clock, Diary Sexp and Planning
 - [x] Comments
 - [x] Fixed Width Areas
 - [x] Horizontal Rules
@@ -61,9 +61,9 @@ Check out https://orgmode.org/worg/dev/org-syntax.html for more information.
 ## Export
 
 - [x] HTML
-- [ ] Org
-- [ ] JSON
+- [X] Org
 - [ ] LaTeX
+- [X] JSON, (via Serde)
 
 ## Extra
 
