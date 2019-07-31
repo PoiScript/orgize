@@ -5,7 +5,7 @@ use std::io::{Error as IOError, Write};
 use std::result::Result;
 use std::string::FromUtf8Error;
 
-use orgize::export::{html::Escape, DefaultHtmlHandler, HtmlHandler};
+use orgize::export::{DefaultHtmlHandler, HtmlHandler};
 use orgize::{Element, Org};
 use slugify::slugify;
 
@@ -34,21 +34,30 @@ struct MyHtmlHandler(DefaultHtmlHandler);
 impl HtmlHandler<MyError> for MyHtmlHandler {
     fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
         match element {
-            Element::Headline(headline) => {
-                if headline.level > 6 {
+            Element::Title(title) => {
+                if title.level > 6 {
                     return Err(MyError::Heading);
                 } else {
                     write!(
                         w,
-                        "<h{0}><a id=\"{1}\" href=\"#{1}\">{2}</a></h{0}>",
-                        headline.level,
-                        slugify!(headline.title),
-                        Escape(headline.title),
+                        "<h{0}><a id=\"{1}\" href=\"#{1}\">",
+                        title.level,
+                        slugify!(title.raw),
                     )?;
                 }
             }
             // fallthrough to default handler
             _ => self.0.start(w, element)?,
+        }
+        Ok(())
+    }
+
+    fn end<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
+        match element {
+            Element::Title(title) => {
+                write!(w, "</a></h{}>", title.level,)?;
+            }
+            _ => self.0.end(w, element)?,
         }
         Ok(())
     }

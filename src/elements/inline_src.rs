@@ -67,7 +67,8 @@ fn parse() {
             }),
         ))
     );
-    assert!(InlineSrc::parse("src_xml[:exports code]{<tag>text</tag>").is_err(),);
-    assert!(InlineSrc::parse("src_[:exports code]{<tag>text</tag>}").is_err(),);
-    // assert_eq!(parse("src_xml[:exports code]"), None);
+
+    assert!(InlineSrc::parse("src_xml[:exports code]{<tag>text</tag>").is_err());
+    assert!(InlineSrc::parse("src_[:exports code]{<tag>text</tag>}").is_err());
+    assert!(InlineSrc::parse("src_xml[:exports code]").is_err());
 }

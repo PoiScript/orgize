@@ -8,7 +8,6 @@ mod dyn_block;
 mod emphasis;
 mod fn_def;
 mod fn_ref;
-mod headline;
 mod inline_call;
 mod inline_src;
 mod keyword;
@@ -21,6 +20,7 @@ mod rule;
 mod snippet;
 mod target;
 mod timestamp;
+mod title;
 
 pub(crate) use emphasis::parse as parse_emphasis;
 
@@ -32,7 +32,6 @@ pub use self::{
     dyn_block::DynBlock,
     fn_def::FnDef,
     fn_ref::FnRef,
-    headline::Headline,
     inline_call::InlineCall,
     inline_src::InlineSrc,
     keyword::{BabelCall, Keyword},
@@ -45,14 +44,10 @@ pub use self::{
     snippet::Snippet,
     target::Target,
     timestamp::{Date, Time, Timestamp},
+    title::Title,
 };
 
 /// Org-mode element enum
-///
-/// Generally, each variant contains a element struct and
-/// a set of properties which indicate the position of the
-/// element in the original string.
-///
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -69,7 +64,7 @@ pub enum Element<'a> {
     DynBlock(DynBlock<'a>),
     FnDef(FnDef<'a>),
     FnRef(FnRef<'a>),
-    Headline(Headline<'a>),
+    Headline,
     InlineCall(InlineCall<'a>),
     InlineSrc(InlineSrc<'a>),
     Keyword(Keyword<'a>),
@@ -92,6 +87,28 @@ pub enum Element<'a> {
     Code { value: &'a str },
     Comment { value: &'a str },
     FixedWidth { value: &'a str },
+    Title(Title<'a>),
+}
+
+impl Element<'_> {
+    pub fn is_container(&self) -> bool {
+        match self {
+            Element::Block(_)
+            | Element::Bold
+            | Element::Document
+            | Element::DynBlock(_)
+            | Element::Headline
+            | Element::Italic
+            | Element::List(_)
+            | Element::ListItem(_)
+            | Element::Paragraph
+            | Element::Section
+            | Element::Strike
+            | Element::Underline
+            | Element::Title(_) => true,
+            _ => false,
+        }
+    }
 }
 
 macro_rules! impl_from {
@@ -112,7 +129,6 @@ impl_from!(Drawer);
 impl_from!(DynBlock);
 impl_from!(FnDef);
 impl_from!(FnRef);
-impl_from!(Headline);
 impl_from!(InlineCall);
 impl_from!(InlineSrc);
 impl_from!(Keyword);

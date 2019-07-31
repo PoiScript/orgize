@@ -35,17 +35,10 @@ pub trait HtmlHandler<E: From<Error>> {
         match element {
             // container elements
             Block(_block) => write!(w, "<div>")?,
-            Bold { .. } => write!(w, "<b>")?,
-            Document { .. } => write!(w, "<main>")?,
+            Bold => write!(w, "<b>")?,
+            Document => write!(w, "<main>")?,
             DynBlock(_dyn_block) => (),
-            Headline(headline) => {
-                let level = if headline.level <= 6 {
-                    headline.level
-                } else {
-                    6
-                };
-                write!(w, "<h{0}>{1}</h{0}>", level, Escape(headline.title))?;
-            }
+            Headline => (),
             List(list) => {
                 if list.ordered {
                     write!(w, "<ol>")?;
@@ -53,12 +46,12 @@ pub trait HtmlHandler<E: From<Error>> {
                     write!(w, "<ul>")?;
                 }
             }
-            Italic { .. } => write!(w, "<i>")?,
-            ListItem { .. } => write!(w, "<li>")?,
-            Paragraph { .. } => write!(w, "<p>")?,
-            Section { .. } => write!(w, "<section>")?,
-            Strike { .. } => write!(w, "<s>")?,
-            Underline { .. } => write!(w, "<u>")?,
+            Italic => write!(w, "<i>")?,
+            ListItem(_) => write!(w, "<li>")?,
+            Paragraph => write!(w, "<p>")?,
+            Section => write!(w, "<section>")?,
+            Strike => write!(w, "<s>")?,
+            Underline => write!(w, "<u>")?,
             // non-container elements
             BabelCall(_babel_call) => (),
             InlineSrc(inline_src) => write!(w, "<code>{}</code>", Escape(inline_src.body))?,
@@ -91,6 +84,7 @@ pub trait HtmlHandler<E: From<Error>> {
             Drawer(_drawer) => (),
             Rule => write!(w, "<hr>")?,
             Cookie(_cookie) => (),
+            Title(title) => write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?,
         }
 
         Ok(())
@@ -101,10 +95,10 @@ pub trait HtmlHandler<E: From<Error>> {
         match element {
             // container elements
             Block(_block) => write!(w, "</div>")?,
-            Bold { .. } => write!(w, "</b>")?,
-            Document { .. } => write!(w, "</main>")?,
+            Bold => write!(w, "</b>")?,
+            Document => write!(w, "</main>")?,
             DynBlock(_dyn_block) => (),
-            Headline(_headline) => (),
+            Headline => (),
             List(list) => {
                 if list.ordered {
                     write!(w, "</ol>")?;
@@ -112,14 +106,15 @@ pub trait HtmlHandler<E: From<Error>> {
                     write!(w, "</ul>")?;
                 }
             }
-            Italic { .. } => write!(w, "</i>")?,
-            ListItem { .. } => write!(w, "</li>")?,
-            Paragraph { .. } => write!(w, "</p>")?,
-            Section { .. } => write!(w, "</section>")?,
-            Strike { .. } => write!(w, "</s>")?,
-            Underline { .. } => write!(w, "</u>")?,
+            Italic => write!(w, "</i>")?,
+            ListItem(_) => write!(w, "</li>")?,
+            Paragraph => write!(w, "</p>")?,
+            Section => write!(w, "</section>")?,
+            Strike => write!(w, "</s>")?,
+            Underline => write!(w, "</u>")?,
+            Title(title) => write!(w, "</h{}>", if title.level <= 6 { title.level } else { 6 })?,
             // non-container elements
-            _ => (),
+            _ => debug_assert!(!element.is_container()),
         }
 
         Ok(())

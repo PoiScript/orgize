@@ -1,6 +1,5 @@
-//! Headline
+//! Headline Title
 
-use jetscii::ByteSubstring;
 use memchr::{memchr, memchr2, memrchr};
 
 use crate::config::ParseConfig;
@@ -8,7 +7,7 @@ use crate::config::ParseConfig;
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
-pub struct Headline<'a> {
+pub struct Title<'a> {
     /// headline level, number of stars
     pub level: usize,
     /// priority cookie
@@ -17,47 +16,35 @@ pub struct Headline<'a> {
     /// headline tags, including the sparated colons
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Vec::is_empty"))]
     pub tags: Vec<&'a str>,
-    /// headline title
-    pub title: &'a str,
     /// headline keyword
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub keyword: Option<&'a str>,
+    pub raw: &'a str,
 }
 
-impl Headline<'_> {
-    pub(crate) fn parse<'a>(
-        text: &'a str,
-        config: &ParseConfig,
-    ) -> (&'a str, Headline<'a>, &'a str) {
+impl Title<'_> {
+    #[inline]
+    pub(crate) fn parse<'a>(text: &'a str, config: &ParseConfig) -> (&'a str, Title<'a>, &'a str) {
         let level = memchr2(b'\n', b' ', text.as_bytes()).unwrap_or_else(|| text.len());
 
         debug_assert!(level > 0);
         debug_assert!(text.as_bytes()[0..level].iter().all(|&c| c == b'*'));
 
-        let (off, end) = memchr(b'\n', text.as_bytes())
-            .map(|i| {
-                (
-                    i + 1,
-                    if i + 1 == text.len() {
-                        i + 1
-                    } else {
-                        Headline::find_level(&text[i + 1..], level) + i + 1
-                    },
-                )
-            })
-            .unwrap_or_else(|| (text.len(), text.len()));
+        let off = memchr(b'\n', text.as_bytes())
+            .map(|i| i + 1)
+            .unwrap_or_else(|| text.len());
 
         if level == off {
             return (
-                &text[end..],
-                Headline {
+                "",
+                Title {
                     level,
                     keyword: None,
                     priority: None,
-                    title: "",
                     tags: Vec::new(),
+                    raw: "",
                 },
-                &text[off..end],
+                "",
             );
         }
 
@@ -103,45 +90,16 @@ impl Headline<'_> {
         };
 
         (
-            &text[end..],
-            Headline {
+            &text[off..],
+            Title {
                 level,
                 keyword,
                 priority,
-                title,
                 tags: tags.split(':').filter(|s| !s.is_empty()).collect(),
+                raw: title,
             },
-            &text[off..end],
+            title,
         )
-    }
-
-    pub(crate) fn find_level(text: &str, level: usize) -> usize {
-        let bytes = text.as_bytes();
-        if bytes[0] == b'*' {
-            if let Some(stars) = memchr2(b'\n', b' ', bytes) {
-                if stars <= level && bytes[0..stars].iter().all(|&c| c == b'*') {
-                    return 0;
-                }
-            }
-        }
-
-        let mut pos = 0;
-        while let Some(off) = ByteSubstring::new(b"\n*").find(&bytes[pos..]) {
-            pos += off + 1;
-            if let Some(stars) = memchr2(b'\n', b' ', &bytes[pos..]) {
-                if stars > 0 && stars <= level && bytes[pos..pos + stars].iter().all(|&c| c == b'*')
-                {
-                    return pos;
-                }
-            }
-        }
-
-        text.len()
-    }
-
-    /// checks if this headline is "commented"
-    pub fn is_commented(&self) -> bool {
-        self.title.starts_with("COMMENT ")
     }
 
     /// checks if this headline is "archived"
@@ -158,123 +116,120 @@ lazy_static::lazy_static! {
 #[test]
 fn parse() {
     assert_eq!(
-        Headline::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &CONFIG),
+        Title::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &CONFIG),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: Some('A'),
                 keyword: Some("DONE"),
-                title: "COMMENT Title",
                 tags: vec!["tag", "a2%"],
+                raw: "COMMENT Title"
             },
-            ""
+            "COMMENT Title"
         )
     );
     assert_eq!(
-        Headline::parse("**** ToDO [#A] COMMENT Title :tag:a2%:", &CONFIG),
+        Title::parse("**** ToDO [#A] COMMENT Title :tag:a2%:", &CONFIG),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: None,
                 tags: vec!["tag", "a2%"],
-                title: "ToDO [#A] COMMENT Title",
                 keyword: None,
+                raw: "ToDO [#A] COMMENT Title"
             },
-            ""
+            "ToDO [#A] COMMENT Title"
         )
     );
     assert_eq!(
-        Headline::parse("**** T0DO [#A] COMMENT Title :tag:a2%:", &CONFIG),
+        Title::parse("**** T0DO [#A] COMMENT Title :tag:a2%:", &CONFIG),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: None,
                 tags: vec!["tag", "a2%"],
-                title: "T0DO [#A] COMMENT Title",
                 keyword: None,
+                raw: "T0DO [#A] COMMENT Title"
             },
-            ""
+            "T0DO [#A] COMMENT Title"
         )
     );
     assert_eq!(
-        Headline::parse("**** DONE [#1] COMMENT Title :tag:a2%:", &CONFIG),
+        Title::parse("**** DONE [#1] COMMENT Title :tag:a2%:", &CONFIG),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: None,
                 tags: vec!["tag", "a2%"],
-                title: "[#1] COMMENT Title",
                 keyword: Some("DONE"),
+                raw: "[#1] COMMENT Title"
             },
-            ""
+            "[#1] COMMENT Title"
         )
     );
     assert_eq!(
-        Headline::parse("**** DONE [#a] COMMENT Title :tag:a2%:", &CONFIG),
+        Title::parse("**** DONE [#a] COMMENT Title :tag:a2%:", &CONFIG),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: None,
                 tags: vec!["tag", "a2%"],
-                title: "[#a] COMMENT Title",
                 keyword: Some("DONE"),
+                raw: "[#a] COMMENT Title"
             },
-            ""
+            "[#a] COMMENT Title"
         )
     );
     assert_eq!(
-        Headline::parse("**** DONE [#A] COMMENT Title :tag:a2%", &CONFIG),
+        Title::parse("**** DONE [#A] COMMENT Title :tag:a2%", &CONFIG),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: Some('A'),
                 tags: Vec::new(),
-                title: "COMMENT Title :tag:a2%",
                 keyword: Some("DONE"),
+                raw: "COMMENT Title :tag:a2%"
             },
-            ""
+            "COMMENT Title :tag:a2%"
         )
     );
     assert_eq!(
-        Headline::parse("**** DONE [#A] COMMENT Title tag:a2%:", &CONFIG),
+        Title::parse("**** DONE [#A] COMMENT Title tag:a2%:", &CONFIG),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: Some('A'),
                 tags: Vec::new(),
-                title: "COMMENT Title tag:a2%:",
                 keyword: Some("DONE"),
+                raw: "COMMENT Title tag:a2%:"
             },
-            ""
+            "COMMENT Title tag:a2%:"
         )
     );
     assert_eq!(
-        Headline::parse("**** COMMENT Title tag:a2%:", &CONFIG),
+        Title::parse("**** COMMENT Title tag:a2%:", &CONFIG),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: None,
                 tags: Vec::new(),
-                title: "COMMENT Title tag:a2%:",
                 keyword: None,
+                raw: "COMMENT Title tag:a2%:"
             },
-            ""
+            "COMMENT Title tag:a2%:"
         )
     );
-}
 
-#[test]
-fn parse_todo_keywords() {
     assert_eq!(
-        Headline::parse(
+        Title::parse(
             "**** DONE [#A] COMMENT Title :tag:a2%:",
             &ParseConfig {
                 done_keywords: vec![],
@@ -283,18 +238,18 @@ fn parse_todo_keywords() {
         ),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: None,
                 keyword: None,
-                title: "DONE [#A] COMMENT Title",
                 tags: vec!["tag", "a2%"],
+                raw: "DONE [#A] COMMENT Title"
             },
-            ""
+            "DONE [#A] COMMENT Title"
         )
     );
     assert_eq!(
-        Headline::parse(
+        Title::parse(
             "**** TASK [#A] COMMENT Title :tag:a2%:",
             &ParseConfig {
                 todo_keywords: vec!["TASK".to_string()],
@@ -303,53 +258,39 @@ fn parse_todo_keywords() {
         ),
         (
             "",
-            Headline {
+            Title {
                 level: 4,
                 priority: Some('A'),
                 keyword: Some("TASK"),
-                title: "COMMENT Title",
                 tags: vec!["tag", "a2%"],
+                raw: "COMMENT Title"
             },
-            ""
+            "COMMENT Title"
         )
     );
 }
 
-#[test]
-fn is_commented() {
-    assert!(Headline::parse("* COMMENT Title", &CONFIG).1.is_commented());
-    assert!(!Headline::parse("* Title", &CONFIG).1.is_commented());
-    assert!(!Headline::parse("* C0MMENT Title", &CONFIG).1.is_commented());
-    assert!(!Headline::parse("* comment Title", &CONFIG).1.is_commented());
-}
+// #[test]
+// fn is_commented() {
+//     assert!(Title::parse("* COMMENT Title", &CONFIG)
+//         .1
+//         .is_commented());
+//     assert!(!Title::parse("* Title", &CONFIG).1.is_commented());
+//     assert!(!Title::parse("* C0MMENT Title", &CONFIG)
+//         .1
+//         .is_commented());
+//     assert!(!Title::parse("* comment Title", &CONFIG)
+//         .1
+//         .is_commented());
+// }
 
 #[test]
 fn is_archived() {
-    assert!(Headline::parse("* Title :ARCHIVE:", &CONFIG)
-        .1
-        .is_archived());
-    assert!(Headline::parse("* Title :t:ARCHIVE:", &CONFIG)
-        .1
-        .is_archived());
-    assert!(Headline::parse("* Title :ARCHIVE:t:", &CONFIG)
-        .1
-        .is_archived());
-    assert!(!Headline::parse("* Title", &CONFIG).1.is_commented());
-    assert!(!Headline::parse("* Title :ARCHIVED:", &CONFIG)
-        .1
-        .is_archived());
-    assert!(!Headline::parse("* Title :ARCHIVES:", &CONFIG)
-        .1
-        .is_archived());
-    assert!(!Headline::parse("* Title :archive:", &CONFIG)
-        .1
-        .is_archived());
-}
-
-#[test]
-fn find_level() {
-    assert_eq!(
-        Headline::find_level("\n** Title\n* Title\n** Title\n", 1),
-        "\n** Title\n".len()
-    );
+    assert!(Title::parse("* Title :ARCHIVE:", &CONFIG).1.is_archived());
+    assert!(Title::parse("* Title :t:ARCHIVE:", &CONFIG).1.is_archived());
+    assert!(Title::parse("* Title :ARCHIVE:t:", &CONFIG).1.is_archived());
+    assert!(!Title::parse("* Title", &CONFIG).1.is_archived());
+    assert!(!Title::parse("* Title :ARCHIVED:", &CONFIG).1.is_archived());
+    assert!(!Title::parse("* Title :ARCHIVES:", &CONFIG).1.is_archived());
+    assert!(!Title::parse("* Title :archive:", &CONFIG).1.is_archived());
 }

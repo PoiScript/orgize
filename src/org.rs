@@ -1,12 +1,12 @@
 use indextree::{Arena, NodeId};
 use jetscii::bytes;
-use memchr::{memchr, memchr_iter};
+use memchr::{memchr, memchr2, memchr_iter};
 use std::io::{Error, Write};
 
 use crate::config::ParseConfig;
 use crate::elements::*;
 use crate::export::*;
-use crate::iter::Iter;
+use crate::iter::{Event, Iter};
 
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
@@ -30,13 +30,13 @@ enum Container<'a> {
         content: &'a str,
         node: NodeId,
     },
-    // Headline, Document
+    // Headline
     Headline {
         content: &'a str,
         node: NodeId,
     },
-    // Section
-    Section {
+    // Document
+    Document {
         content: &'a str,
         node: NodeId,
     },
@@ -51,54 +51,61 @@ impl<'a> Org<'a> {
         let mut arena = Arena::new();
         let document = arena.new_node(Element::Document);
 
-        let mut containers = vec![Container::Headline {
+        let mut containers = vec![Container::Document {
             content,
             node: document,
         }];
 
         while let Some(container) = containers.pop() {
             match container {
-                Container::Headline {
-                    mut content,
+                Container::Document {
+                    content,
                     node: parent,
                 } => {
-                    if !content.is_empty() {
-                        let off = Headline::find_level(content, std::usize::MAX);
-                        if off != 0 {
-                            let node = arena.new_node(Element::Section);
-                            parent.append(node, &mut arena).unwrap();
-                            containers.push(Container::Section {
-                                content: &content[0..off],
-                                node,
-                            });
-                            content = &content[off..];
-                        }
-                    }
-                    while !content.is_empty() {
-                        let (tail, headline, headline_content) = Headline::parse(content, &config);
-                        let headline = Element::Headline(headline);
-                        let node = arena.new_node(headline);
+                    let mut tail = skip_empty_lines(content);
+                    if let Some((new_tail, content)) = parse_section(tail) {
+                        let node = arena.new_node(Element::Section);
                         parent.append(node, &mut arena).unwrap();
-                        containers.push(Container::Headline {
-                            content: headline_content,
-                            node,
-                        });
-                        content = tail;
+                        containers.push(Container::Block { content, node });
+                        tail = new_tail;
+                    }
+                    while !tail.is_empty() {
+                        let (new_tail, content) = parse_headline(tail);
+                        let node = arena.new_node(Element::Headline);
+                        parent.append(node, &mut arena).unwrap();
+                        containers.push(Container::Headline { content, node });
+                        tail = new_tail;
                     }
                 }
-                Container::Section { content, node } => {
-                    // TODO
-                    if let Some((tail, _planning)) = Planning::parse(content) {
-                        parse_elements_children(&mut arena, tail, node, &mut containers);
-                    } else {
-                        parse_elements_children(&mut arena, content, node, &mut containers);
+                Container::Headline {
+                    content,
+                    node: parent,
+                } => {
+                    let mut tail = content;
+                    let (new_tail, title, content) = Title::parse(tail, config);
+                    let node = arena.new_node(Element::Title(title));
+                    parent.append(node, &mut arena).unwrap();
+                    containers.push(Container::Inline { content, node });
+                    tail = skip_empty_lines(new_tail);
+                    if let Some((new_tail, content)) = parse_section(tail) {
+                        let node = arena.new_node(Element::Section);
+                        parent.append(node, &mut arena).unwrap();
+                        containers.push(Container::Block { content, node });
+                        tail = new_tail;
+                    }
+                    while !tail.is_empty() {
+                        let (new_tail, content) = parse_headline(tail);
+                        let node = arena.new_node(Element::Headline);
+                        parent.append(node, &mut arena).unwrap();
+                        containers.push(Container::Headline { content, node });
+                        tail = new_tail;
                     }
                 }
                 Container::Block { content, node } => {
-                    parse_elements_children(&mut arena, content, node, &mut containers);
+                    parse_blocks(&mut arena, content, node, &mut containers);
                 }
                 Container::Inline { content, node } => {
-                    parse_objects_children(&mut arena, content, node, &mut containers);
+                    parse_inlines(&mut arena, content, node, &mut containers);
                 }
                 Container::List {
                     content,
@@ -130,12 +137,10 @@ impl<'a> Org<'a> {
         E: From<Error>,
         H: HtmlHandler<E>,
     {
-        use crate::iter::Event::*;
-
         for event in self.iter() {
             match event {
-                Start(element) => handler.start(&mut writer, element)?,
-                End(element) => handler.end(&mut writer, element)?,
+                Event::Start(element) => handler.start(&mut writer, element)?,
+                Event::End(element) => handler.end(&mut writer, element)?,
             }
         }
 
@@ -143,7 +148,49 @@ impl<'a> Org<'a> {
     }
 }
 
-fn parse_elements_children<'a>(
+fn is_headline(text: &str) -> Option<usize> {
+    if let Some(off) = memchr2(b'\n', b' ', text.as_bytes()) {
+        if off > 0 && text[0..off].as_bytes().iter().all(|&c| c == b'*') {
+            Some(off)
+        } else {
+            None
+        }
+    } else if text.len() > 0 && text.as_bytes().iter().all(|&c| c == b'*') {
+        Some(text.len())
+    } else {
+        None
+    }
+}
+
+fn parse_section(text: &str) -> Option<(&str, &str)> {
+    if text.is_empty() || is_headline(text).is_some() {
+        return None;
+    }
+
+    for i in memchr_iter(b'\n', text.as_bytes()) {
+        if is_headline(&text[i + 1..]).is_some() {
+            return Some((&text[i + 1..], &text[0..i + 1]));
+        }
+    }
+
+    Some(("", text))
+}
+
+fn parse_headline(text: &str) -> (&str, &str) {
+    let level = is_headline(text).unwrap();
+
+    for i in memchr_iter(b'\n', text.as_bytes()) {
+        if let Some(l) = is_headline(&text[i + 1..]) {
+            if l <= level {
+                return (&text[i + 1..], &text[0..i + 1]);
+            }
+        }
+    }
+
+    ("", text)
+}
+
+fn parse_blocks<'a>(
     arena: &mut Arena<Element<'a>>,
     content: &'a str,
     parent: NodeId,
@@ -151,7 +198,7 @@ fn parse_elements_children<'a>(
 ) {
     let mut tail = skip_empty_lines(content);
 
-    if let Some((new_tail, element)) = parse_element(content, arena, containers) {
+    if let Some((new_tail, element)) = parse_block(content, arena, containers) {
         parent.append(element, arena).unwrap();
         tail = skip_empty_lines(new_tail);
     }
@@ -173,7 +220,7 @@ fn parse_elements_children<'a>(
             });
             text = tail;
             pos = 0;
-        } else if let Some((new_tail, element)) = parse_element(tail, arena, containers) {
+        } else if let Some((new_tail, element)) = parse_block(tail, arena, containers) {
             if pos != 0 {
                 let node = arena.new_node(Element::Paragraph);
                 parent.append(node, arena).unwrap();
@@ -202,7 +249,7 @@ fn parse_elements_children<'a>(
     }
 }
 
-fn parse_element<'a>(
+fn parse_block<'a>(
     contents: &'a str,
     arena: &mut Arena<Element<'a>>,
     containers: &mut Vec<Container<'a>>,
@@ -300,7 +347,7 @@ fn parse_element<'a>(
     }
 }
 
-fn parse_objects_children<'a>(
+fn parse_inlines<'a>(
     arena: &mut Arena<Element<'a>>,
     content: &'a str,
     parent: NodeId,
@@ -308,8 +355,8 @@ fn parse_objects_children<'a>(
 ) {
     let mut tail = content;
 
-    if let Some((new_tail, obj)) = parse_object(tail, arena, containers) {
-        parent.append(obj, arena).unwrap();
+    if let Some((new_tail, element)) = parse_inline(tail, arena, containers) {
+        parent.append(element, arena).unwrap();
         tail = new_tail;
     }
 
@@ -321,7 +368,7 @@ fn parse_objects_children<'a>(
     while let Some(off) = bs.find(tail.as_bytes()) {
         match tail.as_bytes()[off] {
             b'{' => {
-                if let Some((new_tail, obj)) = parse_object(&tail[off..], arena, containers) {
+                if let Some((new_tail, element)) = parse_inline(&tail[off..], arena, containers) {
                     if pos != 0 {
                         let node = arena.new_node(Element::Text {
                             value: &text[0..pos + off],
@@ -329,39 +376,40 @@ fn parse_objects_children<'a>(
                         parent.append(node, arena).unwrap();
                         pos = 0;
                     }
-                    parent.append(obj, arena).unwrap();
+                    parent.append(element, arena).unwrap();
                     tail = new_tail;
                     text = new_tail;
                     continue;
-                } else if let Some((new_tail, obj)) =
-                    parse_object(&tail[off + 1..], arena, containers)
+                } else if let Some((new_tail, element)) =
+                    parse_inline(&tail[off + 1..], arena, containers)
                 {
                     let node = arena.new_node(Element::Text {
                         value: &text[0..pos + off + 1],
                     });
                     parent.append(node, arena).unwrap();
                     pos = 0;
-                    parent.append(obj, arena).unwrap();
+                    parent.append(element, arena).unwrap();
                     tail = new_tail;
                     text = new_tail;
                     continue;
                 }
             }
             b' ' | b'(' | b'\'' | b'"' | b'\n' => {
-                if let Some((new_tail, obj)) = parse_object(&tail[off + 1..], arena, containers) {
+                if let Some((new_tail, element)) = parse_inline(&tail[off + 1..], arena, containers)
+                {
                     let node = arena.new_node(Element::Text {
                         value: &text[0..pos + off + 1],
                     });
                     parent.append(node, arena).unwrap();
                     pos = 0;
-                    parent.append(obj, arena).unwrap();
+                    parent.append(element, arena).unwrap();
                     tail = new_tail;
                     text = new_tail;
                     continue;
                 }
             }
             _ => {
-                if let Some((new_tail, obj)) = parse_object(&tail[off..], arena, containers) {
+                if let Some((new_tail, element)) = parse_inline(&tail[off..], arena, containers) {
                     if pos != 0 {
                         let node = arena.new_node(Element::Text {
                             value: &text[0..pos + off],
@@ -369,7 +417,7 @@ fn parse_objects_children<'a>(
                         parent.append(node, arena).unwrap();
                         pos = 0;
                     }
-                    parent.append(obj, arena).unwrap();
+                    parent.append(element, arena).unwrap();
                     tail = new_tail;
                     text = new_tail;
                     continue;
@@ -386,7 +434,7 @@ fn parse_objects_children<'a>(
     }
 }
 
-fn parse_object<'a>(
+fn parse_inline<'a>(
     contents: &'a str,
     arena: &mut Arena<Element<'a>>,
     containers: &mut Vec<Container<'a>>,
