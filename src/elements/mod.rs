@@ -1,4 +1,4 @@
-//! Org-mode elements module
+//! Org-mode elements
 
 mod block;
 mod clock;

@@ -146,6 +146,26 @@ impl<'a> Org<'a> {
 
         Ok(())
     }
+
+    pub fn org<W: Write>(&self, wrtier: W) -> Result<(), Error> {
+        self.org_with_handler(wrtier, DefaultOrgHandler)
+    }
+
+    pub fn org_with_handler<W, H, E>(&self, mut writer: W, mut handler: H) -> Result<(), E>
+    where
+        W: Write,
+        E: From<Error>,
+        H: OrgHandler<E>,
+    {
+        for event in self.iter() {
+            match event {
+                Event::Start(element) => handler.start(&mut writer, element)?,
+                Event::End(element) => handler.end(&mut writer, element)?,
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn is_headline(text: &str) -> Option<usize> {

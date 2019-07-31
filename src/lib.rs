@@ -88,7 +88,7 @@
 //! use std::io::{Error as IOError, Write};
 //! use std::string::FromUtf8Error;
 //!
-//! use orgize::export::{html::Escape, DefaultHtmlHandler, HtmlHandler};
+//! use orgize::export::{DefaultHtmlHandler, HtmlHandler};
 //! use orgize::{Element, Org};
 //! use slugify::slugify;
 //!
