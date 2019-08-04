@@ -2,6 +2,7 @@ use nom::{
     bytes::complete::{tag, take, take_till, take_while, take_while_m_n},
     character::complete::{space0, space1},
     combinator::{map, map_res, opt},
+    sequence::preceded,
     IResult,
 };
 
@@ -51,13 +52,9 @@ fn parse_datetime(input: &str) -> IResult<&str, Datetime<'_>> {
             && c != ']'
             && c != '>'
     })(input)?;
-    let (input, (hour, minute)) = map(
-        opt(|input| {
-            let (input, _) = space1(input)?;
-            parse_time(input)
-        }),
-        |time| (time.map(|t| t.0), time.map(|t| t.1)),
-    )(input)?;
+    let (input, (hour, minute)) = map(opt(preceded(space1, parse_time)), |time| {
+        (time.map(|t| t.0), time.map(|t| t.1))
+    })(input)?;
 
     Ok((
         input,

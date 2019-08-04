@@ -1,5 +1,6 @@
 use nom::{
     bytes::complete::{tag, take, take_until, take_while1},
+    sequence::{delimited, separated_pair},
     IResult,
 };
 
@@ -16,11 +17,15 @@ pub struct Snippet<'a> {
 impl Snippet<'_> {
     #[inline]
     pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
-        let (input, _) = tag("@@")(input)?;
-        let (input, name) = take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-')(input)?;
-        let (input, _) = tag(":")(input)?;
-        let (input, value) = take_until("@@")(input)?;
-        let (input, _) = take(2usize)(input)?;
+        let (input, (name, value)) = delimited(
+            tag("@@"),
+            separated_pair(
+                take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
+                tag(":"),
+                take_until("@@"),
+            ),
+            take(2usize),
+        )(input)?;
 
         Ok((input, Element::Snippet(Snippet { name, value })))
     }

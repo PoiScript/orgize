@@ -1,6 +1,11 @@
-use memchr::memchr_iter;
-
 use crate::elements::Element;
+use crate::parsers::{eol, take_lines_till};
+
+use nom::{
+    bytes::complete::{tag, take_while1},
+    sequence::delimited,
+    IResult,
+};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -11,47 +16,16 @@ pub struct Drawer<'a> {
 
 impl Drawer<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>, &str)> {
-        debug_assert!(text.starts_with(':'));
+    pub(crate) fn parse(input: &str) -> IResult<&str, (Element<'_>, &str)> {
+        let (input, name) = delimited(
+            tag(":"),
+            take_while1(|c: char| c.is_ascii_alphabetic() || c == '-' || c == '_'),
+            tag(":"),
+        )(input)?;
+        let (input, _) = eol(input)?;
+        let (input, contents) = take_lines_till(|line| line.eq_ignore_ascii_case(":END:"))(input)?;
 
-        let mut lines = memchr_iter(b'\n', text.as_bytes());
-
-        let (name, off) = lines
-            .next()
-            .map(|i| (text[1..i].trim_end(), i + 1))
-            .filter(|(name, _)| {
-                name.ends_with(':')
-                    && name[0..name.len() - 1]
-                        .as_bytes()
-                        .iter()
-                        .all(|&c| c.is_ascii_alphabetic() || c == b'-' || c == b'_')
-            })?;
-
-        let mut pos = off;
-        for i in lines {
-            if text[pos..i].trim().eq_ignore_ascii_case(":END:") {
-                return Some((
-                    &text[i + 1..],
-                    Element::Drawer(Drawer {
-                        name: &name[0..name.len() - 1],
-                    }),
-                    &text[off..pos],
-                ));
-            }
-            pos = i + 1;
-        }
-
-        if text[pos..].trim().eq_ignore_ascii_case(":END:") {
-            Some((
-                "",
-                Element::Drawer(Drawer {
-                    name: &name[0..name.len() - 1],
-                }),
-                &text[off..pos],
-            ))
-        } else {
-            None
-        }
+        Ok((input, (Element::Drawer(Drawer { name }), contents)))
     }
 }
 
@@ -59,10 +33,12 @@ impl Drawer<'_> {
 fn parse() {
     assert_eq!(
         Drawer::parse(":PROPERTIES:\n  :CUSTOM_ID: id\n  :END:"),
-        Some((
+        Ok((
             "",
-            Element::Drawer(Drawer { name: "PROPERTIES" }),
-            "  :CUSTOM_ID: id\n"
+            (
+                Element::Drawer(Drawer { name: "PROPERTIES" }),
+                "  :CUSTOM_ID: id\n"
+            )
         ))
     )
 }

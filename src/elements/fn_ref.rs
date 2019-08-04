@@ -1,55 +1,46 @@
-use memchr::{memchr2, memchr2_iter};
+use memchr::memchr2_iter;
+use nom::{
+    bytes::complete::{tag, take_while},
+    combinator::opt,
+    error::ErrorKind,
+    error_position,
+    sequence::preceded,
+    Err, IResult,
+};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct FnRef<'a> {
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub label: Option<&'a str>,
+    pub label: &'a str,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub definition: Option<&'a str>,
 }
 
+fn balanced_brackets(input: &str) -> IResult<&str, &str> {
+    let mut pairs = 1;
+    for i in memchr2_iter(b'[', b']', input.as_bytes()) {
+        if input.as_bytes()[i] == b'[' {
+            pairs += 1;
+        } else if pairs != 1 {
+            pairs -= 1;
+        } else {
+            return Ok((&input[i..], &input[0..i]));
+        }
+    }
+    Err(Err::Error(error_position!(input, ErrorKind::Tag)))
+}
+
 impl FnRef<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, FnRef<'_>)> {
-        debug_assert!(text.starts_with("[fn:"));
+    pub(crate) fn parse(input: &str) -> IResult<&str, FnRef<'_>> {
+        let (input, _) = tag("[fn:")(input)?;
+        let (input, label) =
+            take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_')(input)?;
+        let (input, definition) = opt(preceded(tag(":"), balanced_brackets))(input)?;
+        let (input, _) = tag("]")(input)?;
 
-        let bytes = text.as_bytes();
-        let (label, off) = memchr2(b']', b':', &bytes["[fn:".len()..])
-            .filter(|&i| {
-                bytes["[fn:".len().."[fn:".len() + i]
-                    .iter()
-                    .all(|&c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-            })
-            .map(|i| {
-                (
-                    if i == 0 {
-                        None
-                    } else {
-                        Some(&text["[fn:".len().."[fn:".len() + i])
-                    },
-                    "[fn:".len() + i,
-                )
-            })?;
-
-        let (definition, off) = if bytes[off] == b':' {
-            let mut pairs = 1;
-            memchr2_iter(b'[', b']', &bytes[off..])
-                .find(|&i| {
-                    if bytes[i + off] == b'[' {
-                        pairs += 1;
-                    } else {
-                        pairs -= 1;
-                    }
-                    pairs == 0
-                })
-                .map(|i| (Some(&text[off + 1..off + i]), i + off + 1))?
-        } else {
-            (None, off + 1)
-        };
-
-        Some((&text[off..], FnRef { label, definition }))
+        Ok((input, FnRef { label, definition }))
     }
 }
 
@@ -57,43 +48,44 @@ impl FnRef<'_> {
 fn parse() {
     assert_eq!(
         FnRef::parse("[fn:1]"),
-        Some((
+        Ok((
             "",
             FnRef {
-                label: Some("1"),
+                label: "1",
                 definition: None
             },
         ))
     );
     assert_eq!(
         FnRef::parse("[fn:1:2]"),
-        Some((
+        Ok((
             "",
             FnRef {
-                label: Some("1"),
+                label: "1",
                 definition: Some("2")
             },
         ))
     );
     assert_eq!(
         FnRef::parse("[fn::2]"),
-        Some((
+        Ok((
             "",
             FnRef {
-                label: None,
+                label: "",
                 definition: Some("2")
             },
         ))
     );
     assert_eq!(
         FnRef::parse("[fn::[]]"),
-        Some((
+        Ok((
             "",
             FnRef {
-                label: None,
+                label: "",
                 definition: Some("[]")
             },
         ))
     );
-    assert_eq!(FnRef::parse("[fn::[]"), None);
+
+    assert!(FnRef::parse("[fn::[]").is_err());
 }

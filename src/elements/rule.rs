@@ -1,13 +1,8 @@
-use nom::{
-    branch::alt,
-    bytes::complete::{tag, take_while_m_n},
-    character::complete::space0,
-    error::ErrorKind,
-    Err, IResult,
-};
+use nom::{bytes::complete::take_while_m_n, character::complete::space0, IResult};
 use std::usize;
 
 use crate::elements::Element;
+use crate::parsers::eol;
 
 pub struct Rule;
 
@@ -16,17 +11,8 @@ impl Rule {
     pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
         let (input, _) = space0(input)?;
         let (input, _) = take_while_m_n(5, usize::MAX, |c| c == '-')(input)?;
-        let (input, _) = space0(input)?;
-        let (input, _) = alt((tag("\n"), eof))(input)?;
+        let (input, _) = eol(input)?;
         Ok((input, Element::Rule))
-    }
-}
-
-fn eof(input: &str) -> IResult<&str, &str> {
-    if input.is_empty() {
-        Ok(("", ""))
-    } else {
-        Err(Err::Error(("", ErrorKind::Tag)))
     }
 }
 

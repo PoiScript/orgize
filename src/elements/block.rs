@@ -1,4 +1,6 @@
-use memchr::{memchr, memchr_iter};
+use nom::{bytes::complete::tag_no_case, character::complete::alpha1, sequence::preceded, IResult};
+
+use crate::parsers::{take_lines_till, take_until_eol};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
@@ -9,40 +11,23 @@ pub struct Block<'a> {
 
 impl Block<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, Block<'_>, &str)> {
-        debug_assert!(text.starts_with("#+"));
+    pub(crate) fn parse(input: &str) -> IResult<&str, (Block<'_>, &str)> {
+        let (input, name) = preceded(tag_no_case("#+BEGIN_"), alpha1)(input)?;
+        let (input, args) = take_until_eol(input)?;
+        let end_line = format!(r"#+END_{}", name);
+        let (input, contents) =
+            take_lines_till(|line| line.eq_ignore_ascii_case(&end_line))(input)?;
 
-        if text.len() <= 8 || text[2..8].to_uppercase() != "BEGIN_" {
-            return None;
-        }
-
-        let mut lines = memchr_iter(b'\n', text.as_bytes());
-
-        let (name, args, off) = lines
-            .next()
-            .map(|i| {
-                memchr(b' ', &text.as_bytes()[8..i])
-                    .map(|x| (&text[8..8 + x], Some(text[8 + x..i].trim()), i + 1))
-                    .unwrap_or((&text[8..i], None, i + 1))
-            })
-            .filter(|(name, _, _)| name.as_bytes().iter().all(|&c| c.is_ascii_alphabetic()))?;
-
-        let mut pos = off;
-        let end = format!(r"#+END_{}", name.to_uppercase());
-
-        for i in lines {
-            if text[pos..i].trim().eq_ignore_ascii_case(&end) {
-                return Some((&text[i + 1..], Block { name, args }, &text[off..pos]));
-            }
-
-            pos = i + 1;
-        }
-
-        if text[pos..].trim().eq_ignore_ascii_case(&end) {
-            Some(("", Block { name, args }, &text[off..pos]))
-        } else {
-            None
-        }
+        Ok((
+            input,
+            (
+                Block {
+                    name,
+                    args: if args.is_empty() { None } else { Some(args) },
+                },
+                contents,
+            ),
+        ))
     }
 }
 
@@ -50,24 +35,28 @@ impl Block<'_> {
 fn parse() {
     assert_eq!(
         Block::parse("#+BEGIN_SRC\n#+END_SRC"),
-        Some((
+        Ok((
             "",
-            Block {
-                name: "SRC",
-                args: None,
-            },
-            ""
+            (
+                Block {
+                    name: "SRC",
+                    args: None,
+                },
+                ""
+            )
         ))
     );
     assert_eq!(
         Block::parse("#+BEGIN_SRC javascript  \nconsole.log('Hello World!');\n#+END_SRC\n"),
-        Some((
+        Ok((
             "",
-            Block {
-                name: "SRC",
-                args: Some("javascript"),
-            },
-            "console.log('Hello World!');\n"
+            (
+                Block {
+                    name: "SRC",
+                    args: Some("javascript"),
+                },
+                "console.log('Hello World!');\n"
+            )
         ))
     );
     // TODO: more testing

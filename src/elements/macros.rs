@@ -1,6 +1,7 @@
 use nom::{
     bytes::complete::{tag, take, take_until, take_while1},
     combinator::{opt, verify},
+    sequence::delimited,
     IResult,
 };
 
@@ -23,12 +24,7 @@ impl Macros<'_> {
             take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
             |s: &str| s.starts_with(|c: char| c.is_ascii_alphabetic()),
         )(input)?;
-        let (input, arguments) = opt(|input| {
-            let (input, _) = tag("(")(input)?;
-            let (input, args) = take_until(")}}}")(input)?;
-            let (input, _) = take(1usize)(input)?;
-            Ok((input, args))
-        })(input)?;
+        let (input, arguments) = opt(delimited(tag("("), take_until(")}}}"), take(1usize)))(input)?;
         let (input, _) = tag("}}}")(input)?;
 
         Ok((input, Element::Macros(Macros { name, arguments })))

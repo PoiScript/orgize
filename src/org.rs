@@ -175,7 +175,7 @@ fn is_headline(text: &str) -> Option<usize> {
         } else {
             None
         }
-    } else if text.len() > 0 && text.as_bytes().iter().all(|&c| c == b'*') {
+    } else if !text.is_empty() && text.as_bytes().iter().all(|&c| c == b'*') {
         Some(text.len())
     } else {
         None
@@ -291,7 +291,7 @@ fn parse_block<'a>(
 
     let tail = contents.trim_start();
 
-    if let Some((tail, clock)) = Clock::parse(tail) {
+    if let Ok((tail, clock)) = Clock::parse(tail) {
         return Some((tail, arena.new_node(clock)));
     }
 
@@ -305,7 +305,7 @@ fn parse_block<'a>(
     }
 
     if tail.starts_with(':') {
-        if let Some((tail, drawer, _content)) = Drawer::parse(tail) {
+        if let Ok((tail, (drawer, _content))) = Drawer::parse(tail) {
             return Some((tail, arena.new_node(drawer)));
         }
     }
@@ -349,7 +349,7 @@ fn parse_block<'a>(
     }
 
     if tail.starts_with("#+") {
-        if let Some((tail, block, content)) = Block::parse(tail) {
+        if let Ok((tail, (block, content))) = Block::parse(tail) {
             match &*block.name.to_uppercase() {
                 "CENTER" => {
                     let node = arena.new_node(Element::CenterBlock(CenterBlock {
@@ -414,7 +414,7 @@ fn parse_block<'a>(
                     Some((tail, node))
                 }
             }
-        } else if let Some((tail, dyn_block, content)) = DynBlock::parse(tail) {
+        } else if let Ok((tail, (dyn_block, content))) = DynBlock::parse(tail) {
             let node = arena.new_node(dyn_block);
             containers.push(Container::Block { content, node });
             Some((tail, node))
@@ -546,8 +546,8 @@ fn parse_inline<'a>(
         b'[' => {
             if contents[1..].starts_with("fn:") {
                 FnRef::parse(contents)
-                    .map(|(tail, fn_ref)| (tail, fn_ref.into()))
-                    .map(|(tail, element)| (tail, arena.new_node(element)))
+                    .ok()
+                    .map(|(tail, fn_ref)| (tail, arena.new_node(fn_ref.into())))
             } else if bytes[1] == b'[' {
                 Link::parse(contents)
                     .ok()
@@ -555,11 +555,11 @@ fn parse_inline<'a>(
             } else {
                 Cookie::parse(contents)
                     .map(|(tail, cookie)| (tail, cookie.into()))
-                    .or_else(|| {
+                    .or_else(|_| {
                         Timestamp::parse_inactive(contents)
                             .map(|(tail, timestamp)| (tail, timestamp.into()))
-                            .ok()
                     })
+                    .ok()
                     .map(|(tail, element)| (tail, arena.new_node(element)))
             }
         }

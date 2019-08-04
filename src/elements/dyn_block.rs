@@ -1,6 +1,11 @@
 use crate::elements::Element;
+use crate::parsers::{take_lines_till, take_until_eol};
 
-use memchr::{memchr, memchr_iter};
+use nom::{
+    bytes::complete::tag_no_case,
+    character::complete::{alpha1, space1},
+    IResult,
+};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -13,60 +18,24 @@ pub struct DynBlock<'a> {
 
 impl DynBlock<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>, &str)> {
-        debug_assert!(text.starts_with("#+"));
+    pub(crate) fn parse(input: &str) -> IResult<&str, (Element<'_>, &str)> {
+        let (input, _) = tag_no_case("#+BEGIN:")(input)?;
+        let (input, _) = space1(input)?;
+        let (input, name) = alpha1(input)?;
+        let (input, args) = take_until_eol(input)?;
 
-        if text.len() <= "#+BEGIN: ".len() || !text[2..9].eq_ignore_ascii_case("BEGIN: ") {
-            return None;
-        }
+        let (input, contents) = take_lines_till(|line| line.eq_ignore_ascii_case("#+END:"))(input)?;
 
-        let bytes = text.as_bytes();
-        let mut lines = memchr_iter(b'\n', bytes);
-
-        let (name, para, off) = lines
-            .next()
-            .map(|i| {
-                memchr(b' ', &bytes["#+BEGIN: ".len()..i])
-                    .map(|x| {
-                        (
-                            &text["#+BEGIN: ".len().."#+BEGIN: ".len() + x],
-                            Some(text["#+BEGIN: ".len() + x..i].trim()),
-                            i + 1,
-                        )
-                    })
-                    .unwrap_or((&text["#+BEGIN: ".len()..i], None, i + 1))
-            })
-            .filter(|(name, _, _)| name.as_bytes().iter().all(|&c| c.is_ascii_alphabetic()))?;
-
-        let mut pos = off;
-
-        for i in lines {
-            if text[pos..i].trim().eq_ignore_ascii_case("#+END:") {
-                return Some((
-                    &text[i + 1..],
-                    Element::DynBlock(DynBlock {
-                        block_name: name,
-                        arguments: para,
-                    }),
-                    &text[off..pos],
-                ));
-            }
-
-            pos = i + 1;
-        }
-
-        if text[pos..].trim().eq_ignore_ascii_case("#+END:") {
-            Some((
-                "",
+        Ok((
+            input,
+            (
                 Element::DynBlock(DynBlock {
                     block_name: name,
-                    arguments: para,
+                    arguments: if args.is_empty() { None } else { Some(args) },
                 }),
-                &text[off..pos],
-            ))
-        } else {
-            None
-        }
+                contents,
+            ),
+        ))
     }
 }
 
@@ -75,13 +44,15 @@ fn parse() {
     // TODO: testing
     assert_eq!(
         DynBlock::parse("#+BEGIN: clocktable :scope file\nCONTENTS\n#+END:\n"),
-        Some((
+        Ok((
             "",
-            Element::DynBlock(DynBlock {
-                block_name: "clocktable",
-                arguments: Some(":scope file"),
-            }),
-            "CONTENTS\n"
+            (
+                Element::DynBlock(DynBlock {
+                    block_name: "clocktable",
+                    arguments: Some(":scope file"),
+                }),
+                "CONTENTS\n"
+            )
         ))
     );
 }

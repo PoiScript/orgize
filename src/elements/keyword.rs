@@ -1,11 +1,12 @@
 use nom::{
-    bytes::complete::{tag, take_till, take_while},
-    combinator::{map, opt},
+    bytes::complete::{tag, take_till},
+    combinator::opt,
     sequence::delimited,
     IResult,
 };
 
 use crate::elements::Element;
+use crate::parsers::take_until_eol;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -24,20 +25,19 @@ pub struct BabelCall<'a> {
     pub value: &'a str,
 }
 
-fn optional(input: &str) -> IResult<&str, &str> {
-    delimited(tag("["), take_till(|c| c == ']' || c == '\n'), tag("]"))(input)
-}
-
 impl Keyword<'_> {
     #[inline]
     pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
         let (input, _) = tag("#+")(input)?;
         let (input, key) =
             take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '[')(input)?;
-        let (input, optional) = opt(optional)(input)?;
+        let (input, optional) = opt(delimited(
+            tag("["),
+            take_till(|c| c == ']' || c == '\n'),
+            tag("]"),
+        ))(input)?;
         let (input, _) = tag(":")(input)?;
-        let (input, value) = map(take_while(|c| c != '\n'), str::trim)(input)?;
-        let (input, _) = opt(tag("\n"))(input)?;
+        let (input, value) = take_until_eol(input)?;
 
         if key.eq_ignore_ascii_case("CALL") {
             Ok((input, Element::BabelCall(BabelCall { value })))

@@ -1,6 +1,7 @@
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::verify,
+    sequence::delimited,
     IResult,
 };
 
@@ -15,12 +16,14 @@ pub struct RadioTarget;
 impl RadioTarget {
     #[inline]
     pub(crate) fn parse(input: &str) -> IResult<&str, (Element, &str)> {
-        let (input, _) = tag("<<<")(input)?;
-        let (input, contents) = verify(
-            take_while(|c: char| c != '<' && c != '\n' && c != '>'),
-            |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
+        let (input, contents) = delimited(
+            tag("<<<"),
+            verify(
+                take_while(|c: char| c != '<' && c != '\n' && c != '>'),
+                |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
+            ),
+            tag(">>>"),
         )(input)?;
-        let (input, _) = tag(">>>")(input)?;
 
         Ok((input, (Element::RadioTarget(RadioTarget), contents)))
     }

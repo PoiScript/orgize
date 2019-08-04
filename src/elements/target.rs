@@ -1,6 +1,7 @@
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::verify,
+    sequence::delimited,
     IResult,
 };
 
@@ -16,12 +17,14 @@ pub struct Target<'a> {
 impl Target<'_> {
     #[inline]
     pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
-        let (input, _) = tag("<<")(input)?;
-        let (input, target) = verify(
-            take_while(|c: char| c != '<' && c != '\n' && c != '>'),
-            |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
+        let (input, target) = delimited(
+            tag("<<"),
+            verify(
+                take_while(|c: char| c != '<' && c != '\n' && c != '>'),
+                |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
+            ),
+            tag(">>"),
         )(input)?;
-        let (input, _) = tag(">>")(input)?;
 
         Ok((input, Element::Target(Target { target })))
     }

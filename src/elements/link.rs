@@ -1,6 +1,7 @@
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::opt,
+    sequence::delimited,
     IResult,
 };
 
@@ -18,16 +19,16 @@ pub struct Link<'a> {
 impl Link<'_> {
     #[inline]
     pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
-        let (input, _) = tag("[[")(input)?;
-        let (input, path) =
-            take_while(|c: char| c != '<' && c != '>' && c != '\n' && c != ']')(input)?;
-        let (input, _) = tag("]")(input)?;
-        let (input, desc) = opt(|input| {
-            let (input, _) = tag("[")(input)?;
-            let (input, desc) = take_while(|c: char| c != '[' && c != ']')(input)?;
-            let (input, _) = tag("]")(input)?;
-            Ok((input, desc))
-        })(input)?;
+        let (input, path) = delimited(
+            tag("[["),
+            take_while(|c: char| c != '<' && c != '>' && c != '\n' && c != ']'),
+            tag("]"),
+        )(input)?;
+        let (input, desc) = opt(delimited(
+            tag("["),
+            take_while(|c: char| c != '[' && c != ']'),
+            tag("]"),
+        ))(input)?;
         let (input, _) = tag("]")(input)?;
         Ok((input, Element::Link(Link { path, desc })))
     }

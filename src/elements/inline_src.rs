@@ -28,9 +28,8 @@ impl InlineSrc<'_> {
             take_till(|c| c == '\n' || c == ']'),
             tag("]"),
         ))(input)?;
-        let (input, _) = tag("{")(input)?;
-        let (input, body) = take_till(|c| c == '\n' || c == '}')(input)?;
-        let (input, _) = tag("}")(input)?;
+        let (input, body) =
+            delimited(tag("{"), take_till(|c| c == '\n' || c == '}'), tag("}"))(input)?;
 
         Ok((
             input,

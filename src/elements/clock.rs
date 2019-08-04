@@ -1,5 +1,13 @@
+use nom::sequence::separated_pair;
+use nom::{
+    bytes::complete::tag,
+    character::complete::{char, digit1, space0},
+    combinator::{peek, recognize},
+    IResult,
+};
+
 use crate::elements::{Datetime, Element, Timestamp};
-use memchr::memchr;
+use crate::parsers::eol;
 
 /// clock elements
 ///
@@ -25,24 +33,11 @@ pub enum Clock<'a> {
 }
 
 impl Clock<'_> {
-    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>)> {
-        let (text, eol) = memchr(b'\n', text.as_bytes())
-            .map(|i| (text[..i].trim(), i + 1))
-            .unwrap_or_else(|| (text.trim(), text.len()));
-
-        if !text.starts_with("CLOCK:") {
-            return None;
-        }
-
-        let tail = &text["CLOCK:".len()..].trim_start();
-
-        if !tail.starts_with('[') {
-            return None;
-        }
-
-        let (tail, timestamp) = Timestamp::parse_inactive(tail).ok()?;
-
-        let tail = tail.trim();
+    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+        let (input, _) = tag("CLOCK:")(input)?;
+        let (input, _) = space0(input)?;
+        let (input, _) = peek(tag("["))(input)?;
+        let (input, timestamp) = Timestamp::parse_inactive(input)?;
 
         match timestamp {
             Timestamp::InactiveRange {
@@ -51,50 +46,39 @@ impl Clock<'_> {
                 repeater,
                 delay,
             } => {
-                if tail.starts_with("=>") {
-                    let duration = &tail[3..].trim();
-                    let colon = memchr(b':', duration.as_bytes())?;
-                    if duration.as_bytes()[0..colon].iter().all(u8::is_ascii_digit)
-                        && colon == duration.len() - 3
-                        && duration.as_bytes()[colon + 1].is_ascii_digit()
-                        && duration.as_bytes()[colon + 2].is_ascii_digit()
-                    {
-                        Some((
-                            &text[eol..],
-                            Element::Clock(Clock::Closed {
-                                start,
-                                end,
-                                repeater,
-                                delay,
-                                duration,
-                            }),
-                        ))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
+                let (input, _) = space0(input)?;
+                let (input, _) = tag("=>")(input)?;
+                let (input, _) = space0(input)?;
+                let (input, duration) =
+                    recognize(separated_pair(digit1, char(':'), digit1))(input)?;
+                let (input, _) = eol(input)?;
+                Ok((
+                    input,
+                    Element::Clock(Clock::Closed {
+                        start,
+                        end,
+                        repeater,
+                        delay,
+                        duration,
+                    }),
+                ))
             }
             Timestamp::Inactive {
                 start,
                 repeater,
                 delay,
             } => {
-                if tail.is_empty() {
-                    Some((
-                        &text[eol..],
-                        Element::Clock(Clock::Running {
-                            start,
-                            repeater,
-                            delay,
-                        }),
-                    ))
-                } else {
-                    None
-                }
+                let (input, _) = eol(input)?;
+                Ok((
+                    input,
+                    Element::Clock(Clock::Running {
+                        start,
+                        repeater,
+                        delay,
+                    }),
+                ))
             }
-            _ => None,
+            _ => unreachable!(),
         }
     }
 
@@ -154,7 +138,7 @@ impl Clock<'_> {
 fn parse() {
     assert_eq!(
         Clock::parse("CLOCK: [2003-09-16 Tue 09:39]"),
-        Some((
+        Ok((
             "",
             Element::Clock(Clock::Running {
                 start: Datetime {
@@ -172,7 +156,7 @@ fn parse() {
     );
     assert_eq!(
         Clock::parse("CLOCK: [2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39] =>  1:00"),
-        Some((
+        Ok((
             "",
             Element::Clock(Clock::Closed {
                 start: Datetime {

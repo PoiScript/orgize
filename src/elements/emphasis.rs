@@ -1,5 +1,5 @@
 use bytecount::count;
-use memchr::memchr;
+use memchr::memchr_iter;
 
 #[inline]
 pub(crate) fn parse(text: &str, marker: u8) -> Option<(&str, &str)> {
@@ -11,31 +11,27 @@ pub(crate) fn parse(text: &str, marker: u8) -> Option<(&str, &str)> {
         return None;
     }
 
-    let end = memchr(marker, &bytes[1..]).filter(|&i| count(&bytes[1..=i], b'\n') < 2)?;
-
-    if bytes[end].is_ascii_whitespace() {
-        return None;
+    for i in memchr_iter(marker, bytes).skip(1) {
+        if count(&bytes[1..i], b'\n') >= 2 {
+            break;
+        } else if validate_marker(i, text) {
+            return Some((&text[i + 1..], &text[1..i]));
+        }
     }
 
-    if let Some(&post) = bytes.get(end + 2) {
-        if post == b' '
-            || post == b'-'
-            || post == b'.'
-            || post == b','
-            || post == b':'
-            || post == b'!'
-            || post == b'?'
-            || post == b'\''
-            || post == b'\n'
-            || post == b')'
-            || post == b'}'
-        {
-            Some((&text[end + 2..], &text[1..end + 1]))
-        } else {
-            None
+    None
+}
+
+fn validate_marker(pos: usize, text: &str) -> bool {
+    if text.as_bytes()[pos - 1].is_ascii_whitespace() {
+        false
+    } else if let Some(&post) = text.as_bytes().get(pos + 1) {
+        match post {
+            b' ' | b'-' | b'.' | b',' | b':' | b'!' | b'?' | b'\'' | b'\n' | b')' | b'}' => true,
+            _ => false,
         }
     } else {
-        Some((&text[end + 2..], &text[1..end + 1]))
+        true
     }
 }
 
@@ -46,6 +42,7 @@ mod tests {
         use super::parse;
 
         assert_eq!(parse("*bold*", b'*'), Some(("", "bold")));
+        assert_eq!(parse("*bo*ld*", b'*'), Some(("", "bo*ld")));
         assert_eq!(parse("*bo\nld*", b'*'), Some(("", "bo\nld")));
         assert_eq!(parse("*bold*a", b'*'), None);
         assert_eq!(parse("*bold*", b'/'), None);

@@ -1,6 +1,7 @@
 use memchr::memchr;
 use nom::{
     bytes::complete::{tag, take_while1},
+    sequence::delimited,
     IResult,
 };
 
@@ -12,10 +13,12 @@ pub struct FnDef<'a> {
 }
 
 fn parse_label(input: &str) -> IResult<&str, &str> {
-    let (input, _) = tag("[fn:")(input)?;
-    let (input, label) =
-        take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_')(input)?;
-    let (input, _) = tag("]")(input)?;
+    let (input, label) = delimited(
+        tag("[fn:"),
+        take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
+        tag("]"),
+    )(input)?;
+
     Ok((input, label))
 }
 

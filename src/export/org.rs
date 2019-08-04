@@ -56,10 +56,7 @@ pub trait OrgHandler<E: From<Error>> {
             }
             Code { value } => write!(w, "~{}~", value)?,
             FnRef(fn_ref) => {
-                write!(&mut w, "[fn:")?;
-                if let Some(label) = fn_ref.label {
-                    write!(&mut w, "{}", label)?;
-                }
+                write!(&mut w, "[fn:{}", fn_ref.label)?;
                 if let Some(definition) = fn_ref.definition {
                     write!(&mut w, ":{}", definition)?;
                 }

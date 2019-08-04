@@ -29,9 +29,8 @@ impl<'a> InlineCall<'a> {
         let (input, _) = tag("call_")(input)?;
         let (input, name) = take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')')(input)?;
         let (input, inside_header) = opt(header)(input)?;
-        let (input, _) = tag("(")(input)?;
-        let (input, arguments) = take_till(|c| c == ')' || c == '\n')(input)?;
-        let (input, _) = tag(")")(input)?;
+        let (input, arguments) =
+            delimited(tag("("), take_till(|c| c == ')' || c == '\n'), tag(")"))(input)?;
         let (input, end_header) = opt(header)(input)?;
 
         Ok((
