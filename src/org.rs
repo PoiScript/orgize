@@ -315,12 +315,12 @@ fn parse_block<'a>(
         let mut last_end = 1; // ":"
         for i in memchr_iter(b'\n', contents.as_bytes()) {
             last_end = i + 1;
-            let line = &contents[last_end..];
-            if !(line == ":" || line.starts_with(": ") || line.starts_with(":\n")) {
+            let tail = contents[last_end..].trim_start();
+            if !(tail == ":" || tail.starts_with(": ") || tail.starts_with(":\n")) {
                 let fixed_width = arena.new_node(Element::FixedWidth {
-                    value: &contents[0..i + 1],
+                    value: &contents[0..last_end],
                 });
-                return Some((&contents[i + 1..], fixed_width));
+                return Some((&contents[last_end..], fixed_width));
             }
         }
         let fixed_width = arena.new_node(Element::FixedWidth {
@@ -334,12 +334,12 @@ fn parse_block<'a>(
         let mut last_end = 1; // "#"
         for i in memchr_iter(b'\n', contents.as_bytes()) {
             last_end = i + 1;
-            let line = &contents[last_end..];
+            let line = contents[last_end..].trim_start();
             if !(line == "#" || line.starts_with("# ") || line.starts_with("#\n")) {
                 let comment = arena.new_node(Element::Comment {
-                    value: &contents[0..i + 1],
+                    value: &contents[0..last_end],
                 });
-                return Some((&contents[i + 1..], comment));
+                return Some((&contents[last_end..], comment));
             }
         }
         let comment = arena.new_node(Element::Comment {
@@ -350,9 +350,70 @@ fn parse_block<'a>(
 
     if tail.starts_with("#+") {
         if let Some((tail, block, content)) = Block::parse(tail) {
-            let node = arena.new_node(block);
-            containers.push(Container::Block { content, node });
-            Some((tail, node))
+            match &*block.name.to_uppercase() {
+                "CENTER" => {
+                    let node = arena.new_node(Element::CenterBlock(CenterBlock {
+                        parameters: block.args,
+                    }));
+                    containers.push(Container::Block { content, node });
+                    Some((tail, node))
+                }
+                "QUOTE" => {
+                    let node = arena.new_node(Element::QuoteBlock(QuoteBlock {
+                        parameters: block.args,
+                    }));
+                    containers.push(Container::Block { content, node });
+                    Some((tail, node))
+                }
+                "COMMENT" => {
+                    let node = arena.new_node(Element::CommentBlock(CommentBlock {
+                        data: block.args,
+                        contents: content,
+                    }));
+                    Some((tail, node))
+                }
+                "EXAMPLE" => {
+                    let node = arena.new_node(Element::ExampleBlock(ExampleBlock {
+                        data: block.args,
+                        contents: content,
+                    }));
+                    Some((tail, node))
+                }
+                "EXPORT" => {
+                    let node = arena.new_node(Element::ExportBlock(ExportBlock {
+                        data: block.args.unwrap_or(""),
+                        contents: content,
+                    }));
+                    Some((tail, node))
+                }
+                "SRC" => {
+                    let (language, arguments) = block
+                        .args
+                        .map(|args| args.split_at(args.find(' ').unwrap_or_else(|| args.len())))
+                        .unwrap_or(("", ""));
+                    let node = arena.new_node(Element::SourceBlock(SourceBlock {
+                        arguments,
+                        language,
+                        contents: content,
+                    }));
+                    Some((tail, node))
+                }
+                "VERSE" => {
+                    let node = arena.new_node(Element::VerseBlock(VerseBlock {
+                        parameters: block.args,
+                    }));
+                    containers.push(Container::Block { content, node });
+                    Some((tail, node))
+                }
+                _ => {
+                    let node = arena.new_node(Element::SpecialBlock(SpecialBlock {
+                        parameters: block.args,
+                        name: block.name,
+                    }));
+                    containers.push(Container::Block { content, node });
+                    Some((tail, node))
+                }
+            }
         } else if let Some((tail, dyn_block, content)) = DynBlock::parse(tail) {
             let node = arena.new_node(dyn_block);
             containers.push(Container::Block { content, node });

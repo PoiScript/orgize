@@ -23,9 +23,13 @@ mod timestamp;
 mod title;
 
 pub(crate) use emphasis::parse as parse_emphasis;
+pub(crate) use block::Block;
 
 pub use self::{
-    block::Block,
+    block::{
+        CenterBlock, CommentBlock, ExampleBlock, ExportBlock, QuoteBlock, SourceBlock,
+        SpecialBlock, VerseBlock,
+    },
     clock::Clock,
     cookie::Cookie,
     drawer::Drawer,
@@ -53,7 +57,14 @@ pub use self::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
 pub enum Element<'a> {
-    Block(Block<'a>),
+    SpecialBlock(SpecialBlock<'a>),
+    QuoteBlock(QuoteBlock<'a>),
+    CenterBlock(CenterBlock<'a>),
+    VerseBlock(VerseBlock<'a>),
+    CommentBlock(CommentBlock<'a>),
+    ExampleBlock(ExampleBlock<'a>),
+    ExportBlock(ExportBlock<'a>),
+    SourceBlock(SourceBlock<'a>),
     BabelCall(BabelCall<'a>),
     Section,
     Clock(Clock<'a>),
@@ -93,7 +104,10 @@ pub enum Element<'a> {
 impl Element<'_> {
     pub fn is_container(&self) -> bool {
         match self {
-            Element::Block(_)
+            Element::SpecialBlock(_)
+            | Element::QuoteBlock(_)
+            | Element::CenterBlock(_)
+            | Element::VerseBlock(_)
             | Element::Bold
             | Element::Document
             | Element::DynBlock(_)
@@ -112,30 +126,50 @@ impl Element<'_> {
 }
 
 macro_rules! impl_from {
-    ($ident:ident) => {
-        impl<'a> From<$ident<'a>> for Element<'a> {
-            fn from(ele: $ident<'a>) -> Element<'a> {
-                Element::$ident(ele)
+    ($($ele0:ident),*; $($ele1:ident),*) => {
+        $(
+            impl<'a> From<$ele0<'a>> for Element<'a> {
+                fn from(ele: $ele0<'a>) -> Element<'a> {
+                    Element::$ele0(ele)
+                }
             }
-        }
+        )*
+        $(
+            impl<'a> From<$ele1> for Element<'a> {
+                fn from(ele: $ele1) -> Element<'a> {
+                    Element::$ele1(ele)
+                }
+            }
+        )*
     };
 }
 
-impl_from!(Block);
-impl_from!(BabelCall);
-impl_from!(Clock);
-impl_from!(Cookie);
-impl_from!(Drawer);
-impl_from!(DynBlock);
-impl_from!(FnDef);
-impl_from!(FnRef);
-impl_from!(InlineCall);
-impl_from!(InlineSrc);
-impl_from!(Keyword);
-impl_from!(Link);
-impl_from!(ListItem);
-impl_from!(Macros);
-impl_from!(Planning);
-impl_from!(Snippet);
-impl_from!(Timestamp);
-impl_from!(Target);
+impl_from!(
+    BabelCall,
+    CenterBlock,
+    Clock,
+    CommentBlock,
+    Cookie,
+    Drawer,
+    DynBlock,
+    ExampleBlock,
+    ExportBlock,
+    FnDef,
+    FnRef,
+    InlineCall,
+    InlineSrc,
+    Keyword,
+    Link,
+    ListItem,
+    Macros,
+    Planning,
+    QuoteBlock,
+    Snippet,
+    SourceBlock,
+    SpecialBlock,
+    Target,
+    Timestamp,
+    VerseBlock;
+    RadioTarget,
+    List
+);

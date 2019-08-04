@@ -4,7 +4,7 @@ use memchr::{memchr, memchr2};
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Cookie<'a> {
-    value: &'a str,
+    pub value: &'a str,
 }
 
 impl Cookie<'_> {

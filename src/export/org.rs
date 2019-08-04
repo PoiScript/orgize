@@ -7,13 +7,10 @@ pub trait OrgHandler<E: From<Error>> {
 
         match element {
             // container elements
-            Block(block) => {
-                write!(&mut w, "#+BEGIN_{}", block.name)?;
-                if let Some(parameters) = block.args {
-                    write!(&mut w, " {}", parameters)?;
-                }
-                writeln!(&mut w)?;
-            }
+            SpecialBlock(block) => writeln!(w, "#+BEGIN_{}", block.name)?,
+            QuoteBlock(_) => write!(w, "#+BEGIN_QUOTE")?,
+            CenterBlock(_) => write!(w, "#+BEGIN_CENTER")?,
+            VerseBlock(_) => write!(w, "#+BEGIN_VERSE")?,
             Bold => write!(w, "*")?,
             Document => (),
             DynBlock(dyn_block) => {
@@ -33,6 +30,22 @@ pub trait OrgHandler<E: From<Error>> {
             Underline => write!(w, "_")?,
             Drawer(drawer) => writeln!(w, ":{}:", drawer.name)?,
             // non-container elements
+            CommentBlock(block) => {
+                writeln!(w, "#+BEGIN_COMMENT\n{}\n#+END_COMMENT", block.contents)?
+            }
+            ExampleBlock(block) => {
+                writeln!(w, "#+BEGIN_EXAMPLE\n{}\n#+END_EXAMPLE", block.contents)?
+            }
+            ExportBlock(block) => writeln!(
+                w,
+                "#+BEGIN_EXPORT {}\n{}\n#+END_EXPORT",
+                block.data, block.contents
+            )?,
+            SourceBlock(block) => writeln!(
+                w,
+                "#+BEGIN_SRC {}\n{}\n#+END_SRC",
+                block.language, block.contents
+            )?,
             BabelCall(_babel_call) => (),
             InlineSrc(inline_src) => {
                 write!(&mut w, "src_{}", inline_src.lang)?;
@@ -78,20 +91,23 @@ pub trait OrgHandler<E: From<Error>> {
             Timestamp(timestamp) => {
                 use crate::elements::{Date, Time, Timestamp::*};
 
-                fn write_date<W: Write>(mut w: W, date: &Date) -> Result<(), Error> {
+                fn write_datetime<W: Write>(
+                    mut w: W,
+                    start: &str,
+                    date: &Date,
+                    time: &Option<Time>,
+                    end: &str,
+                ) -> Result<(), Error> {
+                    write!(w, "{}", start)?;
                     write!(
                         w,
                         "{}-{}-{} {}",
                         date.year, date.month, date.day, date.dayname
-                    )
-                }
-
-                fn write_time<W: Write>(mut w: W, time: &Option<Time>) -> Result<(), Error> {
+                    )?;
                     if let Some(time) = time {
-                        write!(w, " {}:{}", time.hour, time.minute)
-                    } else {
-                        Ok(())
+                        write!(w, " {}:{}", time.hour, time.minute,)?;
                     }
+                    write!(w, "{}", end)
                 }
 
                 match timestamp {
@@ -100,20 +116,14 @@ pub trait OrgHandler<E: From<Error>> {
                         start_time,
                         ..
                     } => {
-                        write!(&mut w, "<")?;
-                        write_date(&mut w, start_date)?;
-                        write_time(&mut w, start_time)?;
-                        write!(&mut w, ">")?;
+                        write_datetime(&mut w, "<", start_date, start_time, ">")?;
                     }
                     Inactive {
                         start_date,
                         start_time,
                         ..
                     } => {
-                        write!(&mut w, "[")?;
-                        write_date(&mut w, start_date)?;
-                        write_time(&mut w, start_time)?;
-                        write!(&mut w, "]")?;
+                        write_datetime(&mut w, "[", start_date, start_time, "]")?;
                     }
                     ActiveRange {
                         start_date,
@@ -122,13 +132,8 @@ pub trait OrgHandler<E: From<Error>> {
                         end_time,
                         ..
                     } => {
-                        write!(&mut w, "<")?;
-                        write_date(&mut w, start_date)?;
-                        write_time(&mut w, start_time)?;
-                        write!(&mut w, ">--<")?;
-                        write_date(&mut w, end_date)?;
-                        write_time(&mut w, end_time)?;
-                        write!(&mut w, ">")?;
+                        write_datetime(&mut w, "<", start_date, start_time, ">--")?;
+                        write_datetime(&mut w, "<", end_date, end_time, ">")?;
                     }
                     InactiveRange {
                         start_date,
@@ -137,13 +142,8 @@ pub trait OrgHandler<E: From<Error>> {
                         end_time,
                         ..
                     } => {
-                        write!(&mut w, "[")?;
-                        write_date(&mut w, start_date)?;
-                        write_time(&mut w, start_time)?;
-                        write!(&mut w, "]--[")?;
-                        write_date(&mut w, end_date)?;
-                        write_time(&mut w, end_time)?;
-                        write!(&mut w, "]")?;
+                        write_datetime(&mut w, "[", start_date, start_time, "]--")?;
+                        write_datetime(&mut w, "[", end_date, end_time, "]")?;
                     }
                     Diary(value) => write!(w, "<%%({})>", value)?,
                 }
@@ -184,7 +184,10 @@ pub trait OrgHandler<E: From<Error>> {
 
         match element {
             // container elements
-            Block(block) => writeln!(w, "#+END_{}", block.name)?,
+            SpecialBlock(block) => writeln!(w, "#+END_{}", block.name)?,
+            QuoteBlock(_) => writeln!(w, "#+END_QUOTE")?,
+            CenterBlock(_) => writeln!(w, "#+END_CENTER")?,
+            VerseBlock(_) => writeln!(w, "#+END_VERSE")?,
             Bold => write!(w, "*")?,
             Document => (),
             DynBlock(_dyn_block) => writeln!(w, "#+END:")?,

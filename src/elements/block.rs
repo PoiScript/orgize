@@ -1,19 +1,15 @@
 use memchr::{memchr, memchr_iter};
 
-use crate::elements::Element;
-
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Block<'a> {
     pub name: &'a str,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub args: Option<&'a str>,
 }
 
 impl Block<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, Element<'_>, &str)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Block<'_>, &str)> {
         debug_assert!(text.starts_with("#+"));
 
         if text.len() <= 8 || text[2..8].to_uppercase() != "BEGIN_" {
@@ -36,18 +32,14 @@ impl Block<'_> {
 
         for i in lines {
             if text[pos..i].trim().eq_ignore_ascii_case(&end) {
-                return Some((
-                    &text[i + 1..],
-                    Element::Block(Block { name, args }),
-                    &text[off..pos],
-                ));
+                return Some((&text[i + 1..], Block { name, args }, &text[off..pos]));
             }
 
             pos = i + 1;
         }
 
         if text[pos..].trim().eq_ignore_ascii_case(&end) {
-            Some(("", Element::Block(Block { name, args }), &text[off..pos]))
+            Some(("", Block { name, args }, &text[off..pos]))
         } else {
             None
         }
@@ -60,10 +52,10 @@ fn parse() {
         Block::parse("#+BEGIN_SRC\n#+END_SRC"),
         Some((
             "",
-            Element::Block(Block {
+            Block {
                 name: "SRC",
                 args: None,
-            }),
+            },
             ""
         ))
     );
@@ -71,12 +63,74 @@ fn parse() {
         Block::parse("#+BEGIN_SRC javascript  \nconsole.log('Hello World!');\n#+END_SRC\n"),
         Some((
             "",
-            Element::Block(Block {
+            Block {
                 name: "SRC",
                 args: Some("javascript"),
-            }),
+            },
             "console.log('Hello World!');\n"
         ))
     );
     // TODO: more testing
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct SpecialBlock<'a> {
+    pub parameters: Option<&'a str>,
+    pub name: &'a str,
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct QuoteBlock<'a> {
+    pub parameters: Option<&'a str>,
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct CenterBlock<'a> {
+    pub parameters: Option<&'a str>,
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct VerseBlock<'a> {
+    pub parameters: Option<&'a str>,
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct CommentBlock<'a> {
+    pub data: Option<&'a str>,
+    pub contents: &'a str,
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct ExampleBlock<'a> {
+    pub data: Option<&'a str>,
+    pub contents: &'a str,
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct ExportBlock<'a> {
+    pub data: &'a str,
+    pub contents: &'a str,
+}
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct SourceBlock<'a> {
+    pub contents: &'a str,
+    pub language: &'a str,
+    pub arguments: &'a str,
 }

@@ -34,7 +34,10 @@ pub trait HtmlHandler<E: From<Error>> {
 
         match element {
             // container elements
-            Block(_block) => write!(w, "<div>")?,
+            SpecialBlock(_) => (),
+            QuoteBlock(_) => write!(w, "<blockquote>")?,
+            CenterBlock(_) => write!(w, "<div class=\"center\">")?,
+            VerseBlock(_) => write!(w, "<p class=\"verse\">")?,
             Bold => write!(w, "<b>")?,
             Document => write!(w, "<main>")?,
             DynBlock(_dyn_block) => (),
@@ -53,11 +56,37 @@ pub trait HtmlHandler<E: From<Error>> {
             Strike => write!(w, "<s>")?,
             Underline => write!(w, "<u>")?,
             // non-container elements
-            BabelCall(_babel_call) => (),
-            InlineSrc(inline_src) => write!(w, "<code>{}</code>", Escape(inline_src.body))?,
+            CommentBlock(_) => (),
+            ExampleBlock(block) => {
+                write!(w, "<pre class=\"example\">{}</pre>", Escape(block.contents))?
+            }
+            ExportBlock(block) => {
+                if block.data.eq_ignore_ascii_case("HTML") {
+                    write!(w, "{}", block.contents)?
+                }
+            }
+            SourceBlock(block) => {
+                if block.language.is_empty() {
+                    write!(w, "<pre class=\"example\">{}</pre>", Escape(block.contents))?;
+                } else {
+                    write!(
+                        w,
+                        "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
+                        block.language,
+                        Escape(block.contents)
+                    )?;
+                }
+            }
+            BabelCall(_) => (),
+            InlineSrc(inline_src) => write!(
+                w,
+                "<code class=\"src src-{}\">{}</code>",
+                inline_src.lang,
+                Escape(inline_src.body)
+            )?,
             Code { value } => write!(w, "<code>{}</code>", Escape(value))?,
             FnRef(_fn_ref) => (),
-            InlineCall(_inline_call) => (),
+            InlineCall(_) => (),
             Link(link) => write!(
                 w,
                 "<a href=\"{}\">{}</a>",
@@ -74,16 +103,85 @@ pub trait HtmlHandler<E: From<Error>> {
             }
             Target(_target) => (),
             Text { value } => write!(w, "{}", Escape(value))?,
-            Timestamp(_timestamp) => (),
+            Timestamp(timestamp) => {
+                use crate::elements::{Date, Time, Timestamp::*};
+
+                write!(
+                    &mut w,
+                    "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">"
+                )?;
+
+                fn write_datetime<W: Write>(
+                    mut w: W,
+                    start: &str,
+                    date: &Date,
+                    time: &Option<Time>,
+                    end: &str,
+                ) -> Result<(), Error> {
+                    write!(w, "{}", start)?;
+                    write!(
+                        w,
+                        "{}-{}-{} {}",
+                        date.year,
+                        date.month,
+                        date.day,
+                        Escape(date.dayname)
+                    )?;
+                    if let Some(time) = time {
+                        write!(w, " {}:{}", time.hour, time.minute)?;
+                    }
+                    write!(w, "{}", end)
+                }
+
+                match timestamp {
+                    Active {
+                        start_date,
+                        start_time,
+                        ..
+                    } => {
+                        write_datetime(&mut w, "&lt;", start_date, start_time, "&gt;")?;
+                    }
+                    Inactive {
+                        start_date,
+                        start_time,
+                        ..
+                    } => {
+                        write_datetime(&mut w, "[", start_date, start_time, "]")?;
+                    }
+                    ActiveRange {
+                        start_date,
+                        start_time,
+                        end_date,
+                        end_time,
+                        ..
+                    } => {
+                        write_datetime(&mut w, "&lt;", start_date, start_time, "&gt;&#x2013;")?;
+                        write_datetime(&mut w, "&lt;", end_date, end_time, "&gt;")?;
+                    }
+                    InactiveRange {
+                        start_date,
+                        start_time,
+                        end_date,
+                        end_time,
+                        ..
+                    } => {
+                        write_datetime(&mut w, "[", start_date, start_time, "]&#x2013;")?;
+                        write_datetime(&mut w, "[", end_date, end_time, "]")?;
+                    }
+                    Diary(value) => write!(&mut w, "&lt;%%({})&gt;", Escape(value))?,
+                }
+
+                write!(&mut w, "</span></span>")?;
+            }
             Verbatim { value } => write!(&mut w, "<code>{}</code>", Escape(value))?,
             FnDef(_fn_def) => (),
             Clock(_clock) => (),
-            Comment { value } => write!(w, "<!--\n{}\n-->", Escape(value))?,
-            FixedWidth { value } => write!(w, "<pre>{}</pre>", Escape(value))?,
+            Comment { .. } => (),
+            FixedWidth { value } => write!(w, "<pre class=\"example\">{}</pre>", Escape(value))?,
             Keyword(_keyword) => (),
             Drawer(_drawer) => (),
             Rule => write!(w, "<hr>")?,
-            Cookie(_cookie) => (),
+            Cookie(cookie) => write!(w, "<code>{}</code>", cookie.value)?,
             Title(title) => write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?,
         }
 
@@ -94,7 +192,10 @@ pub trait HtmlHandler<E: From<Error>> {
 
         match element {
             // container elements
-            Block(_block) => write!(w, "</div>")?,
+            SpecialBlock(_) => (),
+            QuoteBlock(_) => write!(w, "</blockquote>")?,
+            CenterBlock(_) => write!(w, "</div>")?,
+            VerseBlock(_) => write!(w, "</p>")?,
             Bold => write!(w, "</b>")?,
             Document => write!(w, "</main>")?,
             DynBlock(_dyn_block) => (),
