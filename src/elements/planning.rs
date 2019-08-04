@@ -68,7 +68,7 @@ impl Planning<'_> {
 
 #[test]
 fn prase() {
-    use crate::elements::Date;
+    use crate::elements::Datetime;
 
     assert_eq!(
         Planning::parse("SCHEDULED: <2019-04-08 Mon>\n"),
@@ -76,13 +76,14 @@ fn prase() {
             "",
             Planning {
                 scheduled: Some(Box::new(Timestamp::Active {
-                    start_date: Date {
+                    start: Datetime {
                         year: 2019,
                         month: 4,
                         day: 8,
-                        dayname: "Mon"
+                        dayname: "Mon",
+                        hour: None,
+                        minute: None
                     },
-                    start_time: None,
                     repeater: None,
                     delay: None
                 })),

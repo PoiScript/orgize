@@ -1,4 +1,4 @@
-use crate::elements::{Date, Element, Time, Timestamp};
+use crate::elements::{Datetime, Element, Timestamp};
 use memchr::memchr;
 
 /// clock elements
@@ -10,18 +10,15 @@ use memchr::memchr;
 pub enum Clock<'a> {
     /// closed Clock
     Closed {
-        start_date: Date<'a>,
-        start_time: Option<Time>,
-        end_date: Date<'a>,
-        end_time: Option<Time>,
+        start: Datetime<'a>,
+        end: Datetime<'a>,
         repeater: Option<&'a str>,
         delay: Option<&'a str>,
         duration: &'a str,
     },
     /// running Clock
     Running {
-        start_date: Date<'a>,
-        start_time: Option<Time>,
+        start: Datetime<'a>,
         repeater: Option<&'a str>,
         delay: Option<&'a str>,
     },
@@ -49,50 +46,54 @@ impl Clock<'_> {
 
         match timestamp {
             Timestamp::InactiveRange {
-                start_date,
-                start_time,
-                end_date,
-                end_time,
+                start,
+                end,
                 repeater,
                 delay,
-            } if tail.starts_with("=>") => {
-                let duration = &tail[3..].trim();
-                let colon = memchr(b':', duration.as_bytes())?;
-                if duration.as_bytes()[0..colon].iter().all(u8::is_ascii_digit)
-                    && colon == duration.len() - 3
-                    && duration.as_bytes()[colon + 1].is_ascii_digit()
-                    && duration.as_bytes()[colon + 2].is_ascii_digit()
-                {
+            } => {
+                if tail.starts_with("=>") {
+                    let duration = &tail[3..].trim();
+                    let colon = memchr(b':', duration.as_bytes())?;
+                    if duration.as_bytes()[0..colon].iter().all(u8::is_ascii_digit)
+                        && colon == duration.len() - 3
+                        && duration.as_bytes()[colon + 1].is_ascii_digit()
+                        && duration.as_bytes()[colon + 2].is_ascii_digit()
+                    {
+                        Some((
+                            &text[eol..],
+                            Element::Clock(Clock::Closed {
+                                start,
+                                end,
+                                repeater,
+                                delay,
+                                duration,
+                            }),
+                        ))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            Timestamp::Inactive {
+                start,
+                repeater,
+                delay,
+            } => {
+                if tail.is_empty() {
                     Some((
                         &text[eol..],
-                        Element::Clock(Clock::Closed {
-                            start_date,
-                            start_time,
-                            end_date,
-                            end_time,
+                        Element::Clock(Clock::Running {
+                            start,
                             repeater,
                             delay,
-                            duration,
                         }),
                     ))
                 } else {
                     None
                 }
             }
-            Timestamp::Inactive {
-                start_date,
-                start_time,
-                repeater,
-                delay,
-            } if tail.is_empty() => Some((
-                &text[eol..],
-                Element::Clock(Clock::Running {
-                    start_date,
-                    start_time,
-                    repeater,
-                    delay,
-                }),
-            )),
             _ => None,
         }
     }
@@ -123,33 +124,27 @@ impl Clock<'_> {
 
     /// constructs a new timestamp object from the clock
     pub fn value(&self) -> Timestamp<'_> {
-        match *self {
+        match &*self {
             Clock::Closed {
-                start_date,
-                start_time,
-                end_date,
-                end_time,
+                start,
+                end,
                 repeater,
                 delay,
                 ..
             } => Timestamp::InactiveRange {
-                start_date,
-                start_time,
-                end_date,
-                end_time,
-                repeater,
-                delay,
+                start: start.clone(),
+                end: end.clone(),
+                repeater: repeater.clone(),
+                delay: delay.clone(),
             },
             Clock::Running {
-                start_date,
-                start_time,
+                start,
                 repeater,
                 delay,
             } => Timestamp::Inactive {
-                start_date,
-                start_time,
-                repeater,
-                delay,
+                start: start.clone(),
+                repeater: repeater.clone(),
+                delay: delay.clone(),
             },
         }
     }
@@ -162,16 +157,14 @@ fn parse() {
         Some((
             "",
             Element::Clock(Clock::Running {
-                start_date: Date {
+                start: Datetime {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue"
+                    dayname: "Tue",
+                    hour: Some(9),
+                    minute: Some(39)
                 },
-                start_time: Some(Time {
-                    hour: 9,
-                    minute: 39
-                }),
                 repeater: None,
                 delay: None,
             })
@@ -182,26 +175,22 @@ fn parse() {
         Some((
             "",
             Element::Clock(Clock::Closed {
-                start_date: Date {
+                start: Datetime {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue"
+                    dayname: "Tue",
+                    hour: Some(9),
+                    minute: Some(39)
                 },
-                start_time: Some(Time {
-                    hour: 9,
-                    minute: 39
-                }),
-                end_date: Date {
+                end: Datetime {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue"
+                    dayname: "Tue",
+                    hour: Some(10),
+                    minute: Some(39)
                 },
-                end_time: Some(Time {
-                    hour: 10,
-                    minute: 39
-                }),
                 repeater: None,
                 delay: None,
                 duration: "1:00",

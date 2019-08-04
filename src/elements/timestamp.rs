@@ -1,13 +1,11 @@
-#[cfg(feature = "chrono")]
-use chrono::*;
 use nom::{
     bytes::complete::{tag, take, take_till, take_while, take_while_m_n},
     character::complete::{space0, space1},
-    combinator::{map_res, opt},
+    combinator::{map, map_res, opt},
     IResult,
 };
 
-/// Date
+/// Datetime
 ///
 /// # Syntax
 ///
@@ -17,117 +15,145 @@ use nom::{
 ///
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[derive(Debug, Clone, Copy)]
-pub struct Date<'a> {
+#[derive(Debug, Clone)]
+pub struct Datetime<'a> {
     pub year: u16,
     pub month: u8,
     pub day: u8,
     pub dayname: &'a str,
+    pub hour: Option<u8>,
+    pub minute: Option<u8>,
 }
 
-impl Date<'_> {
-    fn parse(input: &str) -> IResult<&str, Date<'_>> {
-        let (input, year) = map_res(take(4usize), |num| u16::from_str_radix(num, 10))(input)?;
-        let (input, _) = tag("-")(input)?;
-        let (input, month) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
-        let (input, _) = tag("-")(input)?;
-        let (input, day) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
-        let (input, _) = space1(input)?;
-        let (input, dayname) = take_while(|c: char| {
-            !c.is_ascii_whitespace()
-                && !c.is_ascii_digit()
-                && c != '+'
-                && c != '-'
-                && c != ']'
-                && c != '>'
-        })(input)?;
+fn parse_time(input: &str) -> IResult<&str, (u8, u8)> {
+    let (input, hour) = map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), |num| {
+        u8::from_str_radix(num, 10)
+    })(input)?;
+    let (input, _) = tag(":")(input)?;
+    let (input, minute) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
+    Ok((input, (hour, minute)))
+}
 
-        Ok((
-            input,
-            Date {
-                year,
-                month,
-                day,
-                dayname,
-            },
-        ))
+fn parse_datetime(input: &str) -> IResult<&str, Datetime<'_>> {
+    let parse_u8 = |num| u8::from_str_radix(num, 10);
+
+    let (input, year) = map_res(take(4usize), |num| u16::from_str_radix(num, 10))(input)?;
+    let (input, _) = tag("-")(input)?;
+    let (input, month) = map_res(take(2usize), parse_u8)(input)?;
+    let (input, _) = tag("-")(input)?;
+    let (input, day) = map_res(take(2usize), parse_u8)(input)?;
+    let (input, _) = space1(input)?;
+    let (input, dayname) = take_while(|c: char| {
+        !c.is_ascii_whitespace()
+            && !c.is_ascii_digit()
+            && c != '+'
+            && c != '-'
+            && c != ']'
+            && c != '>'
+    })(input)?;
+    let (input, (hour, minute)) = map(
+        opt(|input| {
+            let (input, _) = space1(input)?;
+            parse_time(input)
+        }),
+        |time| (time.map(|t| t.0), time.map(|t| t.1)),
+    )(input)?;
+
+    Ok((
+        input,
+        Datetime {
+            year,
+            month,
+            day,
+            dayname,
+            hour,
+            minute,
+        },
+    ))
+}
+
+#[cfg(feature = "chrono")]
+mod chrono {
+    use super::Datetime;
+    use chrono::*;
+
+    impl Into<NaiveDate> for Datetime<'_> {
+        fn into(self) -> NaiveDate {
+            NaiveDate::from_ymd(self.year.into(), self.month.into(), self.day.into())
+        }
+    }
+
+    impl Into<NaiveTime> for Datetime<'_> {
+        fn into(self) -> NaiveTime {
+            NaiveTime::from_hms(
+                self.hour.unwrap_or_default().into(),
+                self.minute.unwrap_or_default().into(),
+                0,
+            )
+        }
+    }
+
+    impl Into<NaiveDateTime> for Datetime<'_> {
+        fn into(self) -> NaiveDateTime {
+            NaiveDate::from_ymd(self.year.into(), self.month.into(), self.day.into()).and_hms(
+                self.hour.unwrap_or_default().into(),
+                self.minute.unwrap_or_default().into(),
+                0,
+            )
+        }
     }
 }
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[derive(Debug, Clone, Copy)]
-pub struct Time {
-    pub hour: u8,
-    pub minute: u8,
-}
-
-impl Time {
-    fn parse(input: &str) -> IResult<&str, Time> {
-        let (input, hour) = map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), |num| {
-            u8::from_str_radix(num, 10)
-        })(input)?;
-        let (input, _) = tag(":")(input)?;
-        let (input, minute) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
-
-        Ok((input, Time { hour, minute }))
-    }
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
 #[derive(Debug)]
 pub enum Timestamp<'a> {
     Active {
-        start_date: Date<'a>,
-        start_time: Option<Time>,
+        start: Datetime<'a>,
         repeater: Option<&'a str>,
         delay: Option<&'a str>,
     },
     Inactive {
-        start_date: Date<'a>,
-        start_time: Option<Time>,
+        start: Datetime<'a>,
         repeater: Option<&'a str>,
         delay: Option<&'a str>,
     },
     ActiveRange {
-        start_date: Date<'a>,
-        start_time: Option<Time>,
-        end_date: Date<'a>,
-        end_time: Option<Time>,
+        start: Datetime<'a>,
+        end: Datetime<'a>,
         repeater: Option<&'a str>,
         delay: Option<&'a str>,
     },
     InactiveRange {
-        start_date: Date<'a>,
-        start_time: Option<Time>,
-        end_date: Date<'a>,
-        end_time: Option<Time>,
+        start: Datetime<'a>,
+        end: Datetime<'a>,
         repeater: Option<&'a str>,
         delay: Option<&'a str>,
     },
-    Diary(&'a str),
+    Diary {
+        value: &'a str,
+    },
 }
 
 impl Timestamp<'_> {
     pub(crate) fn parse_active(input: &str) -> IResult<&str, Timestamp<'_>> {
         let (input, _) = tag("<")(input)?;
-        let (input, start_date) = Date::parse(input)?;
-        let (input, _) = space0(input)?;
-        let (input, start_time) = opt(Time::parse)(input)?;
+        let (input, start) = parse_datetime(input)?;
 
         if input.starts_with('-') {
-            let (input, end_time) = opt(Time::parse)(&input[1..])?;
+            let (input, (hour, minute)) = parse_time(&input[1..])?;
             let (input, _) = space0(input)?;
             // TODO: delay-or-repeater
             let (input, _) = tag(">")(input)?;
+            let mut end = start.clone();
+            end.hour = Some(hour);
+            end.minute = Some(minute);
             return Ok((
                 input,
                 Timestamp::ActiveRange {
-                    start_date,
-                    start_time,
-                    end_date: start_date,
-                    end_time,
+                    start,
+                    end,
                     repeater: None,
                     delay: None,
                 },
@@ -139,19 +165,15 @@ impl Timestamp<'_> {
         let (input, _) = tag(">")(input)?;
 
         if input.starts_with("--<") {
-            let (input, end_date) = Date::parse(&input["--<".len()..])?;
-            let (input, _) = space0(input)?;
-            let (input, end_time) = opt(Time::parse)(input)?;
+            let (input, end) = parse_datetime(&input["--<".len()..])?;
             let (input, _) = space0(input)?;
             // TODO: delay-or-repeater
             let (input, _) = tag(">")(input)?;
             Ok((
                 input,
                 Timestamp::ActiveRange {
-                    start_date,
-                    start_time,
-                    end_date,
-                    end_time,
+                    start,
+                    end,
                     repeater: None,
                     delay: None,
                 },
@@ -160,8 +182,7 @@ impl Timestamp<'_> {
             Ok((
                 input,
                 Timestamp::Active {
-                    start_date,
-                    start_time,
+                    start,
                     repeater: None,
                     delay: None,
                 },
@@ -171,22 +192,21 @@ impl Timestamp<'_> {
 
     pub(crate) fn parse_inactive(input: &str) -> IResult<&str, Timestamp<'_>> {
         let (input, _) = tag("[")(input)?;
-        let (input, start_date) = Date::parse(input)?;
-        let (input, _) = space0(input)?;
-        let (input, start_time) = opt(Time::parse)(input)?;
+        let (input, start) = parse_datetime(input)?;
 
         if input.starts_with('-') {
-            let (input, end_time) = opt(Time::parse)(&input[1..])?;
+            let (input, (hour, minute)) = parse_time(&input[1..])?;
             let (input, _) = space0(input)?;
             // TODO: delay-or-repeater
             let (input, _) = tag("]")(input)?;
+            let mut end = start.clone();
+            end.hour = Some(hour);
+            end.minute = Some(minute);
             return Ok((
                 input,
                 Timestamp::InactiveRange {
-                    start_date,
-                    start_time,
-                    end_date: start_date,
-                    end_time,
+                    start,
+                    end,
                     repeater: None,
                     delay: None,
                 },
@@ -198,19 +218,15 @@ impl Timestamp<'_> {
         let (input, _) = tag("]")(input)?;
 
         if input.starts_with("--[") {
-            let (input, end_date) = Date::parse(&input["--[".len()..])?;
-            let (input, _) = space0(input)?;
-            let (input, end_time) = opt(Time::parse)(input)?;
+            let (input, end) = parse_datetime(&input["--[".len()..])?;
             let (input, _) = space0(input)?;
             // TODO: delay-or-repeater
             let (input, _) = tag("]")(input)?;
             Ok((
                 input,
                 Timestamp::InactiveRange {
-                    start_date,
-                    start_time,
-                    end_date,
-                    end_time,
+                    start,
+                    end,
                     repeater: None,
                     delay: None,
                 },
@@ -219,8 +235,7 @@ impl Timestamp<'_> {
             Ok((
                 input,
                 Timestamp::Inactive {
-                    start_date,
-                    start_time,
+                    start,
                     repeater: None,
                     delay: None,
                 },
@@ -230,10 +245,10 @@ impl Timestamp<'_> {
 
     pub(crate) fn parse_diary(input: &str) -> IResult<&str, Timestamp<'_>> {
         let (input, _) = tag("<%%(")(input)?;
-        let (input, sexp) = take_till(|c| c == ')' || c == '>' || c == '\n')(input)?;
+        let (input, value) = take_till(|c| c == ')' || c == '>' || c == '\n')(input)?;
         let (input, _) = tag(")>")(input)?;
 
-        Ok((input, Timestamp::Diary(sexp)))
+        Ok((input, Timestamp::Diary { value }))
     }
 }
 
@@ -291,13 +306,14 @@ fn parse() {
         Ok((
             "",
             Timestamp::Inactive {
-                start_date: Date {
+                start: Datetime {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue"
+                    dayname: "Tue",
+                    hour: None,
+                    minute: None
                 },
-                start_time: None,
                 repeater: None,
                 delay: None,
             },
@@ -308,26 +324,22 @@ fn parse() {
         Ok((
             "",
             Timestamp::InactiveRange {
-                start_date: Date {
+                start: Datetime {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue"
+                    dayname: "Tue",
+                    hour: Some(9),
+                    minute: Some(39)
                 },
-                start_time: Some(Time {
-                    hour: 9,
-                    minute: 39
-                }),
-                end_date: Date {
+                end: Datetime {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue"
+                    dayname: "Tue",
+                    hour: Some(10),
+                    minute: Some(39),
                 },
-                end_time: Some(Time {
-                    hour: 10,
-                    minute: 39
-                }),
                 repeater: None,
                 delay: None
             },
@@ -338,26 +350,22 @@ fn parse() {
         Ok((
             "",
             Timestamp::ActiveRange {
-                start_date: Date {
+                start: Datetime {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue"
+                    dayname: "Tue",
+                    hour: Some(9),
+                    minute: Some(39),
                 },
-                start_time: Some(Time {
-                    hour: 9,
-                    minute: 39
-                }),
-                end_date: Date {
+                end: Datetime {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue"
+                    dayname: "Tue",
+                    hour: Some(10),
+                    minute: Some(39),
                 },
-                end_time: Some(Time {
-                    hour: 10,
-                    minute: 39
-                }),
                 repeater: None,
                 delay: None
             },

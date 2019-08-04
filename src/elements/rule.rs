@@ -1,9 +1,9 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take, take_while_m_n},
+    bytes::complete::{tag, take_while_m_n},
     character::complete::space0,
-    combinator::{map, not},
-    IResult,
+    error::ErrorKind,
+    Err, IResult,
 };
 use std::usize;
 
@@ -17,8 +17,16 @@ impl Rule {
         let (input, _) = space0(input)?;
         let (input, _) = take_while_m_n(5, usize::MAX, |c| c == '-')(input)?;
         let (input, _) = space0(input)?;
-        let (input, _) = alt((tag("\n"), map(not(take(1usize)), |_| "")))(input)?;
+        let (input, _) = alt((tag("\n"), eof))(input)?;
         Ok((input, Element::Rule))
+    }
+}
+
+fn eof(input: &str) -> IResult<&str, &str> {
+    if input.is_empty() {
+        Ok(("", ""))
+    } else {
+        Err(Err::Error(("", ErrorKind::Tag)))
     }
 }
 

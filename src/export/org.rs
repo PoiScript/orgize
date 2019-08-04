@@ -1,4 +1,4 @@
-use crate::elements::Element;
+use crate::elements::{Datetime, Element};
 use std::io::{Error, Write};
 
 pub trait OrgHandler<E: From<Error>> {
@@ -89,63 +89,42 @@ pub trait OrgHandler<E: From<Error>> {
             Target(_target) => (),
             Text { value } => write!(w, "{}", value)?,
             Timestamp(timestamp) => {
-                use crate::elements::{Date, Time, Timestamp::*};
+                use crate::elements::Timestamp;
 
                 fn write_datetime<W: Write>(
                     mut w: W,
                     start: &str,
-                    date: &Date,
-                    time: &Option<Time>,
+                    datetime: &Datetime,
                     end: &str,
                 ) -> Result<(), Error> {
                     write!(w, "{}", start)?;
                     write!(
                         w,
                         "{}-{}-{} {}",
-                        date.year, date.month, date.day, date.dayname
+                        datetime.year, datetime.month, datetime.day, datetime.dayname
                     )?;
-                    if let Some(time) = time {
-                        write!(w, " {}:{}", time.hour, time.minute,)?;
+                    if let (Some(hour), Some(minute)) = (datetime.hour, datetime.minute) {
+                        write!(w, " {}:{}", hour, minute)?;
                     }
                     write!(w, "{}", end)
                 }
 
                 match timestamp {
-                    Active {
-                        start_date,
-                        start_time,
-                        ..
-                    } => {
-                        write_datetime(&mut w, "<", start_date, start_time, ">")?;
+                    Timestamp::Active { start, .. } => {
+                        write_datetime(&mut w, "<", start, ">")?;
                     }
-                    Inactive {
-                        start_date,
-                        start_time,
-                        ..
-                    } => {
-                        write_datetime(&mut w, "[", start_date, start_time, "]")?;
+                    Timestamp::Inactive { start, .. } => {
+                        write_datetime(&mut w, "[", start, "]")?;
                     }
-                    ActiveRange {
-                        start_date,
-                        start_time,
-                        end_date,
-                        end_time,
-                        ..
-                    } => {
-                        write_datetime(&mut w, "<", start_date, start_time, ">--")?;
-                        write_datetime(&mut w, "<", end_date, end_time, ">")?;
+                    Timestamp::ActiveRange { start, end, .. } => {
+                        write_datetime(&mut w, "<", start, ">--")?;
+                        write_datetime(&mut w, "<", end, ">")?;
                     }
-                    InactiveRange {
-                        start_date,
-                        start_time,
-                        end_date,
-                        end_time,
-                        ..
-                    } => {
-                        write_datetime(&mut w, "[", start_date, start_time, "]--")?;
-                        write_datetime(&mut w, "[", end_date, end_time, "]")?;
+                    Timestamp::InactiveRange { start, end, .. } => {
+                        write_datetime(&mut w, "[", start, "]--")?;
+                        write_datetime(&mut w, "[", end, "]")?;
                     }
-                    Diary(value) => write!(w, "<%%({})>", value)?,
+                    Timestamp::Diary { value } => write!(w, "<%%({})>", value)?,
                 }
             }
             Verbatim { value } => write!(w, "={}=", value)?,

@@ -1,4 +1,4 @@
-use crate::elements::Element;
+use crate::elements::{Datetime, Element};
 use jetscii::bytes;
 use std::fmt;
 use std::io::{Error, Write};
@@ -104,7 +104,7 @@ pub trait HtmlHandler<E: From<Error>> {
             Target(_target) => (),
             Text { value } => write!(w, "{}", Escape(value))?,
             Timestamp(timestamp) => {
-                use crate::elements::{Date, Time, Timestamp::*};
+                use crate::elements::Timestamp;
 
                 write!(
                     &mut w,
@@ -114,61 +114,37 @@ pub trait HtmlHandler<E: From<Error>> {
                 fn write_datetime<W: Write>(
                     mut w: W,
                     start: &str,
-                    date: &Date,
-                    time: &Option<Time>,
+                    datetime: &Datetime,
                     end: &str,
                 ) -> Result<(), Error> {
                     write!(w, "{}", start)?;
                     write!(
                         w,
                         "{}-{}-{} {}",
-                        date.year,
-                        date.month,
-                        date.day,
-                        Escape(date.dayname)
+                        datetime.year, datetime.month, datetime.day, datetime.dayname
                     )?;
-                    if let Some(time) = time {
-                        write!(w, " {}:{}", time.hour, time.minute)?;
+                    if let (Some(hour), Some(minute)) = (datetime.hour, datetime.minute) {
+                        write!(w, " {}:{}", hour, minute)?;
                     }
                     write!(w, "{}", end)
                 }
 
                 match timestamp {
-                    Active {
-                        start_date,
-                        start_time,
-                        ..
-                    } => {
-                        write_datetime(&mut w, "&lt;", start_date, start_time, "&gt;")?;
+                    Timestamp::Active { start, .. } => {
+                        write_datetime(&mut w, "&lt;", start, "&gt;")?;
                     }
-                    Inactive {
-                        start_date,
-                        start_time,
-                        ..
-                    } => {
-                        write_datetime(&mut w, "[", start_date, start_time, "]")?;
+                    Timestamp::Inactive { start, .. } => {
+                        write_datetime(&mut w, "[", start, "]")?;
                     }
-                    ActiveRange {
-                        start_date,
-                        start_time,
-                        end_date,
-                        end_time,
-                        ..
-                    } => {
-                        write_datetime(&mut w, "&lt;", start_date, start_time, "&gt;&#x2013;")?;
-                        write_datetime(&mut w, "&lt;", end_date, end_time, "&gt;")?;
+                    Timestamp::ActiveRange { start, end, .. } => {
+                        write_datetime(&mut w, "&lt;", start, "&gt;&#x2013;")?;
+                        write_datetime(&mut w, "&lt;", end, "&gt;")?;
                     }
-                    InactiveRange {
-                        start_date,
-                        start_time,
-                        end_date,
-                        end_time,
-                        ..
-                    } => {
-                        write_datetime(&mut w, "[", start_date, start_time, "]&#x2013;")?;
-                        write_datetime(&mut w, "[", end_date, end_time, "]")?;
+                    Timestamp::InactiveRange { start, end, .. } => {
+                        write_datetime(&mut w, "[", start, "]&#x2013;")?;
+                        write_datetime(&mut w, "[", end, "]")?;
                     }
-                    Diary(value) => write!(&mut w, "&lt;%%({})&gt;", Escape(value))?,
+                    Timestamp::Diary { value } => write!(&mut w, "&lt;%%({})&gt;", Escape(value))?,
                 }
 
                 write!(&mut w, "</span></span>")?;

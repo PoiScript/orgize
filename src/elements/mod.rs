@@ -22,8 +22,8 @@ mod target;
 mod timestamp;
 mod title;
 
-pub(crate) use emphasis::parse as parse_emphasis;
 pub(crate) use block::Block;
+pub(crate) use emphasis::parse as parse_emphasis;
 
 pub use self::{
     block::{
@@ -47,7 +47,7 @@ pub use self::{
     rule::Rule,
     snippet::Snippet,
     target::Target,
-    timestamp::{Date, Time, Timestamp},
+    timestamp::{Datetime, Timestamp},
     title::Title,
 };
 
