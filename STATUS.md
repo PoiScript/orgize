@@ -67,4 +67,4 @@ Check out https://orgmode.org/worg/dev/org-syntax.html for more information.
 
 ## Extra
 
-- [ ] Syntax Highlighting
+- [X] Syntax Highlighting
