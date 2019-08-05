@@ -9,13 +9,13 @@ use crate::elements::Timestamp;
 pub struct Planning<'a> {
     /// the date when the task should be done
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub deadline: Option<Box<Timestamp<'a>>>,
+    pub deadline: Option<Timestamp<'a>>,
     /// the date when you should start working on the task
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub scheduled: Option<Box<Timestamp<'a>>>,
+    pub scheduled: Option<Timestamp<'a>>,
     /// the date when the task is closed
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub closed: Option<Box<Timestamp<'a>>>,
+    pub closed: Option<Timestamp<'a>>,
 }
 
 impl Planning<'_> {
@@ -35,7 +35,7 @@ impl Planning<'_> {
                         let (new_tail, timestamp) = Timestamp::parse_active(next)
                             .or_else(|_| Timestamp::parse_inactive(next))
                             .ok()?;
-                        $timestamp = Some(Box::new(timestamp));
+                        $timestamp = Some(timestamp);
                         tail = new_tail.trim_start();
                     } else {
                         return None;
@@ -75,7 +75,7 @@ fn prase() {
         Some((
             "",
             Planning {
-                scheduled: Some(Box::new(Timestamp::Active {
+                scheduled: Some(Timestamp::Active {
                     start: Datetime {
                         year: 2019,
                         month: 4,
@@ -86,7 +86,7 @@ fn prase() {
                     },
                     repeater: None,
                     delay: None
-                })),
+                }),
                 deadline: None,
                 closed: None,
             }

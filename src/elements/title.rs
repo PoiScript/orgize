@@ -1,8 +1,20 @@
 //! Headline Title
 
-use memchr::{memchr, memchr2, memrchr};
+use memchr::memrchr;
+use nom::{
+    bytes::complete::{tag, take_until, take_while},
+    character::complete::{anychar, space1},
+    combinator::{map, map_parser, opt, verify},
+    multi::fold_many0,
+    sequence::delimited,
+    sequence::preceded,
+    IResult,
+};
+use std::collections::HashMap;
 
 use crate::config::ParseConfig;
+use crate::elements::{Drawer, Planning};
+use crate::parsers::{skip_empty_lines, take_one_word, take_until_eol};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -20,88 +32,106 @@ pub struct Title<'a> {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub keyword: Option<&'a str>,
     pub raw: &'a str,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub planning: Option<Box<Planning<'a>>>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "HashMap::is_empty"))]
+    pub properties: HashMap<&'a str, &'a str>,
 }
 
 impl Title<'_> {
     #[inline]
-    pub(crate) fn parse<'a>(text: &'a str, config: &ParseConfig) -> (&'a str, Title<'a>, &'a str) {
-        let level = memchr2(b'\n', b' ', text.as_bytes()).unwrap_or_else(|| text.len());
+    pub(crate) fn parse<'a>(input: &'a str, config: &ParseConfig) -> IResult<&'a str, Title<'a>> {
+        let (input, (level, keyword, priority, raw, tags)) = parse_headline(input, config)?;
 
-        debug_assert!(level > 0);
-        debug_assert!(text.as_bytes()[0..level].iter().all(|&c| c == b'*'));
+        let (input, planning) = Planning::parse(input)
+            .map(|(input, planning)| (input, Some(Box::new(planning))))
+            .unwrap_or((input, None));
 
-        let off = memchr(b'\n', text.as_bytes())
-            .map(|i| i + 1)
-            .unwrap_or_else(|| text.len());
+        let (input, properties) = opt(parse_properties_drawer)(input)?;
 
-        if level == off {
-            return (
-                "",
-                Title {
-                    level,
-                    keyword: None,
-                    priority: None,
-                    tags: Vec::new(),
-                    raw: "",
-                },
-                "",
-            );
-        }
-
-        let tail = text[level + 1..off].trim();
-
-        let (keyword, tail) = {
-            let (word, off) = memchr(b' ', tail.as_bytes())
-                .map(|i| (&tail[0..i], i + 1))
-                .unwrap_or_else(|| (tail, tail.len()));
-            if config.todo_keywords.iter().any(|x| x == word)
-                || config.done_keywords.iter().any(|x| x == word)
-            {
-                (Some(word), &tail[off..])
-            } else {
-                (None, tail)
-            }
-        };
-
-        let (priority, tail) = {
-            let bytes = tail.as_bytes();
-            if bytes.len() > 4
-                && bytes[0] == b'['
-                && bytes[1] == b'#'
-                && bytes[2].is_ascii_uppercase()
-                && bytes[3] == b']'
-                && bytes[4] == b' '
-            {
-                (Some(bytes[2] as char), tail[4..].trim_start())
-            } else {
-                (None, tail)
-            }
-        };
-
-        let (title, tags) = if let Some(i) = memrchr(b' ', tail.as_bytes()) {
-            let last = &tail[i + 1..];
-            if last.len() > 2 && last.starts_with(':') && last.ends_with(':') {
-                (tail[..i].trim(), last)
-            } else {
-                (tail, "")
-            }
-        } else {
-            (tail, "")
-        };
-
-        (
-            &text[off..],
+        Ok((
+            input,
             Title {
+                properties: properties.unwrap_or_default(),
                 level,
                 keyword,
                 priority,
-                tags: tags.split(':').filter(|s| !s.is_empty()).collect(),
-                raw: title,
+                tags,
+                raw,
+                planning,
             },
-            title,
-        )
+        ))
     }
+}
 
+fn parse_headline<'a>(
+    input: &'a str,
+    config: &ParseConfig,
+) -> IResult<&'a str, (usize, Option<&'a str>, Option<char>, &'a str, Vec<&'a str>)> {
+    let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
+
+    debug_assert!(level > 0);
+
+    let (input, keyword) = opt(preceded(
+        space1,
+        verify(take_one_word, |s: &str| {
+            config.todo_keywords.iter().any(|x| x == s)
+                || config.done_keywords.iter().any(|x| x == s)
+        }),
+    ))(input)?;
+    let (input, priority) = opt(preceded(
+        space1,
+        map_parser(
+            take_one_word,
+            delimited(
+                tag("[#"),
+                verify(anychar, |c: &char| c.is_ascii_uppercase()),
+                tag("]"),
+            ),
+        ),
+    ))(input)?;
+    let (input, tail) = take_until_eol(input)?;
+    let (raw, tags) = memrchr(b' ', tail.as_bytes())
+        .map(|i| (tail[0..i].trim(), &tail[i + 1..]))
+        .filter(|(_, x)| x.len() > 2 && x.starts_with(':') && x.ends_with(':'))
+        .unwrap_or((tail, ""));
+
+    Ok((
+        input,
+        (
+            level,
+            keyword,
+            priority,
+            raw,
+            tags.split(':').filter(|s| !s.is_empty()).collect(),
+        ),
+    ))
+}
+
+fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<&str, &str>> {
+    let (input, (drawer, content)) = Drawer::parse(input)?;
+    let _ = tag("PROPERTIES")(drawer.name)?;
+    let (_, map) = fold_many0(
+        parse_node_property,
+        HashMap::new(),
+        |mut acc: HashMap<_, _>, (name, value)| {
+            acc.insert(name, value);
+            acc
+        },
+    )(content)?;
+    Ok((input, map))
+}
+
+fn parse_node_property(input: &str) -> IResult<&str, (&str, &str)> {
+    let input = skip_empty_lines(input);
+    let (input, name) = map(delimited(tag(":"), take_until(":"), tag(":")), |s: &str| {
+        s.trim_end_matches('+')
+    })(input)?;
+    let (input, value) = take_until_eol(input)?;
+    Ok((input, (name, value)))
+}
+
+impl Title<'_> {
     /// checks if this headline is "archived"
     pub fn is_archived(&self) -> bool {
         self.tags.contains(&"ARCHIVE")
@@ -114,159 +144,64 @@ lazy_static::lazy_static! {
 }
 
 #[test]
-fn parse() {
+fn parse_headline_() {
     assert_eq!(
-        Title::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &CONFIG),
-        (
+        parse_headline("**** DONE [#A] COMMENT Title :tag:a2%:", &CONFIG),
+        Ok((
             "",
-            Title {
-                level: 4,
-                priority: Some('A'),
-                keyword: Some("DONE"),
-                tags: vec!["tag", "a2%"],
-                raw: "COMMENT Title"
-            },
-            "COMMENT Title"
-        )
+            (
+                4,
+                Some("DONE"),
+                Some('A'),
+                "COMMENT Title",
+                vec!["tag", "a2%"]
+            )
+        ))
     );
     assert_eq!(
-        Title::parse("**** ToDO [#A] COMMENT Title :tag:a2%:", &CONFIG),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: None,
-                tags: vec!["tag", "a2%"],
-                keyword: None,
-                raw: "ToDO [#A] COMMENT Title"
-            },
-            "ToDO [#A] COMMENT Title"
-        )
+        parse_headline("**** ToDO [#A] COMMENT Title", &CONFIG),
+        Ok(("", (4, None, None, "ToDO [#A] COMMENT Title", vec![])))
     );
     assert_eq!(
-        Title::parse("**** T0DO [#A] COMMENT Title :tag:a2%:", &CONFIG),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: None,
-                tags: vec!["tag", "a2%"],
-                keyword: None,
-                raw: "T0DO [#A] COMMENT Title"
-            },
-            "T0DO [#A] COMMENT Title"
-        )
+        parse_headline("**** T0DO [#A] COMMENT Title", &CONFIG),
+        Ok(("", (4, None, None, "T0DO [#A] COMMENT Title", vec![])))
     );
     assert_eq!(
-        Title::parse("**** DONE [#1] COMMENT Title :tag:a2%:", &CONFIG),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: None,
-                tags: vec!["tag", "a2%"],
-                keyword: Some("DONE"),
-                raw: "[#1] COMMENT Title"
-            },
-            "[#1] COMMENT Title"
-        )
+        parse_headline("**** DONE [#1] COMMENT Title", &CONFIG),
+        Ok(("", (4, Some("DONE"), None, "[#1] COMMENT Title", vec![],)))
     );
     assert_eq!(
-        Title::parse("**** DONE [#a] COMMENT Title :tag:a2%:", &CONFIG),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: None,
-                tags: vec!["tag", "a2%"],
-                keyword: Some("DONE"),
-                raw: "[#a] COMMENT Title"
-            },
-            "[#a] COMMENT Title"
-        )
+        parse_headline("**** DONE [#a] COMMENT Title", &CONFIG),
+        Ok(("", (4, Some("DONE"), None, "[#a] COMMENT Title", vec![],)))
     );
     assert_eq!(
-        Title::parse("**** DONE [#A] COMMENT Title :tag:a2%", &CONFIG),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: Some('A'),
-                tags: Vec::new(),
-                keyword: Some("DONE"),
-                raw: "COMMENT Title :tag:a2%"
-            },
-            "COMMENT Title :tag:a2%"
-        )
+        parse_headline("**** Title :tag:a2%", &CONFIG),
+        Ok(("", (4, None, None, "Title :tag:a2%", vec![],)))
     );
     assert_eq!(
-        Title::parse("**** DONE [#A] COMMENT Title tag:a2%:", &CONFIG),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: Some('A'),
-                tags: Vec::new(),
-                keyword: Some("DONE"),
-                raw: "COMMENT Title tag:a2%:"
-            },
-            "COMMENT Title tag:a2%:"
-        )
-    );
-    assert_eq!(
-        Title::parse("**** COMMENT Title tag:a2%:", &CONFIG),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: None,
-                tags: Vec::new(),
-                keyword: None,
-                raw: "COMMENT Title tag:a2%:"
-            },
-            "COMMENT Title tag:a2%:"
-        )
+        parse_headline("**** Title tag:a2%:", &CONFIG),
+        Ok(("", (4, None, None, "Title tag:a2%:", vec![],)))
     );
 
     assert_eq!(
-        Title::parse(
-            "**** DONE [#A] COMMENT Title :tag:a2%:",
+        parse_headline(
+            "**** DONE Title",
             &ParseConfig {
                 done_keywords: vec![],
                 ..Default::default()
             }
         ),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: None,
-                keyword: None,
-                tags: vec!["tag", "a2%"],
-                raw: "DONE [#A] COMMENT Title"
-            },
-            "DONE [#A] COMMENT Title"
-        )
+        Ok(("", (4, None, None, "DONE Title", vec![])))
     );
     assert_eq!(
-        Title::parse(
-            "**** TASK [#A] COMMENT Title :tag:a2%:",
+        parse_headline(
+            "**** TASK [#A] Title",
             &ParseConfig {
                 todo_keywords: vec!["TASK".to_string()],
                 ..Default::default()
             }
         ),
-        (
-            "",
-            Title {
-                level: 4,
-                priority: Some('A'),
-                keyword: Some("TASK"),
-                tags: vec!["tag", "a2%"],
-                raw: "COMMENT Title"
-            },
-            "COMMENT Title"
-        )
+        Ok(("", (4, Some("TASK"), Some('A'), "Title", vec![],)))
     );
 }
 
@@ -283,14 +218,3 @@ fn parse() {
 //         .1
 //         .is_commented());
 // }
-
-#[test]
-fn is_archived() {
-    assert!(Title::parse("* Title :ARCHIVE:", &CONFIG).1.is_archived());
-    assert!(Title::parse("* Title :t:ARCHIVE:", &CONFIG).1.is_archived());
-    assert!(Title::parse("* Title :ARCHIVE:t:", &CONFIG).1.is_archived());
-    assert!(!Title::parse("* Title", &CONFIG).1.is_archived());
-    assert!(!Title::parse("* Title :ARCHIVED:", &CONFIG).1.is_archived());
-    assert!(!Title::parse("* Title :ARCHIVES:", &CONFIG).1.is_archived());
-    assert!(!Title::parse("* Title :archive:", &CONFIG).1.is_archived());
-}
