@@ -1,5 +1,5 @@
 use nom::{
-    bytes::complete::{tag, take, take_until, take_while1},
+    bytes::complete::{tag, take_until, take_while1},
     sequence::{delimited, separated_pair},
     IResult,
 };
@@ -24,7 +24,7 @@ impl Snippet<'_> {
                 tag(":"),
                 take_until("@@"),
             ),
-            take(2usize),
+            tag("@@"),
         )(input)?;
 
         Ok((input, Element::Snippet(Snippet { name, value })))
@@ -40,7 +40,7 @@ fn parse() {
             Element::Snippet(Snippet {
                 name: "html",
                 value: "<b>"
-            },)
+            })
         ))
     );
     assert_eq!(
@@ -50,7 +50,7 @@ fn parse() {
             Element::Snippet(Snippet {
                 name: "latex",
                 value: "any arbitrary LaTeX code",
-            },)
+            })
         ))
     );
     assert_eq!(
@@ -60,7 +60,7 @@ fn parse() {
             Element::Snippet(Snippet {
                 name: "html",
                 value: "",
-            },)
+            })
         ))
     );
     assert_eq!(
@@ -70,7 +70,7 @@ fn parse() {
             Element::Snippet(Snippet {
                 name: "html",
                 value: "<p>@</p>",
-            },)
+            })
         ))
     );
     assert!(Snippet::parse("@@html:<b>@").is_err());

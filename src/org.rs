@@ -1,4 +1,4 @@
-use indextree::{Arena, NodeId};
+use indextree::{Arena, NodeEdge, NodeId};
 use jetscii::bytes;
 use memchr::{memchr, memchr2, memchr_iter};
 use std::io::{Error, Write};
@@ -6,7 +6,7 @@ use std::io::{Error, Write};
 use crate::config::ParseConfig;
 use crate::elements::*;
 use crate::export::*;
-use crate::iter::{Event, Iter};
+use crate::parsers::skip_empty_lines;
 
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
@@ -42,12 +42,18 @@ enum Container<'a> {
     },
 }
 
-impl<'a> Org<'a> {
-    pub fn parse(text: &'a str) -> Self {
+#[derive(Debug)]
+pub enum Event<'a> {
+    Start(&'a Element<'a>),
+    End(&'a Element<'a>),
+}
+
+impl Org<'_> {
+    pub fn parse(text: &str) -> Org<'_> {
         Org::parse_with_config(text, &ParseConfig::default())
     }
 
-    pub fn parse_with_config(content: &'a str, config: &ParseConfig) -> Self {
+    pub fn parse_with_config<'a>(content: &'a str, config: &ParseConfig) -> Org<'a> {
         let mut arena = Arena::new();
         let document = arena.new_node(Element::Document);
 
@@ -82,7 +88,8 @@ impl<'a> Org<'a> {
                     node: parent,
                 } => {
                     let mut tail = content;
-                    let (new_tail, title, content) = Title::parse(tail, config);
+                    let (new_tail, title) = Title::parse(tail, config).unwrap();
+                    let content = title.raw;
                     let node = arena.new_node(Element::Title(title));
                     parent.append(node, &mut arena).unwrap();
                     containers.push(Container::Inline { content, node });
@@ -120,11 +127,13 @@ impl<'a> Org<'a> {
         Org { arena, document }
     }
 
-    pub fn iter(&'a self) -> Iter<'a> {
-        Iter {
-            arena: &self.arena,
-            traverse: self.document.traverse(&self.arena),
-        }
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Event<'_>> + 'a {
+        self.document
+            .traverse(&self.arena)
+            .map(move |edge| match edge {
+                NodeEdge::Start(e) => Event::Start(&self.arena[e].data),
+                NodeEdge::End(e) => Event::End(&self.arena[e].data),
+            })
     }
 
     pub fn html<W: Write>(&self, wrtier: W) -> Result<(), Error> {
@@ -305,8 +314,10 @@ fn parse_block<'a>(
     }
 
     if tail.starts_with(':') {
-        if let Ok((tail, (drawer, _content))) = Drawer::parse(tail) {
-            return Some((tail, arena.new_node(drawer)));
+        if let Ok((tail, (drawer, content))) = Drawer::parse(tail) {
+            let node = arena.new_node(drawer.into());
+            containers.push(Container::Block { content, node });
+            return Some((tail, node));
         }
     }
 
@@ -628,29 +639,4 @@ fn parse_list_items<'a>(
         containers.push(Container::Block { content, node });
         contents = tail;
     }
-}
-
-fn skip_empty_lines(contents: &str) -> &str {
-    let mut i = 0;
-    for pos in memchr_iter(b'\n', contents.as_bytes()) {
-        if contents.as_bytes()[i..pos]
-            .iter()
-            .all(u8::is_ascii_whitespace)
-        {
-            i = pos + 1;
-        } else {
-            break;
-        }
-    }
-    &contents[i..]
-}
-
-#[test]
-fn test_skip_empty_lines() {
-    assert_eq!(skip_empty_lines("foo"), "foo");
-    assert_eq!(skip_empty_lines(" foo"), " foo");
-    assert_eq!(skip_empty_lines(" \nfoo\n"), "foo\n");
-    assert_eq!(skip_empty_lines(" \n\n\nfoo\n"), "foo\n");
-    assert_eq!(skip_empty_lines(" \n  \n\nfoo\n"), "foo\n");
-    assert_eq!(skip_empty_lines(" \n  \n\n   foo\n"), "   foo\n");
 }

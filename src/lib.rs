@@ -219,7 +219,6 @@
 mod config;
 pub mod elements;
 pub mod export;
-mod iter;
 mod org;
 mod parsers;
 #[cfg(feature = "serde")]
@@ -227,5 +226,4 @@ mod serde;
 
 pub use config::ParseConfig;
 pub use elements::Element;
-pub use iter::{Event, Iter};
 pub use org::Org;

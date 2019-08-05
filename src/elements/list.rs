@@ -18,45 +18,46 @@ impl List {
             .unwrap_or((0, text));
 
         let ordered = is_item(tail)?;
-        let bytes = text.as_bytes();
-        let mut lines = memchr_iter(b'\n', bytes)
-            .map(|i| i + 1)
-            .chain(once(text.len()));
-        let mut pos = lines.next()?;
 
-        while let Some(i) = lines.next() {
-            let line = &text[pos..i];
-            return if let Some(line_indent) = line.find(|c: char| !c.is_whitespace()) {
-                // this line is no empty
+        let mut last_end = 0;
+        let mut start = 0;
+
+        for i in memchr_iter(b'\n', text.as_bytes())
+            .map(|i| i + 1)
+            .chain(once(text.len()))
+        {
+            let line = &text[start..i];
+            if let Some(line_indent) = line.find(|c: char| !c.is_whitespace()) {
                 if line_indent < indent
                     || (line_indent == indent && is_item(&line[line_indent..]).is_none())
                 {
-                    Some((&text[pos..], List { indent, ordered }, &text[0..pos]))
+                    return Some((
+                        &text[start..],
+                        List { indent, ordered },
+                        &text[0..start - 1],
+                    ));
                 } else {
-                    pos = i;
+                    last_end = 0;
+                    start = i;
                     continue;
                 }
-            } else if let Some(next_i) = lines.next() {
-                // this line is empty
-                let line = &text[i..next_i];
-                if let Some(line_indent) = line.find(|c: char| !c.is_whitespace()) {
-                    if line_indent < indent
-                        || (line_indent == indent && is_item(&line[line_indent..]).is_none())
-                    {
-                        Some((&text[pos..], List { indent, ordered }, &text[0..pos]))
-                    } else {
-                        pos = next_i;
-                        continue;
-                    }
-                } else {
-                    Some((&text[next_i..], List { indent, ordered }, &text[0..pos]))
-                }
             } else {
-                Some((&text[i..], List { indent, ordered }, &text[0..pos]))
-            };
+                // this line is empty
+                if last_end != 0 {
+                    return Some((&text[i..], List { indent, ordered }, &text[0..last_end]));
+                } else {
+                    last_end = start;
+                    start = i;
+                    continue;
+                }
+            }
         }
 
-        Some((&text[pos..], List { indent, ordered }, &text[0..pos]))
+        if last_end != 0 {
+            Some(("", List { indent, ordered }, &text[0..last_end]))
+        } else {
+            Some(("", List { indent, ordered }, text))
+        }
     }
 }
 

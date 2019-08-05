@@ -22,7 +22,9 @@ pub struct Datetime<'a> {
     pub month: u8,
     pub day: u8,
     pub dayname: &'a str,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub hour: Option<u8>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub minute: Option<u8>,
 }
 
@@ -103,29 +105,37 @@ mod chrono {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(tag = "timestamp_type", rename_all = "kebab-case"))]
 #[derive(Debug)]
 pub enum Timestamp<'a> {
     Active {
         start: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     Inactive {
         start: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     ActiveRange {
         start: Datetime<'a>,
         end: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     InactiveRange {
         start: Datetime<'a>,
         end: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
     Diary {

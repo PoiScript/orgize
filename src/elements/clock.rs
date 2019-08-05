@@ -1,8 +1,8 @@
-use nom::sequence::separated_pair;
 use nom::{
     bytes::complete::tag,
     character::complete::{char, digit1, space0},
     combinator::{peek, recognize},
+    sequence::separated_pair,
     IResult,
 };
 
@@ -14,20 +14,25 @@ use crate::parsers::eol;
 /// there are two types of clock: *closed* clock and *running* clock.
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 #[derive(Debug)]
 pub enum Clock<'a> {
     /// closed Clock
     Closed {
         start: Datetime<'a>,
         end: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
         duration: &'a str,
     },
     /// running Clock
     Running {
         start: Datetime<'a>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<&'a str>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<&'a str>,
     },
 }

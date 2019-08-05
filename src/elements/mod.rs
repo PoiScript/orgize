@@ -55,7 +55,7 @@ pub use self::{
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "kebab-case"))]
 pub enum Element<'a> {
     SpecialBlock(SpecialBlock<'a>),
     QuoteBlock(QuoteBlock<'a>),
@@ -83,7 +83,6 @@ pub enum Element<'a> {
     List(List),
     ListItem(ListItem<'a>),
     Macros(Macros<'a>),
-    Planning(Planning<'a>),
     Snippet(Snippet<'a>),
     Text { value: &'a str },
     Paragraph,
@@ -162,7 +161,6 @@ impl_from!(
     Link,
     ListItem,
     Macros,
-    Planning,
     QuoteBlock,
     Snippet,
     SourceBlock,

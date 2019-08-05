@@ -94,7 +94,6 @@ pub trait HtmlHandler<E: From<Error>> {
                 Escape(link.desc.unwrap_or(link.path)),
             )?,
             Macros(_macros) => (),
-            Planning(_planning) => (),
             RadioTarget(_radio_target) => (),
             Snippet(snippet) => {
                 if snippet.name.eq_ignore_ascii_case("HTML") {

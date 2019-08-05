@@ -2,8 +2,11 @@
 
 use memchr::{memchr, memchr_iter};
 use nom::{
-    bytes::complete::tag, character::complete::space0, error::ErrorKind, error_position, Err,
-    IResult,
+    branch::alt,
+    bytes::complete::{tag, take_till},
+    character::complete::space0,
+    error::ErrorKind,
+    error_position, Err, IResult,
 };
 
 pub(crate) fn eol(input: &str) -> IResult<&str, ()> {
@@ -42,4 +45,35 @@ pub(crate) fn take_lines_till(
             Err(Err::Error(error_position!(input, ErrorKind::TakeTill1)))
         }
     }
+}
+
+pub(crate) fn take_one_word(input: &str) -> IResult<&str, &str> {
+    alt((take_till(|c: char| c == ' ' || c == '\t'), |input| {
+        Ok(("", input))
+    }))(input)
+}
+
+pub(crate) fn skip_empty_lines(contents: &str) -> &str {
+    let mut i = 0;
+    for pos in memchr_iter(b'\n', contents.as_bytes()) {
+        if contents.as_bytes()[i..pos]
+            .iter()
+            .all(u8::is_ascii_whitespace)
+        {
+            i = pos + 1;
+        } else {
+            break;
+        }
+    }
+    &contents[i..]
+}
+
+#[test]
+fn test_skip_empty_lines() {
+    assert_eq!(skip_empty_lines("foo"), "foo");
+    assert_eq!(skip_empty_lines(" foo"), " foo");
+    assert_eq!(skip_empty_lines(" \nfoo\n"), "foo\n");
+    assert_eq!(skip_empty_lines(" \n\n\nfoo\n"), "foo\n");
+    assert_eq!(skip_empty_lines(" \n  \n\nfoo\n"), "foo\n");
+    assert_eq!(skip_empty_lines(" \n  \n\n   foo\n"), "   foo\n");
 }

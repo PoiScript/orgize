@@ -1,7 +1,7 @@
 use nom::{
     bytes::complete::{tag, take_till},
     combinator::opt,
-    sequence::delimited,
+    sequence::{delimited, preceded},
     IResult,
 };
 
@@ -19,19 +19,25 @@ pub struct InlineCall<'a> {
     pub end_header: Option<&'a str>,
 }
 
-fn header(input: &str) -> IResult<&str, &str> {
-    delimited(tag("["), take_till(|c| c == ']' || c == '\n'), tag("]"))(input)
-}
-
 impl<'a> InlineCall<'a> {
     #[inline]
     pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
-        let (input, _) = tag("call_")(input)?;
-        let (input, name) = take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')')(input)?;
-        let (input, inside_header) = opt(header)(input)?;
+        let (input, name) = preceded(
+            tag("call_"),
+            take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')'),
+        )(input)?;
+        let (input, inside_header) = opt(delimited(
+            tag("["),
+            take_till(|c| c == ']' || c == '\n'),
+            tag("]"),
+        ))(input)?;
         let (input, arguments) =
             delimited(tag("("), take_till(|c| c == ')' || c == '\n'), tag(")"))(input)?;
-        let (input, end_header) = opt(header)(input)?;
+        let (input, end_header) = opt(delimited(
+            tag("["),
+            take_till(|c| c == ']' || c == '\n'),
+            tag("]"),
+        ))(input)?;
 
         Ok((
             input,
