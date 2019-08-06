@@ -8,7 +8,7 @@ Check out https://orgmode.org/worg/dev/org-syntax.html for more information.
 
 ## Greater Elements
 - [x] Greater Blocks
-- [ ] Drawers and Property Drawers
+- [X] Drawers and Property Drawers
 - [x] Dynamic Blocks
 - [x] Footnote Definitions
 - [ ] Inlinetasks
@@ -19,8 +19,8 @@ Check out https://orgmode.org/worg/dev/org-syntax.html for more information.
   - [ ] Tag
   - [ ] Counter
   - [ ] Counter set
-- [ ] Property Drawers
-- [ ] Tables
+- [X] Property Drawers
+- [X] Tables
 
 ## Elements
 
@@ -34,9 +34,9 @@ Check out https://orgmode.org/worg/dev/org-syntax.html for more information.
 - [x] Horizontal Rules
 - [x] Keywords
 - [ ] LaTeX Environments
-- [ ] Node Properties
+- [X] Node Properties
 - [x] Paragraphs
-- [ ] Table Rows
+- [X] Table Rows
 
 ## Objects
 
@@ -54,7 +54,7 @@ Check out https://orgmode.org/worg/dev/org-syntax.html for more information.
 - [x] Targets and Radio Targets
 - [x] Statistics Cookies
 - [ ] Subscript and Superscript
-- [ ] Table Cells
+- [X] Table Cells
 - [x] Timestamps
 - [x] Text Markup
 
