@@ -9,17 +9,17 @@ use crate::elements::Element;
 use crate::parsers::take_until_eol;
 
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Keyword<'a> {
     pub key: &'a str,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub optional: Option<&'a str>,
     pub value: &'a str,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct BabelCall<'a> {
     pub value: &'a str,

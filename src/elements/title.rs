@@ -17,24 +17,24 @@ use crate::elements::{Drawer, Planning};
 use crate::parsers::{skip_empty_lines, take_one_word, take_until_eol};
 
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Title<'a> {
     /// headline level, number of stars
     pub level: usize,
     /// priority cookie
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub priority: Option<char>,
     /// headline tags, including the sparated colons
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Vec::is_empty"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Vec::is_empty"))]
     pub tags: Vec<&'a str>,
     /// headline keyword
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub keyword: Option<&'a str>,
     pub raw: &'a str,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub planning: Option<Box<Planning<'a>>>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "HashMap::is_empty"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "HashMap::is_empty"))]
     pub properties: HashMap<&'a str, &'a str>,
 }
 

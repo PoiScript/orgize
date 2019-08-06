@@ -7,7 +7,7 @@ use nom::{
 };
 
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Drawer<'a> {
     pub name: &'a str,

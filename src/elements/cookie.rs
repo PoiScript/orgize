@@ -8,7 +8,7 @@ use nom::{
 };
 
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Cookie<'a> {
     pub value: &'a str,

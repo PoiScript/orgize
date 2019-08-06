@@ -4,17 +4,17 @@ use crate::elements::Timestamp;
 
 /// palnning elements
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Planning<'a> {
     /// the date when the task should be done
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub deadline: Option<Timestamp<'a>>,
     /// the date when you should start working on the task
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub scheduled: Option<Timestamp<'a>>,
     /// the date when the task is closed
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub closed: Option<Timestamp<'a>>,
 }
 

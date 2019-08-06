@@ -8,14 +8,14 @@ use nom::{
 use crate::elements::Element;
 
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct InlineCall<'a> {
     pub name: &'a str,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub inside_header: Option<&'a str>,
     pub arguments: &'a str,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub end_header: Option<&'a str>,
 }
 

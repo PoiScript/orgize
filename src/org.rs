@@ -7,8 +7,8 @@ use crate::export::*;
 use crate::parsers::*;
 
 pub struct Org<'a> {
-    pub(crate) arena: Arena<Element<'a>>,
-    pub(crate) document: NodeId,
+    arena: Arena<Element<'a>>,
+    document: NodeId,
 }
 
 #[derive(Debug)]
@@ -106,5 +106,17 @@ impl Org<'_> {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(feature = "ser")]
+use serde::{ser::Serializer, Serialize};
+
+#[cfg(feature = "ser")]
+impl Serialize for Org<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde_indextree::Node;
+
+        serializer.serialize_newtype_struct("Node", &Node::new(self.document, &self.arena))
     }
 }

@@ -56,8 +56,8 @@ pub use self::{
 /// Org-mode element enum
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "kebab-case"))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", serde(tag = "type", rename_all = "kebab-case"))]
 pub enum Element<'a> {
     SpecialBlock(SpecialBlock<'a>),
     QuoteBlock(QuoteBlock<'a>),

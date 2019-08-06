@@ -9,7 +9,7 @@ use crate::elements::Element;
 
 // TODO: text-markup, entities, latex-fragments, subscript and superscript
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct RadioTarget;
 

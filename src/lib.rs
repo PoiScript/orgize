@@ -206,7 +206,7 @@
 //!
 //! By now, orgize provides two features:
 //!
-//! + `serde`: adds the ability to serialize `Org` and other elements using `serde`, enabled by default.
+//! + `ser`: adds the ability to serialize `Org` and other elements using `serde`, enabled by default.
 //!
 //! + `chrono`: adds the ability to convert `Datetime` into `chrono` structs, disabled by default.
 //!
@@ -221,8 +221,6 @@ pub mod elements;
 pub mod export;
 mod org;
 mod parsers;
-#[cfg(feature = "serde")]
-mod serde;
 
 pub use config::ParseConfig;
 pub use elements::Element;

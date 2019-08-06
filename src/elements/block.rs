@@ -64,7 +64,7 @@ fn parse() {
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SpecialBlock<'a> {
     pub parameters: Option<&'a str>,
     pub name: &'a str,
@@ -72,28 +72,28 @@ pub struct SpecialBlock<'a> {
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct QuoteBlock<'a> {
     pub parameters: Option<&'a str>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CenterBlock<'a> {
     pub parameters: Option<&'a str>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct VerseBlock<'a> {
     pub parameters: Option<&'a str>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CommentBlock<'a> {
     pub data: Option<&'a str>,
     pub contents: &'a str,
@@ -101,7 +101,7 @@ pub struct CommentBlock<'a> {
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExampleBlock<'a> {
     pub data: Option<&'a str>,
     pub contents: &'a str,
@@ -109,7 +109,7 @@ pub struct ExampleBlock<'a> {
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExportBlock<'a> {
     pub data: &'a str,
     pub contents: &'a str,
@@ -117,7 +117,7 @@ pub struct ExportBlock<'a> {
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SourceBlock<'a> {
     pub contents: &'a str,
     pub language: &'a str,
