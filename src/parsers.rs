@@ -53,7 +53,7 @@ pub fn parse_title<'a>(
     let (tail, title) = Title::parse(content, config).unwrap();
     let content = title.raw;
     let node = arena.new_node(Element::Title(title));
-    parent.append(node, arena).unwrap();
+    parent.append(node, arena);
     containers.push(Container::Inline { content, node });
     tail
 }
@@ -74,21 +74,21 @@ pub fn parse_section_and_headlines<'a>(
         if let Some((mut tail, headline_content)) = parse_headline(&content[last_end..]) {
             if last_end != 0 {
                 let node = arena.new_node(Element::Section);
-                parent.append(node, arena).unwrap();
+                parent.append(node, arena);
                 containers.push(Container::Block {
                     content: &content[0..last_end],
                     node,
                 });
             }
             let node = arena.new_node(Element::Headline);
-            parent.append(node, arena).unwrap();
+            parent.append(node, arena);
             containers.push(Container::Headline {
                 content: headline_content,
                 node,
             });
             while let Some((new_tail, content)) = parse_headline(tail) {
                 let node = arena.new_node(Element::Headline);
-                parent.append(node, arena).unwrap();
+                parent.append(node, arena);
                 containers.push(Container::Headline { content, node });
                 tail = new_tail;
             }
@@ -98,7 +98,7 @@ pub fn parse_section_and_headlines<'a>(
     }
 
     let node = arena.new_node(Element::Section);
-    parent.append(node, arena).unwrap();
+    parent.append(node, arena);
     containers.push(Container::Block { content, node });
 }
 
@@ -139,7 +139,7 @@ pub fn parse_blocks<'a>(
     let mut tail = skip_empty_lines(content);
 
     if let Some((new_tail, element)) = parse_block(content, arena, containers) {
-        parent.append(element, arena).unwrap();
+        parent.append(element, arena);
         tail = skip_empty_lines(new_tail);
     }
 
@@ -153,7 +153,7 @@ pub fn parse_blocks<'a>(
         if tail.as_bytes()[0..i].iter().all(u8::is_ascii_whitespace) {
             tail = skip_empty_lines(&tail[i..]);
             let node = arena.new_node(Element::Paragraph);
-            parent.append(node, arena).unwrap();
+            parent.append(node, arena);
             containers.push(Container::Inline {
                 content: &text[0..pos].trim_end_matches('\n'),
                 node,
@@ -163,14 +163,14 @@ pub fn parse_blocks<'a>(
         } else if let Some((new_tail, element)) = parse_block(tail, arena, containers) {
             if pos != 0 {
                 let node = arena.new_node(Element::Paragraph);
-                parent.append(node, arena).unwrap();
+                parent.append(node, arena);
                 containers.push(Container::Inline {
                     content: &text[0..pos].trim_end_matches('\n'),
                     node,
                 });
                 pos = 0;
             }
-            parent.append(element, arena).unwrap();
+            parent.append(element, arena);
             tail = skip_empty_lines(new_tail);
             text = tail;
         } else {
@@ -181,7 +181,7 @@ pub fn parse_blocks<'a>(
 
     if !text.is_empty() {
         let node = arena.new_node(Element::Paragraph);
-        parent.append(node, arena).unwrap();
+        parent.append(node, arena);
         containers.push(Container::Inline {
             content: &text[0..pos].trim_end_matches('\n'),
             node,
@@ -363,7 +363,7 @@ pub fn parse_inlines<'a>(
     let mut tail = content;
 
     if let Some((new_tail, element)) = parse_inline(tail, arena, containers) {
-        parent.append(element, arena).unwrap();
+        parent.append(element, arena);
         tail = new_tail;
     }
 
@@ -380,10 +380,10 @@ pub fn parse_inlines<'a>(
                         let node = arena.new_node(Element::Text {
                             value: &text[0..pos + off],
                         });
-                        parent.append(node, arena).unwrap();
+                        parent.append(node, arena);
                         pos = 0;
                     }
-                    parent.append(element, arena).unwrap();
+                    parent.append(element, arena);
                     tail = new_tail;
                     text = new_tail;
                     continue;
@@ -393,9 +393,9 @@ pub fn parse_inlines<'a>(
                     let node = arena.new_node(Element::Text {
                         value: &text[0..pos + off + 1],
                     });
-                    parent.append(node, arena).unwrap();
+                    parent.append(node, arena);
                     pos = 0;
-                    parent.append(element, arena).unwrap();
+                    parent.append(element, arena);
                     tail = new_tail;
                     text = new_tail;
                     continue;
@@ -407,9 +407,9 @@ pub fn parse_inlines<'a>(
                     let node = arena.new_node(Element::Text {
                         value: &text[0..pos + off + 1],
                     });
-                    parent.append(node, arena).unwrap();
+                    parent.append(node, arena);
                     pos = 0;
-                    parent.append(element, arena).unwrap();
+                    parent.append(element, arena);
                     tail = new_tail;
                     text = new_tail;
                     continue;
@@ -421,10 +421,10 @@ pub fn parse_inlines<'a>(
                         let node = arena.new_node(Element::Text {
                             value: &text[0..pos + off],
                         });
-                        parent.append(node, arena).unwrap();
+                        parent.append(node, arena);
                         pos = 0;
                     }
-                    parent.append(element, arena).unwrap();
+                    parent.append(element, arena);
                     tail = new_tail;
                     text = new_tail;
                     continue;
@@ -437,7 +437,7 @@ pub fn parse_inlines<'a>(
 
     if !text.is_empty() {
         let node = arena.new_node(Element::Text { value: text });
-        parent.append(node, arena).unwrap();
+        parent.append(node, arena);
     }
 }
 
@@ -550,7 +550,7 @@ pub fn parse_list_items<'a>(
         let (tail, list_item, content) = ListItem::parse(contents, indent);
         let list_item = Element::ListItem(list_item);
         let node = arena.new_node(list_item);
-        parent.append(node, arena).unwrap();
+        parent.append(node, arena);
         containers.push(Container::Block { content, node });
         contents = tail;
     }
@@ -570,10 +570,10 @@ pub fn prase_table<'a>(
             match TableRow::parse(line) {
                 Some(TableRow::Standard) => {
                     let row_node = arena.new_node(Element::TableRow(TableRow::Standard));
-                    table_node.append(row_node, arena).unwrap();
+                    table_node.append(row_node, arena);
                     for cell in line[1..].split_terminator('|') {
                         let cell_node = arena.new_node(Element::TableCell);
-                        row_node.append(cell_node, arena).unwrap();
+                        row_node.append(cell_node, arena);
                         containers.push(Container::Inline {
                             content: cell.trim(),
                             node: cell_node,
@@ -582,7 +582,7 @@ pub fn prase_table<'a>(
                 }
                 Some(TableRow::Rule) => {
                     let row_node = arena.new_node(Element::TableRow(TableRow::Rule));
-                    table_node.append(row_node, arena).unwrap();
+                    table_node.append(row_node, arena);
                 }
                 None => return Some((&contents[last_end..], table_node)),
             }

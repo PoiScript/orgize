@@ -63,8 +63,8 @@ impl Org<'_> {
         self.document
             .traverse(&self.arena)
             .map(move |edge| match edge {
-                NodeEdge::Start(e) => Event::Start(&self.arena[e].data),
-                NodeEdge::End(e) => Event::End(&self.arena[e].data),
+                NodeEdge::Start(e) => Event::Start(self.arena[e].get()),
+                NodeEdge::End(e) => Event::End(self.arena[e].get()),
             })
     }
 
