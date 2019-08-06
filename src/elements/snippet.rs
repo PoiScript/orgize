@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::{tag, take_until, take_while1},
     sequence::{delimited, separated_pair},
@@ -10,8 +12,8 @@ use crate::elements::Element;
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Snippet<'a> {
-    pub name: &'a str,
-    pub value: &'a str,
+    pub name: Cow<'a, str>,
+    pub value: Cow<'a, str>,
 }
 
 impl Snippet<'_> {
@@ -27,7 +29,13 @@ impl Snippet<'_> {
             tag("@@"),
         )(input)?;
 
-        Ok((input, Element::Snippet(Snippet { name, value })))
+        Ok((
+            input,
+            Element::Snippet(Snippet {
+                name: name.into(),
+                value: value.into(),
+            }),
+        ))
     }
 }
 
@@ -38,8 +46,8 @@ fn parse() {
         Ok((
             "",
             Element::Snippet(Snippet {
-                name: "html",
-                value: "<b>"
+                name: "html".into(),
+                value: "<b>".into()
             })
         ))
     );
@@ -48,8 +56,8 @@ fn parse() {
         Ok((
             "",
             Element::Snippet(Snippet {
-                name: "latex",
-                value: "any arbitrary LaTeX code",
+                name: "latex".into(),
+                value: "any arbitrary LaTeX code".into(),
             })
         ))
     );
@@ -58,8 +66,8 @@ fn parse() {
         Ok((
             "",
             Element::Snippet(Snippet {
-                name: "html",
-                value: "",
+                name: "html".into(),
+                value: "".into(),
             })
         ))
     );
@@ -68,8 +76,8 @@ fn parse() {
         Ok((
             "",
             Element::Snippet(Snippet {
-                name: "html",
-                value: "<p>@</p>",
+                name: "html".into(),
+                value: "<p>@</p>".into(),
             })
         ))
     );

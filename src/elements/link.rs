@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::opt,
@@ -11,9 +13,9 @@ use crate::elements::Element;
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Link<'a> {
-    pub path: &'a str,
+    pub path: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub desc: Option<&'a str>,
+    pub desc: Option<Cow<'a, str>>,
 }
 
 impl Link<'_> {
@@ -30,7 +32,13 @@ impl Link<'_> {
             tag("]"),
         ))(input)?;
         let (input, _) = tag("]")(input)?;
-        Ok((input, Element::Link(Link { path, desc })))
+        Ok((
+            input,
+            Element::Link(Link {
+                path: path.into(),
+                desc: desc.map(Into::into),
+            }),
+        ))
     }
 }
 
@@ -41,7 +49,7 @@ fn parse() {
         Ok((
             "",
             Element::Link(Link {
-                path: "#id",
+                path: "#id".into(),
                 desc: None
             },)
         ))
@@ -51,8 +59,8 @@ fn parse() {
         Ok((
             "",
             Element::Link(Link {
-                path: "#id",
-                desc: Some("desc")
+                path: "#id".into(),
+                desc: Some("desc".into())
             })
         ))
     );

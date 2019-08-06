@@ -1,12 +1,14 @@
+use std::borrow::Cow;
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(tag = "table_type"))]
 pub enum Table<'a> {
     #[cfg_attr(feature = "ser", serde(rename = "org"))]
-    Org { tblfm: Option<&'a str> },
+    Org { tblfm: Option<Cow<'a, str>> },
     #[cfg_attr(feature = "ser", serde(rename = "table.el"))]
-    TableEl { value: &'a str },
+    TableEl { value: Cow<'a, str> },
 }
 
 #[derive(Debug)]

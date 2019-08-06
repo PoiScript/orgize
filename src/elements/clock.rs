@@ -1,7 +1,9 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::tag,
     character::complete::{char, digit1, space0},
-    combinator::{peek, recognize},
+    combinator::recognize,
     sequence::separated_pair,
     IResult,
 };
@@ -22,18 +24,18 @@ pub enum Clock<'a> {
         start: Datetime<'a>,
         end: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<&'a str>,
+        repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<&'a str>,
-        duration: &'a str,
+        delay: Option<Cow<'a, str>>,
+        duration: Cow<'a, str>,
     },
     /// running Clock
     Running {
         start: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<&'a str>,
+        repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<&'a str>,
+        delay: Option<Cow<'a, str>>,
     },
 }
 
@@ -41,7 +43,6 @@ impl Clock<'_> {
     pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
         let (input, _) = tag("CLOCK:")(input)?;
         let (input, _) = space0(input)?;
-        let (input, _) = peek(tag("["))(input)?;
         let (input, timestamp) = Timestamp::parse_inactive(input)?;
 
         match timestamp {
@@ -64,7 +65,7 @@ impl Clock<'_> {
                         end,
                         repeater,
                         delay,
-                        duration,
+                        duration: duration.into(),
                     }),
                 ))
             }
@@ -83,7 +84,9 @@ impl Clock<'_> {
                     }),
                 ))
             }
-            _ => unreachable!(),
+            _ => unreachable!(
+                "`Timestamp::parse_inactive` only returns `Timestamp::InactiveRange` or `Timestamp::Inactive`."
+            ),
         }
     }
 
@@ -150,7 +153,7 @@ fn parse() {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue",
+                    dayname: "Tue".into(),
                     hour: Some(9),
                     minute: Some(39)
                 },
@@ -168,7 +171,7 @@ fn parse() {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue",
+                    dayname: "Tue".into(),
                     hour: Some(9),
                     minute: Some(39)
                 },
@@ -176,13 +179,13 @@ fn parse() {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue",
+                    dayname: "Tue".into(),
                     hour: Some(10),
                     minute: Some(39)
                 },
                 repeater: None,
                 delay: None,
-                duration: "1:00",
+                duration: "1:00".into(),
             })
         ))
     );

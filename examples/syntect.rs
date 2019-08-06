@@ -46,7 +46,7 @@ impl HtmlHandler<Error> for SyntectHtmlHandler {
             Element::InlineSrc(inline_src) => write!(
                 w,
                 "<code>{}</code>",
-                self.highlight(Some(inline_src.lang), inline_src.body)
+                self.highlight(Some(&inline_src.lang), &inline_src.body)
             )?,
             Element::SourceBlock(block) => {
                 if block.language.is_empty() {
@@ -56,7 +56,7 @@ impl HtmlHandler<Error> for SyntectHtmlHandler {
                         w,
                         "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
                         block.language,
-                        self.highlight(Some(block.language), block.contents)
+                        self.highlight(Some(&block.language), &block.contents)
                     )?
                 }
             }
@@ -68,7 +68,7 @@ impl HtmlHandler<Error> for SyntectHtmlHandler {
             Element::ExampleBlock(block) => write!(
                 w,
                 "<pre class=\"example\">{}</pre>",
-                self.highlight(None, block.contents)
+                self.highlight(None, &block.contents)
             )?,
             _ => self.default_hanlder.start(w, element)?,
         }

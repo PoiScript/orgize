@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -11,7 +13,7 @@ use nom::{
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Cookie<'a> {
-    pub value: &'a str,
+    pub value: Cow<'a, str>,
 }
 
 impl Cookie<'_> {
@@ -26,7 +28,12 @@ impl Cookie<'_> {
             tag("]"),
         ))(input)?;
 
-        Ok((input, Cookie { value }))
+        Ok((
+            input,
+            Cookie {
+                value: value.into(),
+            },
+        ))
     }
 }
 
@@ -34,22 +41,66 @@ impl Cookie<'_> {
 fn parse() {
     assert_eq!(
         Cookie::parse("[1/10]"),
-        Ok(("", Cookie { value: "[1/10]" }))
+        Ok((
+            "",
+            Cookie {
+                value: "[1/10]".into()
+            }
+        ))
     );
     assert_eq!(
         Cookie::parse("[1/1000]"),
-        Ok(("", Cookie { value: "[1/1000]" }))
+        Ok((
+            "",
+            Cookie {
+                value: "[1/1000]".into()
+            }
+        ))
     );
-    assert_eq!(Cookie::parse("[10%]"), Ok(("", Cookie { value: "[10%]" })));
-    assert_eq!(Cookie::parse("[%]"), Ok(("", Cookie { value: "[%]" })));
-    assert_eq!(Cookie::parse("[/]"), Ok(("", Cookie { value: "[/]" })));
+    assert_eq!(
+        Cookie::parse("[10%]"),
+        Ok((
+            "",
+            Cookie {
+                value: "[10%]".into()
+            }
+        ))
+    );
+    assert_eq!(
+        Cookie::parse("[%]"),
+        Ok((
+            "",
+            Cookie {
+                value: "[%]".into()
+            }
+        ))
+    );
+    assert_eq!(
+        Cookie::parse("[/]"),
+        Ok((
+            "",
+            Cookie {
+                value: "[/]".into()
+            }
+        ))
+    );
     assert_eq!(
         Cookie::parse("[100/]"),
-        Ok(("", Cookie { value: "[100/]" }))
+        Ok((
+            "",
+            Cookie {
+                value: "[100/]".into()
+            }
+        ))
     );
     assert_eq!(
         Cookie::parse("[/100]"),
-        Ok(("", Cookie { value: "[/100]" }))
+        Ok((
+            "",
+            Cookie {
+                value: "[/100]".into()
+            }
+        ))
     );
 
     assert!(Cookie::parse("[10% ]").is_err());

@@ -15,7 +15,7 @@ pub trait OrgHandler<E: From<Error>> {
             Document => (),
             DynBlock(dyn_block) => {
                 write!(&mut w, "#+BEGIN: {}", dyn_block.block_name)?;
-                if let Some(parameters) = dyn_block.arguments {
+                if let Some(parameters) = &dyn_block.arguments {
                     write!(&mut w, " {}", parameters)?;
                 }
                 writeln!(&mut w)?;
@@ -49,7 +49,7 @@ pub trait OrgHandler<E: From<Error>> {
             BabelCall(_babel_call) => (),
             InlineSrc(inline_src) => {
                 write!(&mut w, "src_{}", inline_src.lang)?;
-                if let Some(options) = inline_src.options {
+                if let Some(options) = &inline_src.options {
                     write!(&mut w, "[{}]", options)?;
                 }
                 write!(&mut w, "{{{}}}", inline_src.body)?;
@@ -57,24 +57,24 @@ pub trait OrgHandler<E: From<Error>> {
             Code { value } => write!(w, "~{}~", value)?,
             FnRef(fn_ref) => {
                 write!(&mut w, "[fn:{}", fn_ref.label)?;
-                if let Some(definition) = fn_ref.definition {
+                if let Some(definition) = &fn_ref.definition {
                     write!(&mut w, ":{}", definition)?;
                 }
                 write!(&mut w, "]")?;
             }
             InlineCall(inline_call) => {
                 write!(&mut w, "call_{}", inline_call.name)?;
-                if let Some(header) = inline_call.inside_header {
+                if let Some(header) = &inline_call.inside_header {
                     write!(&mut w, "[{}]", header)?;
                 }
                 write!(&mut w, "({})", inline_call.arguments)?;
-                if let Some(header) = inline_call.end_header {
+                if let Some(header) = &inline_call.end_header {
                     write!(&mut w, "[{}]", header)?;
                 }
             }
             Link(link) => {
                 write!(&mut w, "[[{}]", link.path)?;
-                if let Some(desc) = link.desc {
+                if let Some(desc) = &link.desc {
                     write!(&mut w, "[{}]", desc)?;
                 }
                 write!(&mut w, "]")?;
@@ -130,7 +130,7 @@ pub trait OrgHandler<E: From<Error>> {
             FixedWidth { value } => write!(w, "{}", value)?,
             Keyword(keyword) => {
                 write!(&mut w, "#+{}", keyword.key)?;
-                if let Some(optional) = keyword.optional {
+                if let Some(optional) = &keyword.optional {
                     write!(&mut w, "[{}]", optional)?;
                 }
                 writeln!(&mut w, ": {}", keyword.value)?;
@@ -141,7 +141,7 @@ pub trait OrgHandler<E: From<Error>> {
                 for _ in 0..title.level {
                     write!(&mut w, "*")?;
                 }
-                if let Some(keyword) = title.keyword {
+                if let Some(keyword) = &title.keyword {
                     write!(&mut w, " {}", keyword)?;
                 }
                 if let Some(priority) = title.priority {

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::parsers::{eol, take_lines_till};
 
 use nom::{
@@ -10,7 +12,7 @@ use nom::{
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Drawer<'a> {
-    pub name: &'a str,
+    pub name: Cow<'a, str>,
 }
 
 impl Drawer<'_> {
@@ -24,7 +26,7 @@ impl Drawer<'_> {
         let (input, _) = eol(input)?;
         let (input, contents) = take_lines_till(|line| line.eq_ignore_ascii_case(":END:"))(input)?;
 
-        Ok((input, (Drawer { name }, contents)))
+        Ok((input, (Drawer { name: name.into() }, contents)))
     }
 }
 
@@ -32,6 +34,14 @@ impl Drawer<'_> {
 fn parse() {
     assert_eq!(
         Drawer::parse(":PROPERTIES:\n  :CUSTOM_ID: id\n  :END:"),
-        Ok(("", (Drawer { name: "PROPERTIES" }, "  :CUSTOM_ID: id\n")))
+        Ok((
+            "",
+            (
+                Drawer {
+                    name: "PROPERTIES".into()
+                },
+                "  :CUSTOM_ID: id\n"
+            )
+        ))
     )
 }

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use memchr::memchr;
 use nom::{
     bytes::complete::{tag, take_while1},
@@ -9,7 +11,7 @@ use nom::{
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct FnDef<'a> {
-    pub label: &'a str,
+    pub label: Cow<'a, str>,
 }
 
 fn parse_label(input: &str) -> IResult<&str, &str> {
@@ -29,7 +31,13 @@ impl FnDef<'_> {
 
         let end = memchr(b'\n', tail.as_bytes()).unwrap_or_else(|| tail.len());
 
-        Some((&tail[end..], FnDef { label }, &tail[0..end]))
+        Some((
+            &tail[end..],
+            FnDef {
+                label: label.into(),
+            },
+            &tail[0..end],
+        ))
     }
 }
 
@@ -37,19 +45,37 @@ impl FnDef<'_> {
 fn parse() {
     assert_eq!(
         FnDef::parse("[fn:1] https://orgmode.org"),
-        Some(("", FnDef { label: "1" }, " https://orgmode.org"))
+        Some(("", FnDef { label: "1".into() }, " https://orgmode.org"))
     );
     assert_eq!(
         FnDef::parse("[fn:word_1] https://orgmode.org"),
-        Some(("", FnDef { label: "word_1" }, " https://orgmode.org"))
+        Some((
+            "",
+            FnDef {
+                label: "word_1".into()
+            },
+            " https://orgmode.org"
+        ))
     );
     assert_eq!(
         FnDef::parse("[fn:WORD-1] https://orgmode.org"),
-        Some(("", FnDef { label: "WORD-1" }, " https://orgmode.org"))
+        Some((
+            "",
+            FnDef {
+                label: "WORD-1".into()
+            },
+            " https://orgmode.org"
+        ))
     );
     assert_eq!(
         FnDef::parse("[fn:WORD]"),
-        Some(("", FnDef { label: "WORD" }, ""))
+        Some((
+            "",
+            FnDef {
+                label: "WORD".into()
+            },
+            ""
+        ))
     );
     assert_eq!(FnDef::parse("[fn:] https://orgmode.org"), None);
     assert_eq!(FnDef::parse("[fn:wor d] https://orgmode.org"), None);

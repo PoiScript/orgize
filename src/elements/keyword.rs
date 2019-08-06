@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::{tag, take_till},
     combinator::opt,
@@ -12,17 +14,17 @@ use crate::parsers::take_until_eol;
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Keyword<'a> {
-    pub key: &'a str,
+    pub key: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub optional: Option<&'a str>,
-    pub value: &'a str,
+    pub optional: Option<Cow<'a, str>>,
+    pub value: Cow<'a, str>,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct BabelCall<'a> {
-    pub value: &'a str,
+    pub value: Cow<'a, str>,
 }
 
 impl Keyword<'_> {
@@ -40,14 +42,19 @@ impl Keyword<'_> {
         let (input, value) = take_until_eol(input)?;
 
         if key.eq_ignore_ascii_case("CALL") {
-            Ok((input, Element::BabelCall(BabelCall { value })))
+            Ok((
+                input,
+                Element::BabelCall(BabelCall {
+                    value: value.into(),
+                }),
+            ))
         } else {
             Ok((
                 input,
                 Element::Keyword(Keyword {
-                    key,
-                    optional,
-                    value,
+                    key: key.into(),
+                    optional: optional.map(Into::into),
+                    value: value.into(),
                 }),
             ))
         }
@@ -61,9 +68,9 @@ fn parse() {
         Ok((
             "",
             Element::Keyword(Keyword {
-                key: "KEY",
+                key: "KEY".into(),
                 optional: None,
-                value: "",
+                value: "".into(),
             })
         ))
     );
@@ -72,9 +79,9 @@ fn parse() {
         Ok((
             "",
             Element::Keyword(Keyword {
-                key: "KEY",
+                key: "KEY".into(),
                 optional: None,
-                value: "VALUE",
+                value: "VALUE".into(),
             })
         ))
     );
@@ -83,9 +90,9 @@ fn parse() {
         Ok((
             "",
             Element::Keyword(Keyword {
-                key: "K_E_Y",
+                key: "K_E_Y".into(),
                 optional: None,
-                value: "VALUE",
+                value: "VALUE".into(),
             })
         ))
     );
@@ -94,9 +101,9 @@ fn parse() {
         Ok((
             "",
             Element::Keyword(Keyword {
-                key: "KEY",
+                key: "KEY".into(),
                 optional: None,
-                value: "VALUE",
+                value: "VALUE".into(),
             })
         ))
     );
@@ -108,9 +115,9 @@ fn parse() {
         Ok((
             "",
             Element::Keyword(Keyword {
-                key: "RESULTS",
+                key: "RESULTS".into(),
                 optional: None,
-                value: "",
+                value: "".into(),
             })
         ))
     );
@@ -120,9 +127,9 @@ fn parse() {
         Ok((
             "",
             Element::Keyword(Keyword {
-                key: "ATTR_LATEX",
+                key: "ATTR_LATEX".into(),
                 optional: None,
-                value: ":width 5cm",
+                value: ":width 5cm".into(),
             })
         ))
     );
@@ -132,7 +139,7 @@ fn parse() {
         Ok((
             "",
             Element::BabelCall(BabelCall {
-                value: "double(n=4)",
+                value: "double(n=4)".into(),
             })
         ))
     );
@@ -142,9 +149,9 @@ fn parse() {
         Ok((
             "",
             Element::Keyword(Keyword {
-                key: "CAPTION",
-                optional: Some("Short caption"),
-                value: "Longer caption.",
+                key: "CAPTION".into(),
+                optional: Some("Short caption".into()),
+                value: "Longer caption.".into(),
             })
         ))
     );

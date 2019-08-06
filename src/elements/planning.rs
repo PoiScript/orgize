@@ -80,7 +80,7 @@ fn prase() {
                         year: 2019,
                         month: 4,
                         day: 8,
-                        dayname: "Mon",
+                        dayname: "Mon".into(),
                         hour: None,
                         minute: None
                     },

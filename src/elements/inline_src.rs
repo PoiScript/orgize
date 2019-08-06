@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::{tag, take_till, take_while1},
     combinator::opt,
@@ -11,10 +13,10 @@ use crate::elements::Element;
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct InlineSrc<'a> {
-    pub lang: &'a str,
+    pub lang: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub options: Option<&'a str>,
-    pub body: &'a str,
+    pub options: Option<Cow<'a, str>>,
+    pub body: Cow<'a, str>,
 }
 
 impl InlineSrc<'_> {
@@ -34,9 +36,9 @@ impl InlineSrc<'_> {
         Ok((
             input,
             Element::InlineSrc(InlineSrc {
-                lang,
-                options,
-                body,
+                lang: lang.into(),
+                options: options.map(Into::into),
+                body: body.into(),
             }),
         ))
     }
@@ -49,9 +51,9 @@ fn parse() {
         Ok((
             "",
             Element::InlineSrc(InlineSrc {
-                lang: "C",
+                lang: "C".into(),
                 options: None,
-                body: "int a = 0;"
+                body: "int a = 0;".into()
             }),
         ))
     );
@@ -60,9 +62,9 @@ fn parse() {
         Ok((
             "",
             Element::InlineSrc(InlineSrc {
-                lang: "xml",
-                options: Some(":exports code"),
-                body: "<tag>text</tag>",
+                lang: "xml".into(),
+                options: Some(":exports code".into()),
+                body: "<tag>text</tag>".into(),
             }),
         ))
     );

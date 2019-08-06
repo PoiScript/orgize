@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use memchr::memchr2_iter;
 use nom::{
     bytes::complete::{tag, take_while},
@@ -12,9 +14,9 @@ use nom::{
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct FnRef<'a> {
-    pub label: &'a str,
+    pub label: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub definition: Option<&'a str>,
+    pub definition: Option<Cow<'a, str>>,
 }
 
 fn balanced_brackets(input: &str) -> IResult<&str, &str> {
@@ -40,7 +42,13 @@ impl FnRef<'_> {
         let (input, definition) = opt(preceded(tag(":"), balanced_brackets))(input)?;
         let (input, _) = tag("]")(input)?;
 
-        Ok((input, FnRef { label, definition }))
+        Ok((
+            input,
+            FnRef {
+                label: label.into(),
+                definition: definition.map(Into::into),
+            },
+        ))
     }
 }
 
@@ -51,7 +59,7 @@ fn parse() {
         Ok((
             "",
             FnRef {
-                label: "1",
+                label: "1".into(),
                 definition: None
             },
         ))
@@ -61,8 +69,8 @@ fn parse() {
         Ok((
             "",
             FnRef {
-                label: "1",
-                definition: Some("2")
+                label: "1".into(),
+                definition: Some("2".into())
             },
         ))
     );
@@ -71,8 +79,8 @@ fn parse() {
         Ok((
             "",
             FnRef {
-                label: "",
-                definition: Some("2")
+                label: "".into(),
+                definition: Some("2".into())
             },
         ))
     );
@@ -81,8 +89,8 @@ fn parse() {
         Ok((
             "",
             FnRef {
-                label: "",
-                definition: Some("[]")
+                label: "".into(),
+                definition: Some("[]".into())
             },
         ))
     );

@@ -1,14 +1,17 @@
 //! Headline Title
 
+use std::borrow::Cow;
+
 use memchr::memrchr;
 use nom::{
     bytes::complete::{tag, take_until, take_while},
     character::complete::{anychar, space1},
     combinator::{map, map_parser, opt, verify},
+    error::ErrorKind,
+    error_position,
     multi::fold_many0,
-    sequence::delimited,
-    sequence::preceded,
-    IResult,
+    sequence::{delimited, preceded},
+    Err, IResult,
 };
 use std::collections::HashMap;
 
@@ -27,20 +30,23 @@ pub struct Title<'a> {
     pub priority: Option<char>,
     /// headline tags, including the sparated colons
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Vec::is_empty"))]
-    pub tags: Vec<&'a str>,
+    pub tags: Vec<Cow<'a, str>>,
     /// headline keyword
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub keyword: Option<&'a str>,
-    pub raw: &'a str,
+    pub keyword: Option<Cow<'a, str>>,
+    pub raw: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub planning: Option<Box<Planning<'a>>>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "HashMap::is_empty"))]
-    pub properties: HashMap<&'a str, &'a str>,
+    pub properties: HashMap<Cow<'a, str>, Cow<'a, str>>,
 }
 
 impl Title<'_> {
     #[inline]
-    pub(crate) fn parse<'a>(input: &'a str, config: &ParseConfig) -> IResult<&'a str, Title<'a>> {
+    pub(crate) fn parse<'a>(
+        input: &'a str,
+        config: &ParseConfig,
+    ) -> IResult<&'a str, (Title<'a>, &'a str)> {
         let (input, (level, keyword, priority, raw, tags)) = parse_headline(input, config)?;
 
         let (input, planning) = Planning::parse(input)
@@ -51,15 +57,18 @@ impl Title<'_> {
 
         Ok((
             input,
-            Title {
-                properties: properties.unwrap_or_default(),
-                level,
-                keyword,
-                priority,
-                tags,
+            (
+                Title {
+                    properties: properties.unwrap_or_default(),
+                    level,
+                    keyword: keyword.map(Into::into),
+                    priority,
+                    tags,
+                    raw: raw.into(),
+                    planning,
+                },
                 raw,
-                planning,
-            },
+            ),
         ))
     }
 }
@@ -67,7 +76,16 @@ impl Title<'_> {
 fn parse_headline<'a>(
     input: &'a str,
     config: &ParseConfig,
-) -> IResult<&'a str, (usize, Option<&'a str>, Option<char>, &'a str, Vec<&'a str>)> {
+) -> IResult<
+    &'a str,
+    (
+        usize,
+        Option<&'a str>,
+        Option<char>,
+        &'a str,
+        Vec<Cow<'a, str>>,
+    ),
+> {
     let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
 
     debug_assert!(level > 0);
@@ -103,19 +121,24 @@ fn parse_headline<'a>(
             keyword,
             priority,
             raw,
-            tags.split(':').filter(|s| !s.is_empty()).collect(),
+            tags.split(':')
+                .filter(|s| !s.is_empty())
+                .map(Into::into)
+                .collect(),
         ),
     ))
 }
 
-fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<&str, &str>> {
+fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>> {
     let (input, (drawer, content)) = Drawer::parse(input)?;
-    let _ = tag("PROPERTIES")(drawer.name)?;
+    if drawer.name != "PROPERTIES" {
+        return Err(Err::Error(error_position!(input, ErrorKind::Tag)));
+    }
     let (_, map) = fold_many0(
         parse_node_property,
         HashMap::new(),
         |mut acc: HashMap<_, _>, (name, value)| {
-            acc.insert(name, value);
+            acc.insert(name.into(), value.into());
             acc
         },
     )(content)?;
@@ -134,7 +157,7 @@ fn parse_node_property(input: &str) -> IResult<&str, (&str, &str)> {
 impl Title<'_> {
     /// checks if this headline is "archived"
     pub fn is_archived(&self) -> bool {
-        self.tags.contains(&"ARCHIVE")
+        self.tags.iter().any(|tag| tag == "ARCHIVE")
     }
 }
 
@@ -154,7 +177,7 @@ fn parse_headline_() {
                 Some("DONE"),
                 Some('A'),
                 "COMMENT Title",
-                vec!["tag", "a2%"]
+                vec!["tag".into(), "a2%".into()]
             )
         ))
     );

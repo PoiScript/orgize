@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::{tag, take_till},
     combinator::opt,
@@ -11,12 +13,12 @@ use crate::elements::Element;
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct InlineCall<'a> {
-    pub name: &'a str,
+    pub name: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub inside_header: Option<&'a str>,
-    pub arguments: &'a str,
+    pub inside_header: Option<Cow<'a, str>>,
+    pub arguments: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub end_header: Option<&'a str>,
+    pub end_header: Option<Cow<'a, str>>,
 }
 
 impl<'a> InlineCall<'a> {
@@ -42,10 +44,10 @@ impl<'a> InlineCall<'a> {
         Ok((
             input,
             Element::InlineCall(InlineCall {
-                name,
-                arguments,
-                inside_header,
-                end_header,
+                name: name.into(),
+                arguments: arguments.into(),
+                inside_header: inside_header.map(Into::into),
+                end_header: end_header.map(Into::into),
             }),
         ))
     }
@@ -58,8 +60,8 @@ fn parse() {
         Ok((
             "",
             Element::InlineCall(InlineCall {
-                name: "square",
-                arguments: "4",
+                name: "square".into(),
+                arguments: "4".into(),
                 inside_header: None,
                 end_header: None,
             }),
@@ -70,9 +72,9 @@ fn parse() {
         Ok((
             "",
             Element::InlineCall(InlineCall {
-                name: "square",
-                arguments: "4",
-                inside_header: Some(":results output"),
+                name: "square".into(),
+                arguments: "4".into(),
+                inside_header: Some(":results output".into()),
                 end_header: None,
             }),
         ))
@@ -82,10 +84,10 @@ fn parse() {
         Ok((
             "",
             Element::InlineCall(InlineCall {
-                name: "square",
-                arguments: "4",
+                name: "square".into(),
+                arguments: "4".into(),
                 inside_header: None,
-                end_header: Some(":results html"),
+                end_header: Some(":results html".into()),
             }),
         ))
     );
@@ -94,10 +96,10 @@ fn parse() {
         Ok((
             "",
             Element::InlineCall(InlineCall {
-                name: "square",
-                arguments: "4",
-                inside_header: Some(":results output"),
-                end_header: Some(":results html"),
+                name: "square".into(),
+                arguments: "4".into(),
+                inside_header: Some(":results output".into()),
+                end_header: Some(":results html".into()),
             }),
         ))
     );

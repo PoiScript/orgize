@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::{tag, take, take_until, take_while1},
     combinator::{opt, verify},
@@ -11,9 +13,9 @@ use crate::elements::Element;
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Macros<'a> {
-    pub name: &'a str,
+    pub name: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub arguments: Option<&'a str>,
+    pub arguments: Option<Cow<'a, str>>,
 }
 
 impl Macros<'_> {
@@ -27,7 +29,13 @@ impl Macros<'_> {
         let (input, arguments) = opt(delimited(tag("("), take_until(")}}}"), take(1usize)))(input)?;
         let (input, _) = tag("}}}")(input)?;
 
-        Ok((input, Element::Macros(Macros { name, arguments })))
+        Ok((
+            input,
+            Element::Macros(Macros {
+                name: name.into(),
+                arguments: arguments.map(Into::into),
+            }),
+        ))
     }
 }
 
@@ -38,8 +46,8 @@ fn parse() {
         Ok((
             "",
             Element::Macros(Macros {
-                name: "poem",
-                arguments: Some("red,blue")
+                name: "poem".into(),
+                arguments: Some("red,blue".into())
             })
         ))
     );
@@ -48,8 +56,8 @@ fn parse() {
         Ok((
             "",
             Element::Macros(Macros {
-                name: "poem",
-                arguments: Some(")")
+                name: "poem".into(),
+                arguments: Some(")".into())
             })
         ))
     );
@@ -58,7 +66,7 @@ fn parse() {
         Ok((
             "",
             Element::Macros(Macros {
-                name: "author",
+                name: "author".into(),
                 arguments: None
             })
         ))

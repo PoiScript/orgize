@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::verify,
@@ -11,7 +13,7 @@ use crate::elements::Element;
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Target<'a> {
-    pub target: &'a str,
+    pub target: Cow<'a, str>,
 }
 
 impl Target<'_> {
@@ -26,7 +28,12 @@ impl Target<'_> {
             tag(">>"),
         )(input)?;
 
-        Ok((input, Element::Target(Target { target })))
+        Ok((
+            input,
+            Element::Target(Target {
+                target: target.into(),
+            }),
+        ))
     }
 }
 
@@ -34,11 +41,21 @@ impl Target<'_> {
 fn parse() {
     assert_eq!(
         Target::parse("<<target>>"),
-        Ok(("", Element::Target(Target { target: "target" })))
+        Ok((
+            "",
+            Element::Target(Target {
+                target: "target".into()
+            })
+        ))
     );
     assert_eq!(
         Target::parse("<<tar get>>"),
-        Ok(("", Element::Target(Target { target: "tar get" })))
+        Ok((
+            "",
+            Element::Target(Target {
+                target: "tar get".into()
+            })
+        ))
     );
     assert!(Target::parse("<<target >>").is_err());
     assert!(Target::parse("<< target>>").is_err());

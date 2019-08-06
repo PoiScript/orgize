@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use memchr::memchr_iter;
 use std::iter::once;
 
@@ -65,7 +67,7 @@ impl List {
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct ListItem<'a> {
-    pub bullet: &'a str,
+    pub bullet: Cow<'a, str>,
 }
 
 impl ListItem<'_> {
@@ -87,7 +89,7 @@ impl ListItem<'_> {
                     return (
                         &text[pos..],
                         ListItem {
-                            bullet: &text[indent..off],
+                            bullet: text[indent..off].into(),
                         },
                         &text[off..pos],
                     );
@@ -99,7 +101,7 @@ impl ListItem<'_> {
         (
             "",
             ListItem {
-                bullet: &text[indent..off],
+                bullet: text[indent..off].into(),
             },
             &text[off..],
         )

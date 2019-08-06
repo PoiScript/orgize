@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::elements::Element;
 use crate::parsers::{take_lines_till, take_until_eol};
 
@@ -11,9 +13,9 @@ use nom::{
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct DynBlock<'a> {
-    pub block_name: &'a str,
+    pub block_name: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-    pub arguments: Option<&'a str>,
+    pub arguments: Option<Cow<'a, str>>,
 }
 
 impl DynBlock<'_> {
@@ -30,8 +32,12 @@ impl DynBlock<'_> {
             input,
             (
                 Element::DynBlock(DynBlock {
-                    block_name: name,
-                    arguments: if args.is_empty() { None } else { Some(args) },
+                    block_name: name.into(),
+                    arguments: if args.is_empty() {
+                        None
+                    } else {
+                        Some(args.into())
+                    },
                 }),
                 contents,
             ),
@@ -48,8 +54,8 @@ fn parse() {
             "",
             (
                 Element::DynBlock(DynBlock {
-                    block_name: "clocktable",
-                    arguments: Some(":scope file"),
+                    block_name: "clocktable".into(),
+                    arguments: Some(":scope file".into()),
                 }),
                 "CONTENTS\n"
             )

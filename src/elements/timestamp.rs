@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{
     bytes::complete::{tag, take, take_till, take_while, take_while_m_n},
     character::complete::{space0, space1},
@@ -21,7 +23,7 @@ pub struct Datetime<'a> {
     pub year: u16,
     pub month: u8,
     pub day: u8,
-    pub dayname: &'a str,
+    pub dayname: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub hour: Option<u8>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
@@ -64,7 +66,7 @@ fn parse_datetime(input: &str) -> IResult<&str, Datetime<'_>> {
             year,
             month,
             day,
-            dayname,
+            dayname: dayname.into(),
             hour,
             minute,
         },
@@ -114,35 +116,35 @@ pub enum Timestamp<'a> {
     Active {
         start: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<&'a str>,
+        repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<&'a str>,
+        delay: Option<Cow<'a, str>>,
     },
     Inactive {
         start: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<&'a str>,
+        repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<&'a str>,
+        delay: Option<Cow<'a, str>>,
     },
     ActiveRange {
         start: Datetime<'a>,
         end: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<&'a str>,
+        repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<&'a str>,
+        delay: Option<Cow<'a, str>>,
     },
     InactiveRange {
         start: Datetime<'a>,
         end: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<&'a str>,
+        repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<&'a str>,
+        delay: Option<Cow<'a, str>>,
     },
     Diary {
-        value: &'a str,
+        value: Cow<'a, str>,
     },
 }
 
@@ -258,7 +260,12 @@ impl Timestamp<'_> {
         let (input, value) = take_till(|c| c == ')' || c == '>' || c == '\n')(input)?;
         let (input, _) = tag(")>")(input)?;
 
-        Ok((input, Timestamp::Diary { value }))
+        Ok((
+            input,
+            Timestamp::Diary {
+                value: value.into(),
+            },
+        ))
     }
 }
 
@@ -320,7 +327,7 @@ fn parse() {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue",
+                    dayname: "Tue".into(),
                     hour: None,
                     minute: None
                 },
@@ -338,7 +345,7 @@ fn parse() {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue",
+                    dayname: "Tue".into(),
                     hour: Some(9),
                     minute: Some(39)
                 },
@@ -346,7 +353,7 @@ fn parse() {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue",
+                    dayname: "Tue".into(),
                     hour: Some(10),
                     minute: Some(39),
                 },
@@ -364,7 +371,7 @@ fn parse() {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue",
+                    dayname: "Tue".into(),
                     hour: Some(9),
                     minute: Some(39),
                 },
@@ -372,7 +379,7 @@ fn parse() {
                     year: 2003,
                     month: 9,
                     day: 16,
-                    dayname: "Tue",
+                    dayname: "Tue".into(),
                     hour: Some(10),
                     minute: Some(39),
                 },

@@ -3,14 +3,14 @@ use jetscii::bytes;
 use std::fmt;
 use std::io::{Error, Write};
 
-pub struct Escape<'a>(pub &'a str);
+pub struct Escape<S: AsRef<str>>(pub S);
 
-impl fmt::Display for Escape<'_> {
+impl<S: AsRef<str>> fmt::Display for Escape<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut pos = 0;
-        let bytes = self.0.as_bytes();
+        let bytes = self.0.as_ref().as_bytes();
         while let Some(off) = bytes!(b'<', b'>', b'&', b'\'', b'"').find(&bytes[pos..]) {
-            write!(f, "{}", &self.0[pos..pos + off])?;
+            write!(f, "{}", &self.0.as_ref()[pos..pos + off])?;
 
             pos += off + 1;
 
@@ -24,7 +24,7 @@ impl fmt::Display for Escape<'_> {
             }
         }
 
-        write!(f, "{}", &self.0[pos..])
+        write!(f, "{}", &self.0.as_ref()[pos..])
     }
 }
 
@@ -57,9 +57,11 @@ pub trait HtmlHandler<E: From<Error>> {
             Underline => write!(w, "<u>")?,
             // non-container elements
             CommentBlock(_) => (),
-            ExampleBlock(block) => {
-                write!(w, "<pre class=\"example\">{}</pre>", Escape(block.contents))?
-            }
+            ExampleBlock(block) => write!(
+                w,
+                "<pre class=\"example\">{}</pre>",
+                Escape(&block.contents)
+            )?,
             ExportBlock(block) => {
                 if block.data.eq_ignore_ascii_case("HTML") {
                     write!(w, "{}", block.contents)?
@@ -67,13 +69,17 @@ pub trait HtmlHandler<E: From<Error>> {
             }
             SourceBlock(block) => {
                 if block.language.is_empty() {
-                    write!(w, "<pre class=\"example\">{}</pre>", Escape(block.contents))?;
+                    write!(
+                        w,
+                        "<pre class=\"example\">{}</pre>",
+                        Escape(&block.contents)
+                    )?;
                 } else {
                     write!(
                         w,
                         "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
                         block.language,
-                        Escape(block.contents)
+                        Escape(&block.contents)
                     )?;
                 }
             }
@@ -82,7 +88,7 @@ pub trait HtmlHandler<E: From<Error>> {
                 w,
                 "<code class=\"src src-{}\">{}</code>",
                 inline_src.lang,
-                Escape(inline_src.body)
+                Escape(&inline_src.body)
             )?,
             Code { value } => write!(w, "<code>{}</code>", Escape(value))?,
             FnRef(_fn_ref) => (),
@@ -90,8 +96,8 @@ pub trait HtmlHandler<E: From<Error>> {
             Link(link) => write!(
                 w,
                 "<a href=\"{}\">{}</a>",
-                Escape(link.path),
-                Escape(link.desc.unwrap_or(link.path)),
+                Escape(&link.path),
+                Escape(link.desc.as_ref().unwrap_or(&link.path)),
             )?,
             Macros(_macros) => (),
             RadioTarget(_radio_target) => (),

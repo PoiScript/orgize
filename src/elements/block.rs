@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nom::{bytes::complete::tag_no_case, character::complete::alpha1, sequence::preceded, IResult};
 
 use crate::parsers::{take_lines_till, take_until_eol};
@@ -5,8 +7,8 @@ use crate::parsers::{take_lines_till, take_until_eol};
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Block<'a> {
-    pub name: &'a str,
-    pub args: Option<&'a str>,
+    pub name: Cow<'a, str>,
+    pub args: Option<Cow<'a, str>>,
 }
 
 impl Block<'_> {
@@ -22,8 +24,12 @@ impl Block<'_> {
             input,
             (
                 Block {
-                    name,
-                    args: if args.is_empty() { None } else { Some(args) },
+                    name: name.into(),
+                    args: if args.is_empty() {
+                        None
+                    } else {
+                        Some(args.into())
+                    },
                 },
                 contents,
             ),
@@ -39,7 +45,7 @@ fn parse() {
             "",
             (
                 Block {
-                    name: "SRC",
+                    name: "SRC".into(),
                     args: None,
                 },
                 ""
@@ -52,8 +58,8 @@ fn parse() {
             "",
             (
                 Block {
-                    name: "SRC",
-                    args: Some("javascript"),
+                    name: "SRC".into(),
+                    args: Some("javascript".into()),
                 },
                 "console.log('Hello World!');\n"
             )
@@ -66,60 +72,60 @@ fn parse() {
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SpecialBlock<'a> {
-    pub parameters: Option<&'a str>,
-    pub name: &'a str,
+    pub parameters: Option<Cow<'a, str>>,
+    pub name: Cow<'a, str>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct QuoteBlock<'a> {
-    pub parameters: Option<&'a str>,
+    pub parameters: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CenterBlock<'a> {
-    pub parameters: Option<&'a str>,
+    pub parameters: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct VerseBlock<'a> {
-    pub parameters: Option<&'a str>,
+    pub parameters: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CommentBlock<'a> {
-    pub data: Option<&'a str>,
-    pub contents: &'a str,
+    pub data: Option<Cow<'a, str>>,
+    pub contents: Cow<'a, str>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExampleBlock<'a> {
-    pub data: Option<&'a str>,
-    pub contents: &'a str,
+    pub data: Option<Cow<'a, str>>,
+    pub contents: Cow<'a, str>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExportBlock<'a> {
-    pub data: &'a str,
-    pub contents: &'a str,
+    pub data: Cow<'a, str>,
+    pub contents: Cow<'a, str>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SourceBlock<'a> {
-    pub contents: &'a str,
-    pub language: &'a str,
-    pub arguments: &'a str,
+    pub contents: Cow<'a, str>,
+    pub language: Cow<'a, str>,
+    pub arguments: Cow<'a, str>,
 }

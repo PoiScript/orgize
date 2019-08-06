@@ -10,6 +10,7 @@ use nom::{
     error::ErrorKind,
     error_position, Err, IResult,
 };
+use std::borrow::Cow;
 
 use crate::config::ParseConfig;
 use crate::elements::*;
@@ -50,8 +51,7 @@ pub fn parse_title<'a>(
     containers: &mut Vec<Container<'a>>,
     config: &ParseConfig,
 ) -> &'a str {
-    let (tail, title) = Title::parse(content, config).unwrap();
-    let content = title.raw;
+    let (tail, (title, content)) = Title::parse(content, config).unwrap();
     let node = arena.new_node(Element::Title(title));
     parent.append(node, arena);
     containers.push(Container::Inline { content, node });
@@ -294,33 +294,42 @@ pub fn parse_block<'a>(
                 "COMMENT" => {
                     let node = arena.new_node(Element::CommentBlock(CommentBlock {
                         data: block.args,
-                        contents: content,
+                        contents: content.into(),
                     }));
                     Some((tail, node))
                 }
                 "EXAMPLE" => {
                     let node = arena.new_node(Element::ExampleBlock(ExampleBlock {
                         data: block.args,
-                        contents: content,
+                        contents: content.into(),
                     }));
                     Some((tail, node))
                 }
                 "EXPORT" => {
                     let node = arena.new_node(Element::ExportBlock(ExportBlock {
-                        data: block.args.unwrap_or(""),
-                        contents: content,
+                        data: block.args.unwrap_or_default(),
+                        contents: content.into(),
                     }));
                     Some((tail, node))
                 }
                 "SRC" => {
-                    let (language, arguments) = block
-                        .args
-                        .map(|args| args.split_at(args.find(' ').unwrap_or_else(|| args.len())))
-                        .unwrap_or(("", ""));
+                    let (language, arguments) = match &block.args {
+                        Some(Cow::Borrowed(args)) => {
+                            let (language, arguments) =
+                                args.split_at(args.find(' ').unwrap_or_else(|| args.len()));
+                            (Cow::Borrowed(language), Cow::Borrowed(arguments))
+                        }
+                        Some(Cow::Owned(args)) => {
+                            let (language, arguments) =
+                                args.split_at(args.find(' ').unwrap_or_else(|| args.len()));
+                            (Cow::Owned(language.into()), Cow::Owned(arguments.into()))
+                        }
+                        None => (Cow::Borrowed(""), Cow::Borrowed("")),
+                    };
                     let node = arena.new_node(Element::SourceBlock(SourceBlock {
                         arguments,
                         language,
-                        contents: content,
+                        contents: content.into(),
                     }));
                     Some((tail, node))
                 }
@@ -605,7 +614,7 @@ pub fn prase_table<'a>(
                     Some((
                         &contents[last_end..],
                         arena.new_node(Element::Table(Table::TableEl {
-                            value: &contents[0..last_end],
+                            value: contents[0..last_end].into(),
                         })),
                     ))
                 };
@@ -615,7 +624,9 @@ pub fn prase_table<'a>(
 
         Some((
             "",
-            arena.new_node(Element::Table(Table::TableEl { value: contents })),
+            arena.new_node(Element::Table(Table::TableEl {
+                value: contents.into(),
+            })),
         ))
     } else {
         None

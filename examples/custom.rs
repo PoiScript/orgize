@@ -42,7 +42,7 @@ impl HtmlHandler<MyError> for MyHtmlHandler {
                         w,
                         "<h{0}><a id=\"{1}\" href=\"#{1}\">",
                         title.level,
-                        slugify!(title.raw),
+                        slugify!(&title.raw),
                     )?;
                 }
             }
