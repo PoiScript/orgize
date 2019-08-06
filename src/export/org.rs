@@ -149,6 +149,9 @@ pub trait OrgHandler<E: From<Error>> {
                 }
                 write!(&mut w, " ")?;
             }
+            Table(_) => (),
+            TableRow(_) => (),
+            TableCell => (),
         }
 
         Ok(())
@@ -184,6 +187,9 @@ pub trait OrgHandler<E: From<Error>> {
                 }
                 writeln!(&mut w)?;
             }
+            Table(_) => (),
+            TableRow(_) => (),
+            TableCell => (),
             // non-container elements
             _ => debug_assert!(!element.is_container()),
         }

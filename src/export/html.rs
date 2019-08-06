@@ -158,6 +158,9 @@ pub trait HtmlHandler<E: From<Error>> {
             Rule => write!(w, "<hr>")?,
             Cookie(cookie) => write!(w, "<code>{}</code>", cookie.value)?,
             Title(title) => write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?,
+            Table(_) => (),
+            TableRow(_) => (),
+            TableCell => (),
         }
 
         Ok(())
@@ -189,6 +192,9 @@ pub trait HtmlHandler<E: From<Error>> {
             Strike => write!(w, "</s>")?,
             Underline => write!(w, "</u>")?,
             Title(title) => write!(w, "</h{}>", if title.level <= 6 { title.level } else { 6 })?,
+            Table(_) => (),
+            TableRow(_) => (),
+            TableCell => (),
             // non-container elements
             _ => debug_assert!(!element.is_container()),
         }

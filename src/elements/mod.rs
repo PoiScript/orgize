@@ -18,6 +18,7 @@ mod planning;
 mod radio_target;
 mod rule;
 mod snippet;
+mod table;
 mod target;
 mod timestamp;
 mod title;
@@ -46,6 +47,7 @@ pub use self::{
     radio_target::RadioTarget,
     rule::Rule,
     snippet::Snippet,
+    table::{Table, TableRow},
     target::Target,
     timestamp::{Datetime, Timestamp},
     title::Title,
@@ -98,6 +100,9 @@ pub enum Element<'a> {
     Comment { value: &'a str },
     FixedWidth { value: &'a str },
     Title(Title<'a>),
+    Table(Table<'a>),
+    TableRow(TableRow),
+    TableCell,
 }
 
 impl Element<'_> {
@@ -118,7 +123,10 @@ impl Element<'_> {
             | Element::Section
             | Element::Strike
             | Element::Underline
-            | Element::Title(_) => true,
+            | Element::Title(_)
+            | Element::Table(_)
+            | Element::TableRow(_)
+            | Element::TableCell => true,
             _ => false,
         }
     }
@@ -167,7 +175,9 @@ impl_from!(
     SpecialBlock,
     Target,
     Timestamp,
+    Table,
     VerseBlock;
     RadioTarget,
-    List
+    List,
+    TableRow
 );
