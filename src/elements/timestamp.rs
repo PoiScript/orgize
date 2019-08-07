@@ -80,11 +80,29 @@ mod chrono {
 
     impl Into<NaiveDate> for Datetime<'_> {
         fn into(self) -> NaiveDate {
-            NaiveDate::from_ymd(self.year.into(), self.month.into(), self.day.into())
+            (&self).into()
         }
     }
 
     impl Into<NaiveTime> for Datetime<'_> {
+        fn into(self) -> NaiveTime {
+            (&self).into()
+        }
+    }
+
+    impl Into<NaiveDateTime> for Datetime<'_> {
+        fn into(self) -> NaiveDateTime {
+            (&self).into()
+        }
+    }
+
+    impl Into<NaiveDate> for &Datetime<'_> {
+        fn into(self) -> NaiveDate {
+            NaiveDate::from_ymd(self.year.into(), self.month.into(), self.day.into())
+        }
+    }
+
+    impl Into<NaiveTime> for &Datetime<'_> {
         fn into(self) -> NaiveTime {
             NaiveTime::from_hms(
                 self.hour.unwrap_or_default().into(),
@@ -94,13 +112,9 @@ mod chrono {
         }
     }
 
-    impl Into<NaiveDateTime> for Datetime<'_> {
+    impl Into<NaiveDateTime> for &Datetime<'_> {
         fn into(self) -> NaiveDateTime {
-            NaiveDate::from_ymd(self.year.into(), self.month.into(), self.day.into()).and_hms(
-                self.hour.unwrap_or_default().into(),
-                self.minute.unwrap_or_default().into(),
-                0,
-            )
+            NaiveDateTime::new(self.into(), self.into())
         }
     }
 }
