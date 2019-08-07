@@ -1,4 +1,5 @@
-use crate::elements::{Datetime, Element};
+use super::write_datetime;
+use crate::elements::{Element, Timestamp};
 use std::io::{Error, Write};
 
 pub trait OrgHandler<E: From<Error>> {
@@ -85,47 +86,31 @@ pub trait OrgHandler<E: From<Error>> {
             Target(_target) => (),
             Text { value } => write!(w, "{}", value)?,
             Timestamp(timestamp) => {
-                use crate::elements::Timestamp;
-
-                fn write_datetime<W: Write>(
-                    mut w: W,
-                    start: &str,
-                    datetime: &Datetime,
-                    end: &str,
-                ) -> Result<(), Error> {
-                    write!(w, "{}", start)?;
-                    write!(
-                        w,
-                        "{}-{}-{} {}",
-                        datetime.year, datetime.month, datetime.day, datetime.dayname
-                    )?;
-                    if let (Some(hour), Some(minute)) = (datetime.hour, datetime.minute) {
-                        write!(w, " {}:{}", hour, minute)?;
-                    }
-                    write!(w, "{}", end)
-                }
-
-                match timestamp {
-                    Timestamp::Active { start, .. } => {
-                        write_datetime(&mut w, "<", start, ">")?;
-                    }
-                    Timestamp::Inactive { start, .. } => {
-                        write_datetime(&mut w, "[", start, "]")?;
-                    }
-                    Timestamp::ActiveRange { start, end, .. } => {
-                        write_datetime(&mut w, "<", start, ">--")?;
-                        write_datetime(&mut w, "<", end, ">")?;
-                    }
-                    Timestamp::InactiveRange { start, end, .. } => {
-                        write_datetime(&mut w, "[", start, "]--")?;
-                        write_datetime(&mut w, "[", end, "]")?;
-                    }
-                    Timestamp::Diary { value } => write!(w, "<%%({})>", value)?,
-                }
+                write_timestamp(&mut w, &timestamp)?;
             }
             Verbatim { value } => write!(w, "={}=", value)?,
             FnDef(_fn_def) => (),
-            Clock(_clock) => (),
+            Clock(clock) => {
+                use crate::elements::Clock;
+
+                write!(w, "CLOCK: ")?;
+
+                match clock {
+                    Clock::Closed {
+                        start,
+                        end,
+                        duration,
+                        ..
+                    } => {
+                        write_datetime(&mut w, "[", start, "]--")?;
+                        write_datetime(&mut w, "[", end, "]")?;
+                        writeln!(w, " => {}", duration)?;
+                    }
+                    Clock::Running { start, .. } => {
+                        write_datetime(&mut w, "[", start, "]\n")?;
+                    }
+                }
+            }
             Comment { value } => write!(w, "{}", value)?,
             FixedWidth { value } => write!(w, "{}", value)?,
             Keyword(keyword) => {
@@ -186,6 +171,34 @@ pub trait OrgHandler<E: From<Error>> {
                     write!(&mut w, "{}:", tag)?;
                 }
                 writeln!(&mut w)?;
+                if let Some(planning) = &title.planning {
+                    if let Some(scheduled) = &planning.scheduled {
+                        write!(&mut w, "SCHEDULED: ")?;
+                        write_timestamp(&mut w, &scheduled)?;
+                    }
+                    if let Some(deadline) = &planning.deadline {
+                        if planning.scheduled.is_some() {
+                            write!(&mut w, " ")?;
+                        }
+                        write!(&mut w, "DEADLINE: ")?;
+                        write_timestamp(&mut w, &deadline)?;
+                    }
+                    if let Some(closed) = &planning.closed {
+                        if planning.deadline.is_some() {
+                            write!(&mut w, " ")?;
+                        }
+                        write!(&mut w, "CLOSED: ")?;
+                        write_timestamp(&mut w, &closed)?;
+                    }
+                    writeln!(&mut w)?;
+                }
+                if !title.properties.is_empty() {
+                    writeln!(&mut w, ":PROPERTIES:")?;
+                    for (key, value) in &title.properties {
+                        writeln!(&mut w, ":{}: {}", key, value)?;
+                    }
+                    writeln!(&mut w, ":END:")?;
+                }
             }
             Table(_) => (),
             TableRow(_) => (),
@@ -196,6 +209,27 @@ pub trait OrgHandler<E: From<Error>> {
 
         Ok(())
     }
+}
+
+fn write_timestamp<W: Write>(mut w: W, timestamp: &Timestamp) -> std::io::Result<()> {
+    match timestamp {
+        Timestamp::Active { start, .. } => {
+            write_datetime(w, "<", start, ">")?;
+        }
+        Timestamp::Inactive { start, .. } => {
+            write_datetime(w, "[", start, "]")?;
+        }
+        Timestamp::ActiveRange { start, end, .. } => {
+            write_datetime(&mut w, "<", start, ">--")?;
+            write_datetime(&mut w, "<", end, ">")?;
+        }
+        Timestamp::InactiveRange { start, end, .. } => {
+            write_datetime(&mut w, "[", start, "]--")?;
+            write_datetime(&mut w, "[", end, "]")?;
+        }
+        Timestamp::Diary { value } => write!(w, "<%%({})>", value)?,
+    }
+    Ok(())
 }
 
 pub struct DefaultOrgHandler;

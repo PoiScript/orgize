@@ -1,4 +1,5 @@
-use crate::elements::{Datetime, Element};
+use super::write_datetime;
+use crate::elements::Element;
 use jetscii::bytes;
 use std::fmt;
 use std::io::{Error, Write};
@@ -115,24 +116,6 @@ pub trait HtmlHandler<E: From<Error>> {
                     &mut w,
                     "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">"
                 )?;
-
-                fn write_datetime<W: Write>(
-                    mut w: W,
-                    start: &str,
-                    datetime: &Datetime,
-                    end: &str,
-                ) -> Result<(), Error> {
-                    write!(w, "{}", start)?;
-                    write!(
-                        w,
-                        "{}-{}-{} {}",
-                        datetime.year, datetime.month, datetime.day, datetime.dayname
-                    )?;
-                    if let (Some(hour), Some(minute)) = (datetime.hour, datetime.minute) {
-                        write!(w, " {}:{}", hour, minute)?;
-                    }
-                    write!(w, "{}", end)
-                }
 
                 match timestamp {
                     Timestamp::Active { start, .. } => {
