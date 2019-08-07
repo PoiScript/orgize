@@ -219,9 +219,11 @@
 mod config;
 pub mod elements;
 pub mod export;
+mod node;
 mod org;
 mod parsers;
 
 pub use config::ParseConfig;
 pub use elements::Element;
+pub use node::HeadlineNode;
 pub use org::Org;

@@ -2,12 +2,13 @@ use indextree::{Arena, NodeEdge, NodeId};
 use std::io::{Error, Write};
 
 use crate::config::ParseConfig;
-use crate::elements::*;
+use crate::elements::Element;
 use crate::export::*;
+use crate::node::HeadlineNode;
 use crate::parsers::*;
 
 pub struct Org<'a> {
-    arena: Arena<Element<'a>>,
+    pub(crate) arena: Arena<Element<'a>>,
     document: NodeId,
 }
 
@@ -66,6 +67,18 @@ impl Org<'_> {
                 NodeEdge::Start(e) => Event::Start(self.arena[e].get()),
                 NodeEdge::End(e) => Event::End(self.arena[e].get()),
             })
+    }
+
+    pub fn headlines(&self) -> Vec<HeadlineNode> {
+        self.document
+            .descendants(&self.arena)
+            .skip(1)
+            .filter(|&node| match self.arena[node].get() {
+                Element::Headline => true,
+                _ => false,
+            })
+            .map(|node| HeadlineNode(node))
+            .collect()
     }
 
     pub fn html<W: Write>(&self, wrtier: W) -> Result<(), Error> {
