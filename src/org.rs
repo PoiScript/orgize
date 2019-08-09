@@ -9,7 +9,7 @@ use crate::parsers::*;
 
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
-    document: NodeId,
+    root: NodeId,
 }
 
 #[derive(Debug)]
@@ -25,12 +25,9 @@ impl Org<'_> {
 
     pub fn parse_with_config<'a>(content: &'a str, config: &ParseConfig) -> Org<'a> {
         let mut arena = Arena::new();
-        let document = arena.new_node(Element::Document);
+        let node = arena.new_node(Element::Document);
 
-        let containers = &mut vec![Container::Document {
-            content,
-            node: document,
-        }];
+        let containers = &mut vec![Container::Document { content, node }];
 
         while let Some(container) = containers.pop() {
             match container {
@@ -38,8 +35,7 @@ impl Org<'_> {
                     parse_section_and_headlines(&mut arena, content, node, containers);
                 }
                 Container::Headline { content, node } => {
-                    let content = parse_title(&mut arena, content, node, containers, config);
-                    parse_section_and_headlines(&mut arena, content, node, containers);
+                    parse_headline_content(&mut arena, content, node, containers, config);
                 }
                 Container::Block { content, node } => {
                     parse_blocks(&mut arena, content, node, containers);
@@ -57,28 +53,24 @@ impl Org<'_> {
             }
         }
 
-        Org { arena, document }
+        Org { arena, root: node }
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Event<'_>> + 'a {
-        self.document
-            .traverse(&self.arena)
-            .map(move |edge| match edge {
-                NodeEdge::Start(e) => Event::Start(self.arena[e].get()),
-                NodeEdge::End(e) => Event::End(self.arena[e].get()),
-            })
+    pub fn iter(&self) -> impl Iterator<Item = Event<'_>> + '_ {
+        self.root.traverse(&self.arena).map(move |edge| match edge {
+            NodeEdge::Start(e) => Event::Start(self.arena[e].get()),
+            NodeEdge::End(e) => Event::End(self.arena[e].get()),
+        })
     }
 
-    pub fn headlines(&self) -> Vec<HeadlineNode> {
-        self.document
+    pub fn headlines(&self) -> impl Iterator<Item = HeadlineNode> + '_ {
+        self.root
             .descendants(&self.arena)
             .skip(1)
-            .filter(|&node| match self.arena[node].get() {
-                Element::Headline => true,
-                _ => false,
+            .filter_map(move |node| match self.arena[node].get() {
+                Element::Headline => Some(HeadlineNode(node)),
+                _ => None,
             })
-            .map(|node| HeadlineNode(node))
-            .collect()
     }
 
     pub fn html<W: Write>(&self, wrtier: W) -> Result<(), Error> {
@@ -130,6 +122,6 @@ impl Serialize for Org<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde_indextree::Node;
 
-        serializer.serialize_newtype_struct("Node", &Node::new(self.document, &self.arena))
+        serializer.serialize_newtype_struct("Org", &Node::new(self.root, &self.arena))
     }
 }

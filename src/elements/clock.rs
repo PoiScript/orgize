@@ -8,7 +8,7 @@ use nom::{
     IResult,
 };
 
-use crate::elements::{Datetime, Element, Timestamp};
+use crate::elements::{Datetime, Timestamp};
 use crate::parsers::eol;
 
 /// clock elements
@@ -40,7 +40,7 @@ pub enum Clock<'a> {
 }
 
 impl Clock<'_> {
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, Clock<'_>> {
         let (input, _) = tag("CLOCK:")(input)?;
         let (input, _) = space0(input)?;
         let (input, timestamp) = Timestamp::parse_inactive(input)?;
@@ -60,13 +60,13 @@ impl Clock<'_> {
                 let (input, _) = eol(input)?;
                 Ok((
                     input,
-                    Element::Clock(Clock::Closed {
+                    Clock::Closed {
                         start,
                         end,
                         repeater,
                         delay,
                         duration: duration.into(),
-                    }),
+                    },
                 ))
             }
             Timestamp::Inactive {
@@ -77,11 +77,11 @@ impl Clock<'_> {
                 let (input, _) = eol(input)?;
                 Ok((
                     input,
-                    Element::Clock(Clock::Running {
+                    Clock::Running {
                         start,
                         repeater,
                         delay,
-                    }),
+                    },
                 ))
             }
             _ => unreachable!(
@@ -148,7 +148,7 @@ fn parse() {
         Clock::parse("CLOCK: [2003-09-16 Tue 09:39]"),
         Ok((
             "",
-            Element::Clock(Clock::Running {
+            Clock::Running {
                 start: Datetime {
                     year: 2003,
                     month: 9,
@@ -159,14 +159,14 @@ fn parse() {
                 },
                 repeater: None,
                 delay: None,
-            })
+            }
         ))
     );
     assert_eq!(
         Clock::parse("CLOCK: [2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39] =>  1:00"),
         Ok((
             "",
-            Element::Clock(Clock::Closed {
+            Clock::Closed {
                 start: Datetime {
                     year: 2003,
                     month: 9,
@@ -186,7 +186,7 @@ fn parse() {
                 repeater: None,
                 delay: None,
                 duration: "1:00".into(),
-            })
+            }
         ))
     );
 }

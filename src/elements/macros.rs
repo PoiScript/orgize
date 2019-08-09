@@ -7,8 +7,6 @@ use nom::{
     IResult,
 };
 
-use crate::elements::Element;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -20,7 +18,7 @@ pub struct Macros<'a> {
 
 impl Macros<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, Macros<'_>> {
         let (input, _) = tag("{{{")(input)?;
         let (input, name) = verify(
             take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
@@ -31,10 +29,10 @@ impl Macros<'_> {
 
         Ok((
             input,
-            Element::Macros(Macros {
+            Macros {
                 name: name.into(),
                 arguments: arguments.map(Into::into),
-            }),
+            },
         ))
     }
 }
@@ -45,30 +43,30 @@ fn parse() {
         Macros::parse("{{{poem(red,blue)}}}"),
         Ok((
             "",
-            Element::Macros(Macros {
+            Macros {
                 name: "poem".into(),
                 arguments: Some("red,blue".into())
-            })
+            }
         ))
     );
     assert_eq!(
         Macros::parse("{{{poem())}}}"),
         Ok((
             "",
-            Element::Macros(Macros {
+            Macros {
                 name: "poem".into(),
                 arguments: Some(")".into())
-            })
+            }
         ))
     );
     assert_eq!(
         Macros::parse("{{{author}}}"),
         Ok((
             "",
-            Element::Macros(Macros {
+            Macros {
                 name: "author".into(),
                 arguments: None
-            })
+            }
         ))
     );
     assert!(Macros::parse("{{{0uthor}}}").is_err());

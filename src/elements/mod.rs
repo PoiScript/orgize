@@ -23,8 +23,10 @@ mod target;
 mod timestamp;
 mod title;
 
-pub(crate) use block::Block;
-pub(crate) use emphasis::parse as parse_emphasis;
+pub(crate) use self::{
+    block::parse_block_element, emphasis::parse_emphasis, keyword::parse_keyword, rule::parse_rule,
+    table::parse_table_el,
+};
 
 pub use self::{
     block::{
@@ -45,13 +47,14 @@ pub use self::{
     macros::Macros,
     planning::Planning,
     radio_target::RadioTarget,
-    rule::Rule,
     snippet::Snippet,
     table::{Table, TableRow},
     target::Target,
     timestamp::{Datetime, Timestamp},
     title::Title,
 };
+
+use std::borrow::Cow;
 
 /// Org-mode element enum
 #[derive(Debug)]
@@ -95,10 +98,10 @@ pub enum Element<'a> {
     Strike,
     Italic,
     Underline,
-    Verbatim { value: &'a str },
-    Code { value: &'a str },
-    Comment { value: &'a str },
-    FixedWidth { value: &'a str },
+    Verbatim { value: Cow<'a, str> },
+    Code { value: Cow<'a, str> },
+    Comment { value: Cow<'a, str> },
+    FixedWidth { value: Cow<'a, str> },
     Title(Title<'a>),
     Table(Table<'a>),
     TableRow(TableRow),
@@ -176,6 +179,7 @@ impl_from!(
     Target,
     Timestamp,
     Table,
+    Title,
     VerseBlock;
     RadioTarget,
     List,

@@ -7,8 +7,7 @@ use nom::{
     IResult,
 };
 
-use crate::elements::Element;
-use crate::parsers::take_until_eol;
+use crate::parsers::line;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
@@ -27,132 +26,52 @@ pub struct BabelCall<'a> {
     pub value: Cow<'a, str>,
 }
 
-impl Keyword<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
-        let (input, _) = tag("#+")(input)?;
-        let (input, key) =
-            take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '[')(input)?;
-        let (input, optional) = opt(delimited(
-            tag("["),
-            take_till(|c| c == ']' || c == '\n'),
-            tag("]"),
-        ))(input)?;
-        let (input, _) = tag(":")(input)?;
-        let (input, value) = take_until_eol(input)?;
+pub(crate) fn parse_keyword(input: &str) -> IResult<&str, (&str, Option<&str>, &str)> {
+    let (input, _) = tag("#+")(input)?;
+    let (input, key) = take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '[')(input)?;
+    let (input, optional) = opt(delimited(
+        tag("["),
+        take_till(|c| c == ']' || c == '\n'),
+        tag("]"),
+    ))(input)?;
+    let (input, _) = tag(":")(input)?;
+    let (input, value) = line(input)?;
 
-        if key.eq_ignore_ascii_case("CALL") {
-            Ok((
-                input,
-                Element::BabelCall(BabelCall {
-                    value: value.into(),
-                }),
-            ))
-        } else {
-            Ok((
-                input,
-                Element::Keyword(Keyword {
-                    key: key.into(),
-                    optional: optional.map(Into::into),
-                    value: value.into(),
-                }),
-            ))
-        }
-    }
+    Ok((input, (key, optional, value.trim())))
 }
 
 #[test]
 fn parse() {
+    assert_eq!(parse_keyword("#+KEY:"), Ok(("", ("KEY", None, ""))));
     assert_eq!(
-        Keyword::parse("#+KEY:"),
-        Ok((
-            "",
-            Element::Keyword(Keyword {
-                key: "KEY".into(),
-                optional: None,
-                value: "".into(),
-            })
-        ))
+        parse_keyword("#+KEY: VALUE"),
+        Ok(("", ("KEY", None, "VALUE")))
     );
     assert_eq!(
-        Keyword::parse("#+KEY: VALUE"),
-        Ok((
-            "",
-            Element::Keyword(Keyword {
-                key: "KEY".into(),
-                optional: None,
-                value: "VALUE".into(),
-            })
-        ))
+        parse_keyword("#+K_E_Y: VALUE"),
+        Ok(("", ("K_E_Y", None, "VALUE")))
     );
     assert_eq!(
-        Keyword::parse("#+K_E_Y: VALUE"),
-        Ok((
-            "",
-            Element::Keyword(Keyword {
-                key: "K_E_Y".into(),
-                optional: None,
-                value: "VALUE".into(),
-            })
-        ))
+        parse_keyword("#+KEY:VALUE\n"),
+        Ok(("", ("KEY", None, "VALUE")))
     );
-    assert_eq!(
-        Keyword::parse("#+KEY:VALUE\n"),
-        Ok((
-            "",
-            Element::Keyword(Keyword {
-                key: "KEY".into(),
-                optional: None,
-                value: "VALUE".into(),
-            })
-        ))
-    );
-    assert!(Keyword::parse("#+KE Y: VALUE").is_err());
-    assert!(Keyword::parse("#+ KEY: VALUE").is_err());
+    assert!(parse_keyword("#+KE Y: VALUE").is_err());
+    assert!(parse_keyword("#+ KEY: VALUE").is_err());
+
+    assert_eq!(parse_keyword("#+RESULTS:"), Ok(("", ("RESULTS", None, ""))));
 
     assert_eq!(
-        Keyword::parse("#+RESULTS:"),
-        Ok((
-            "",
-            Element::Keyword(Keyword {
-                key: "RESULTS".into(),
-                optional: None,
-                value: "".into(),
-            })
-        ))
+        parse_keyword("#+ATTR_LATEX: :width 5cm\n"),
+        Ok(("", ("ATTR_LATEX", None, ":width 5cm")))
     );
 
     assert_eq!(
-        Keyword::parse("#+ATTR_LATEX: :width 5cm\n"),
-        Ok((
-            "",
-            Element::Keyword(Keyword {
-                key: "ATTR_LATEX".into(),
-                optional: None,
-                value: ":width 5cm".into(),
-            })
-        ))
+        parse_keyword("#+CALL: double(n=4)"),
+        Ok(("", ("CALL", None, "double(n=4)")))
     );
 
     assert_eq!(
-        Keyword::parse("#+CALL: double(n=4)"),
-        Ok((
-            "",
-            Element::BabelCall(BabelCall {
-                value: "double(n=4)".into(),
-            })
-        ))
-    );
-
-    assert_eq!(
-        Keyword::parse("#+CAPTION[Short caption]: Longer caption."),
-        Ok((
-            "",
-            Element::Keyword(Keyword {
-                key: "CAPTION".into(),
-                optional: Some("Short caption".into()),
-                value: "Longer caption.".into(),
-            })
-        ))
+        parse_keyword("#+CAPTION[Short caption]: Longer caption."),
+        Ok(("", ("CAPTION", Some("Short caption"), "Longer caption.",)))
     );
 }

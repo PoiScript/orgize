@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use crate::config::ParseConfig;
 use crate::elements::{Drawer, Planning};
-use crate::parsers::{skip_empty_lines, take_one_word, take_until_eol};
+use crate::parsers::{line, skip_empty_lines, take_one_word};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
@@ -108,7 +108,8 @@ fn parse_headline<'a>(
             ),
         ),
     ))(input)?;
-    let (input, tail) = take_until_eol(input)?;
+    let (input, tail) = line(input)?;
+    let tail = tail.trim();
     let (raw, tags) = memrchr(b' ', tail.as_bytes())
         .map(|i| (tail[0..i].trim(), &tail[i + 1..]))
         .filter(|(_, x)| x.len() > 2 && x.starts_with(':') && x.ends_with(':'))
@@ -130,7 +131,7 @@ fn parse_headline<'a>(
 }
 
 fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>> {
-    let (input, (drawer, content)) = Drawer::parse(input)?;
+    let (input, (drawer, content)) = Drawer::parse(input.trim_start())?;
     if drawer.name != "PROPERTIES" {
         return Err(Err::Error(error_position!(input, ErrorKind::Tag)));
     }
@@ -146,12 +147,12 @@ fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<Cow<'_, str>, C
 }
 
 fn parse_node_property(input: &str) -> IResult<&str, (&str, &str)> {
-    let input = skip_empty_lines(input);
+    let input = skip_empty_lines(input).trim_start();
     let (input, name) = map(delimited(tag(":"), take_until(":"), tag(":")), |s: &str| {
         s.trim_end_matches('+')
     })(input)?;
-    let (input, value) = take_until_eol(input)?;
-    Ok((input, (name, value)))
+    let (input, value) = line(input)?;
+    Ok((input, (name, value.trim())))
 }
 
 impl Title<'_> {
@@ -226,6 +227,19 @@ fn parse_headline_() {
         ),
         Ok(("", (4, Some("TASK"), Some('A'), "Title", vec![],)))
     );
+}
+
+#[test]
+fn parse_properties_drawer_() {
+    assert_eq!(
+        parse_properties_drawer("   :PROPERTIES:\n   :CUSTOM_ID: id\n   :END:"),
+        Ok((
+            "",
+            vec![("CUSTOM_ID".into(), "id".into())]
+                .into_iter()
+                .collect::<HashMap<_, _>>()
+        ))
+    )
 }
 
 // #[test]

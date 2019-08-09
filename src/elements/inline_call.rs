@@ -7,8 +7,6 @@ use nom::{
     IResult,
 };
 
-use crate::elements::Element;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -21,9 +19,9 @@ pub struct InlineCall<'a> {
     pub end_header: Option<Cow<'a, str>>,
 }
 
-impl<'a> InlineCall<'a> {
+impl InlineCall<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, InlineCall<'_>> {
         let (input, name) = preceded(
             tag("call_"),
             take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')'),
@@ -43,12 +41,12 @@ impl<'a> InlineCall<'a> {
 
         Ok((
             input,
-            Element::InlineCall(InlineCall {
+            InlineCall {
                 name: name.into(),
                 arguments: arguments.into(),
                 inside_header: inside_header.map(Into::into),
                 end_header: end_header.map(Into::into),
-            }),
+            },
         ))
     }
 }
@@ -59,48 +57,48 @@ fn parse() {
         InlineCall::parse("call_square(4)"),
         Ok((
             "",
-            Element::InlineCall(InlineCall {
+            InlineCall {
                 name: "square".into(),
                 arguments: "4".into(),
                 inside_header: None,
                 end_header: None,
-            }),
+            }
         ))
     );
     assert_eq!(
         InlineCall::parse("call_square[:results output](4)"),
         Ok((
             "",
-            Element::InlineCall(InlineCall {
+            InlineCall {
                 name: "square".into(),
                 arguments: "4".into(),
                 inside_header: Some(":results output".into()),
                 end_header: None,
-            }),
+            },
         ))
     );
     assert_eq!(
         InlineCall::parse("call_square(4)[:results html]"),
         Ok((
             "",
-            Element::InlineCall(InlineCall {
+            InlineCall {
                 name: "square".into(),
                 arguments: "4".into(),
                 inside_header: None,
                 end_header: Some(":results html".into()),
-            }),
+            },
         ))
     );
     assert_eq!(
         InlineCall::parse("call_square[:results output](4)[:results html]"),
         Ok((
             "",
-            Element::InlineCall(InlineCall {
+            InlineCall {
                 name: "square".into(),
                 arguments: "4".into(),
                 inside_header: Some(":results output".into()),
                 end_header: Some(":results html".into()),
-            }),
+            },
         ))
     );
 }

@@ -7,8 +7,6 @@ use nom::{
     IResult,
 };
 
-use crate::elements::Element;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -21,7 +19,7 @@ pub struct InlineSrc<'a> {
 
 impl InlineSrc<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, InlineSrc<'_>> {
         let (input, _) = tag("src_")(input)?;
         let (input, lang) =
             take_while1(|c: char| !c.is_ascii_whitespace() && c != '[' && c != '{')(input)?;
@@ -35,11 +33,11 @@ impl InlineSrc<'_> {
 
         Ok((
             input,
-            Element::InlineSrc(InlineSrc {
+            InlineSrc {
                 lang: lang.into(),
                 options: options.map(Into::into),
                 body: body.into(),
-            }),
+            },
         ))
     }
 }
@@ -50,22 +48,22 @@ fn parse() {
         InlineSrc::parse("src_C{int a = 0;}"),
         Ok((
             "",
-            Element::InlineSrc(InlineSrc {
+            InlineSrc {
                 lang: "C".into(),
                 options: None,
                 body: "int a = 0;".into()
-            }),
+            },
         ))
     );
     assert_eq!(
         InlineSrc::parse("src_xml[:exports code]{<tag>text</tag>}"),
         Ok((
             "",
-            Element::InlineSrc(InlineSrc {
+            InlineSrc {
                 lang: "xml".into(),
                 options: Some(":exports code".into()),
                 body: "<tag>text</tag>".into(),
-            }),
+            },
         ))
     );
 

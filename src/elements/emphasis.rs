@@ -2,7 +2,7 @@ use bytecount::count;
 use memchr::memchr_iter;
 
 #[inline]
-pub(crate) fn parse(text: &str, marker: u8) -> Option<(&str, &str)> {
+pub(crate) fn parse_emphasis(text: &str, marker: u8) -> Option<(&str, &str)> {
     debug_assert!(text.len() >= 3);
 
     let bytes = text.as_bytes();
@@ -35,19 +35,14 @@ fn validate_marker(pos: usize, text: &str) -> bool {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn parse() {
-        use super::parse;
-
-        assert_eq!(parse("*bold*", b'*'), Some(("", "bold")));
-        assert_eq!(parse("*bo*ld*", b'*'), Some(("", "bo*ld")));
-        assert_eq!(parse("*bo\nld*", b'*'), Some(("", "bo\nld")));
-        assert_eq!(parse("*bold*a", b'*'), None);
-        assert_eq!(parse("*bold*", b'/'), None);
-        assert_eq!(parse("*bold *", b'*'), None);
-        assert_eq!(parse("* bold*", b'*'), None);
-        assert_eq!(parse("*b\nol\nd*", b'*'), None);
-    }
+#[test]
+fn parse() {
+    assert_eq!(parse_emphasis("*bold*", b'*'), Some(("", "bold")));
+    assert_eq!(parse_emphasis("*bo*ld*", b'*'), Some(("", "bo*ld")));
+    assert_eq!(parse_emphasis("*bo\nld*", b'*'), Some(("", "bo\nld")));
+    assert_eq!(parse_emphasis("*bold*a", b'*'), None);
+    assert_eq!(parse_emphasis("*bold*", b'/'), None);
+    assert_eq!(parse_emphasis("*bold *", b'*'), None);
+    assert_eq!(parse_emphasis("* bold*", b'*'), None);
+    assert_eq!(parse_emphasis("*b\nol\nd*", b'*'), None);
 }

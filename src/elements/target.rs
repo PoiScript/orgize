@@ -7,8 +7,6 @@ use nom::{
     IResult,
 };
 
-use crate::elements::Element;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -18,7 +16,7 @@ pub struct Target<'a> {
 
 impl Target<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, Target<'_>> {
         let (input, target) = delimited(
             tag("<<"),
             verify(
@@ -30,9 +28,9 @@ impl Target<'_> {
 
         Ok((
             input,
-            Element::Target(Target {
+            Target {
                 target: target.into(),
-            }),
+            },
         ))
     }
 }
@@ -43,18 +41,18 @@ fn parse() {
         Target::parse("<<target>>"),
         Ok((
             "",
-            Element::Target(Target {
+            Target {
                 target: "target".into()
-            })
+            }
         ))
     );
     assert_eq!(
         Target::parse("<<tar get>>"),
         Ok((
             "",
-            Element::Target(Target {
+            Target {
                 target: "tar get".into()
-            })
+            }
         ))
     );
     assert!(Target::parse("<<target >>").is_err());

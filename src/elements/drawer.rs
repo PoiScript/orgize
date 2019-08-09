@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::parsers::{eol, take_lines_till};
+use crate::parsers::{eol, line, take_lines_while};
 
 use nom::{
     bytes::complete::{tag, take_while1},
@@ -24,7 +24,9 @@ impl Drawer<'_> {
             tag(":"),
         )(input)?;
         let (input, _) = eol(input)?;
-        let (input, contents) = take_lines_till(|line| line.eq_ignore_ascii_case(":END:"))(input)?;
+        let (input, contents) =
+            take_lines_while(|line| !line.trim().eq_ignore_ascii_case(":END:"))(input)?;
+        let (input, _) = line(input)?;
 
         Ok((input, (Drawer { name: name.into() }, contents)))
     }

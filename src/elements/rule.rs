@@ -1,37 +1,28 @@
-use nom::{bytes::complete::take_while_m_n, character::complete::space0, IResult};
+use nom::{bytes::complete::take_while_m_n, IResult};
 use std::usize;
 
-use crate::elements::Element;
 use crate::parsers::eol;
 
-pub struct Rule;
-
-impl Rule {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
-        let (input, _) = space0(input)?;
-        let (input, _) = take_while_m_n(5, usize::MAX, |c| c == '-')(input)?;
-        let (input, _) = eol(input)?;
-        Ok((input, Element::Rule))
-    }
+pub(crate) fn parse_rule(input: &str) -> IResult<&str, ()> {
+    let (input, _) = take_while_m_n(5, usize::MAX, |c| c == '-')(input)?;
+    let (input, _) = eol(input)?;
+    Ok((input, ()))
 }
 
 #[test]
 fn parse() {
-    assert_eq!(Rule::parse("-----"), Ok(("", Element::Rule)));
-    assert_eq!(Rule::parse("--------"), Ok(("", Element::Rule)));
-    assert_eq!(Rule::parse("   -----"), Ok(("", Element::Rule)));
-    assert_eq!(Rule::parse("\t\t-----"), Ok(("", Element::Rule)));
-    assert_eq!(Rule::parse("\t\t-----\n"), Ok(("", Element::Rule)));
-    assert_eq!(Rule::parse("\t\t-----  \n"), Ok(("", Element::Rule)));
-    assert!(Rule::parse("").is_err());
-    assert!(Rule::parse("----").is_err());
-    assert!(Rule::parse("   ----").is_err());
-    assert!(Rule::parse("  None----").is_err());
-    assert!(Rule::parse("None  ----").is_err());
-    assert!(Rule::parse("None------").is_err());
-    assert!(Rule::parse("----None----").is_err());
-    assert!(Rule::parse("\t\t----").is_err());
-    assert!(Rule::parse("------None").is_err());
-    assert!(Rule::parse("----- None").is_err());
+    assert_eq!(parse_rule("-----"), Ok(("", ())));
+    assert_eq!(parse_rule("--------"), Ok(("", ())));
+    assert_eq!(parse_rule("-----\n"), Ok(("", ())));
+    assert_eq!(parse_rule("-----  \n"), Ok(("", ())));
+    assert!(parse_rule("").is_err());
+    assert!(parse_rule("----").is_err());
+    assert!(parse_rule("----").is_err());
+    assert!(parse_rule("None----").is_err());
+    assert!(parse_rule("None  ----").is_err());
+    assert!(parse_rule("None------").is_err());
+    assert!(parse_rule("----None----").is_err());
+    assert!(parse_rule("\t\t----").is_err());
+    assert!(parse_rule("------None").is_err());
+    assert!(parse_rule("----- None").is_err());
 }

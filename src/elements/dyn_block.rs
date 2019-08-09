@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
-use crate::elements::Element;
-use crate::parsers::{take_lines_till, take_until_eol};
+use crate::parsers::{line, take_lines_while};
 
 use nom::{
     bytes::complete::tag_no_case,
@@ -20,25 +19,26 @@ pub struct DynBlock<'a> {
 
 impl DynBlock<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, (Element<'_>, &str)> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, (DynBlock<'_>, &str)> {
         let (input, _) = tag_no_case("#+BEGIN:")(input)?;
         let (input, _) = space1(input)?;
         let (input, name) = alpha1(input)?;
-        let (input, args) = take_until_eol(input)?;
-
-        let (input, contents) = take_lines_till(|line| line.eq_ignore_ascii_case("#+END:"))(input)?;
+        let (input, args) = line(input)?;
+        let (input, contents) =
+            take_lines_while(|line| !line.trim().eq_ignore_ascii_case("#+END:"))(input)?;
+        let (input, _) = line(input)?;
 
         Ok((
             input,
             (
-                Element::DynBlock(DynBlock {
+                DynBlock {
                     block_name: name.into(),
-                    arguments: if args.is_empty() {
+                    arguments: if args.trim().is_empty() {
                         None
                     } else {
-                        Some(args.into())
+                        Some(args.trim().into())
                     },
-                }),
+                },
                 contents,
             ),
         ))
@@ -49,14 +49,19 @@ impl DynBlock<'_> {
 fn parse() {
     // TODO: testing
     assert_eq!(
-        DynBlock::parse("#+BEGIN: clocktable :scope file\nCONTENTS\n#+END:\n"),
+        DynBlock::parse(
+            r#"#+BEGIN: clocktable :scope file
+CONTENTS
+#+END:
+"#
+        ),
         Ok((
             "",
             (
-                Element::DynBlock(DynBlock {
+                DynBlock {
                     block_name: "clocktable".into(),
                     arguments: Some(":scope file".into()),
-                }),
+                },
                 "CONTENTS\n"
             )
         ))

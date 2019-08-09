@@ -7,8 +7,6 @@ use nom::{
     IResult,
 };
 
-use crate::elements::Element;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -20,7 +18,7 @@ pub struct Link<'a> {
 
 impl Link<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, Link<'_>> {
         let (input, path) = delimited(
             tag("[["),
             take_while(|c: char| c != '<' && c != '>' && c != '\n' && c != ']'),
@@ -34,10 +32,10 @@ impl Link<'_> {
         let (input, _) = tag("]")(input)?;
         Ok((
             input,
-            Element::Link(Link {
+            Link {
                 path: path.into(),
                 desc: desc.map(Into::into),
-            }),
+            },
         ))
     }
 }
@@ -48,20 +46,20 @@ fn parse() {
         Link::parse("[[#id]]"),
         Ok((
             "",
-            Element::Link(Link {
+            Link {
                 path: "#id".into(),
                 desc: None
-            },)
+            }
         ))
     );
     assert_eq!(
         Link::parse("[[#id][desc]]"),
         Ok((
             "",
-            Element::Link(Link {
+            Link {
                 path: "#id".into(),
                 desc: Some("desc".into())
-            })
+            }
         ))
     );
     assert!(Link::parse("[[#id][desc]").is_err());

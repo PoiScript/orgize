@@ -23,22 +23,18 @@ test_suite!(
 
 test_suite!(
     section_and_headline,
-    r#"* Title 1
-*Section 1*
-** Title 2
-_Section 2_
-* Title 3
-/Section 3/
-* Title 4
-=Section 4="#,
-    "<main><h1>Title 1</h1>\
-     <section><p><b>Section 1</b></p></section>\
-     <h2>Title 2</h2>\
-     <section><p><u>Section 2</u></p></section>\
-     <h1>Title 3</h1>\
-     <section><p><i>Section 3</i></p></section>\
-     <h1>Title 4</h1>\
-     <section><p><code>Section 4</code></p></section></main>"
+    r#"* title 1
+section 1
+** title 2
+section 2
+* title 3
+section 3
+* title 4
+section 4"#,
+    "<main><h1>title 1</h1><section><p>section 1</p></section>\
+     <h2>title 2</h2><section><p>section 2</p></section>\
+     <h1>title 3</h1><section><p>section 3</p></section>\
+     <h1>title 4</h1><section><p>section 4</p></section></main>"
 );
 
 test_suite!(

@@ -6,8 +6,6 @@ use nom::{
     IResult,
 };
 
-use crate::elements::Element;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -18,7 +16,7 @@ pub struct Snippet<'a> {
 
 impl Snippet<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Element<'_>> {
+    pub(crate) fn parse(input: &str) -> IResult<&str, Snippet<'_>> {
         let (input, (name, value)) = delimited(
             tag("@@"),
             separated_pair(
@@ -31,10 +29,10 @@ impl Snippet<'_> {
 
         Ok((
             input,
-            Element::Snippet(Snippet {
+            Snippet {
                 name: name.into(),
                 value: value.into(),
-            }),
+            },
         ))
     }
 }
@@ -45,40 +43,40 @@ fn parse() {
         Snippet::parse("@@html:<b>@@"),
         Ok((
             "",
-            Element::Snippet(Snippet {
+            Snippet {
                 name: "html".into(),
                 value: "<b>".into()
-            })
+            }
         ))
     );
     assert_eq!(
         Snippet::parse("@@latex:any arbitrary LaTeX code@@"),
         Ok((
             "",
-            Element::Snippet(Snippet {
+            Snippet {
                 name: "latex".into(),
                 value: "any arbitrary LaTeX code".into(),
-            })
+            }
         ))
     );
     assert_eq!(
         Snippet::parse("@@html:@@"),
         Ok((
             "",
-            Element::Snippet(Snippet {
+            Snippet {
                 name: "html".into(),
                 value: "".into(),
-            })
+            }
         ))
     );
     assert_eq!(
         Snippet::parse("@@html:<p>@</p>@@"),
         Ok((
             "",
-            Element::Snippet(Snippet {
+            Snippet {
                 name: "html".into(),
                 value: "<p>@</p>".into(),
-            })
+            }
         ))
     );
     assert!(Snippet::parse("@@html:<b>@").is_err());
