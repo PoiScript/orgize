@@ -35,6 +35,13 @@ impl Macros<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> Macros<'static> {
+        Macros {
+            name: self.name.into_owned().into(),
+            arguments: self.arguments.map(Into::into).map(Cow::Owned),
+        }
+    }
 }
 
 #[test]

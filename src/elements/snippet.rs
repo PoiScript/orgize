@@ -35,6 +35,13 @@ impl Snippet<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> Snippet<'static> {
+        Snippet {
+            name: self.name.into_owned().into(),
+            value: self.value.into_owned().into(),
+        }
+    }
 }
 
 #[test]

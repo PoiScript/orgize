@@ -106,6 +106,12 @@ impl ListItem<'_> {
             &text[off..],
         )
     }
+
+    pub fn into_owned(self) -> ListItem<'static> {
+        ListItem {
+            bullet: self.bullet.into_owned().into(),
+        }
+    }
 }
 
 #[inline]

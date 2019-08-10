@@ -81,7 +81,7 @@ pub trait OrgHandler<E: From<Error>> {
                 write!(&mut w, "]")?;
             }
             Macros(_macros) => (),
-            RadioTarget(_radio_target) => (),
+            RadioTarget => (),
             Snippet(snippet) => write!(w, "@@{}:{}@@", snippet.name, snippet.value)?,
             Target(_target) => (),
             Text { value } => write!(w, "{}", value)?,

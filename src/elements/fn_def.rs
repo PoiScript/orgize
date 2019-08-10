@@ -35,6 +35,12 @@ impl FnDef<'_> {
             ),
         ))
     }
+
+    pub fn into_owned(self) -> FnDef<'static> {
+        FnDef {
+            label: self.label.into_owned().into(),
+        }
+    }
 }
 
 #[test]

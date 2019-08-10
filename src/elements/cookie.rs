@@ -35,6 +35,12 @@ impl Cookie<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> Cookie<'static> {
+        Cookie {
+            value: self.value.into_owned().into(),
+        }
+    }
 }
 
 #[test]

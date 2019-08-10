@@ -43,6 +43,13 @@ impl DynBlock<'_> {
             ),
         ))
     }
+
+    pub fn into_owned(self) -> DynBlock<'static> {
+        DynBlock {
+            block_name: self.block_name.into_owned().into(),
+            arguments: self.arguments.map(Into::into).map(Cow::Owned),
+        }
+    }
 }
 
 #[test]

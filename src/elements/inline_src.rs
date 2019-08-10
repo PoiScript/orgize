@@ -40,6 +40,14 @@ impl InlineSrc<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> InlineSrc<'static> {
+        InlineSrc {
+            lang: self.lang.into_owned().into(),
+            options: self.options.map(Into::into).map(Cow::Owned),
+            body: self.body.into_owned().into(),
+        }
+    }
 }
 
 #[test]

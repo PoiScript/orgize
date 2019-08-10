@@ -33,6 +33,12 @@ impl Target<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> Target<'static> {
+        Target {
+            target: self.target.into_owned().into(),
+        }
+    }
 }
 
 #[test]

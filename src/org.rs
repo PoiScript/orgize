@@ -5,7 +5,7 @@ use crate::config::ParseConfig;
 use crate::elements::Element;
 use crate::export::*;
 use crate::node::HeadlineNode;
-use crate::parsers::*;
+use crate::parsers::{parse_container, Container};
 
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
@@ -27,31 +27,7 @@ impl Org<'_> {
         let mut arena = Arena::new();
         let node = arena.new_node(Element::Document);
 
-        let containers = &mut vec![Container::Document { content, node }];
-
-        while let Some(container) = containers.pop() {
-            match container {
-                Container::Document { content, node } => {
-                    parse_section_and_headlines(&mut arena, content, node, containers);
-                }
-                Container::Headline { content, node } => {
-                    parse_headline_content(&mut arena, content, node, containers, config);
-                }
-                Container::Block { content, node } => {
-                    parse_blocks(&mut arena, content, node, containers);
-                }
-                Container::Inline { content, node } => {
-                    parse_inlines(&mut arena, content, node, containers);
-                }
-                Container::List {
-                    content,
-                    node,
-                    indent,
-                } => {
-                    parse_list_items(&mut arena, content, indent, node, containers);
-                }
-            }
-        }
+        parse_container(&mut arena, Container::Document { content, node }, config);
 
         Org { arena, root: node }
     }

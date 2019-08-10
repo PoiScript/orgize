@@ -38,6 +38,13 @@ impl Link<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> Link<'static> {
+        Link {
+            path: self.path.into_owned().into(),
+            desc: self.desc.map(Into::into).map(Cow::Owned),
+        }
+    }
 }
 
 #[test]

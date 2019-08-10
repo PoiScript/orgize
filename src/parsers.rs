@@ -1,6 +1,7 @@
 // parser related functions
 
 use std::borrow::Cow;
+use std::marker::PhantomData;
 
 use indextree::{Arena, NodeId};
 use jetscii::bytes;
@@ -78,6 +79,38 @@ pub enum Container<'a> {
         content: &'a str,
         node: NodeId,
     },
+}
+
+pub fn parse_container<'a, T: ElementArena<'a>>(
+    arena: &mut T,
+    container: Container<'a>,
+    config: &ParseConfig,
+) {
+    let containers = &mut vec![container];
+
+    while let Some(container) = containers.pop() {
+        match container {
+            Container::Document { content, node } => {
+                parse_section_and_headlines(arena, content, node, containers);
+            }
+            Container::Headline { content, node } => {
+                parse_headline_content(arena, content, node, containers, config);
+            }
+            Container::Block { content, node } => {
+                parse_blocks(arena, content, node, containers);
+            }
+            Container::Inline { content, node } => {
+                parse_inlines(arena, content, node, containers);
+            }
+            Container::List {
+                content,
+                node,
+                indent,
+            } => {
+                parse_list_items(arena, content, indent, node, containers);
+            }
+        }
+    }
 }
 
 pub fn parse_headline_content<'a, T: ElementArena<'a>>(
@@ -397,7 +430,12 @@ pub fn parse_inlines<'a, T: ElementArena<'a>>(
 
     macro_rules! insert_text {
         ($value:expr) => {
-            arena.insert_before_last_child(Element::Text { value: $value }, parent);
+            arena.insert_before_last_child(
+                Element::Text {
+                    value: $value.into(),
+                },
+                parent,
+            );
             pos = 0;
         };
     }
@@ -449,7 +487,7 @@ pub fn parse_inlines<'a, T: ElementArena<'a>>(
     }
 
     if !text.is_empty() {
-        arena.push_element(Element::Text { value: text }, parent);
+        arena.push_element(Element::Text { value: text.into() }, parent);
     }
 }
 
@@ -478,8 +516,8 @@ pub fn parse_inline<'a, T: ElementArena<'a>>(
             }
         }
         b'<' => {
-            if let Ok((tail, (radio, _content))) = RadioTarget::parse(contents) {
-                arena.push_element(radio, parent);
+            if let Ok((tail, _content)) = parse_radio_target(contents) {
+                arena.push_element(Element::RadioTarget, parent);
                 return Some(tail);
             } else if let Ok((tail, target)) = Target::parse(contents) {
                 arena.push_element(target, parent);
@@ -717,7 +755,7 @@ pub fn take_one_word(input: &str) -> IResult<&str, &str> {
 }
 
 #[test]
-fn test_skip_empty_lines() {
+pub fn test_skip_empty_lines() {
     assert_eq!(skip_empty_lines("foo"), "foo");
     assert_eq!(skip_empty_lines(" foo"), " foo");
     assert_eq!(skip_empty_lines(" \nfoo\n"), "foo\n");

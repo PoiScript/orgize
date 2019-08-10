@@ -30,47 +30,17 @@ pub struct Datetime<'a> {
     pub minute: Option<u8>,
 }
 
-fn parse_time(input: &str) -> IResult<&str, (u8, u8)> {
-    let (input, hour) = map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), |num| {
-        u8::from_str_radix(num, 10)
-    })(input)?;
-    let (input, _) = tag(":")(input)?;
-    let (input, minute) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
-    Ok((input, (hour, minute)))
-}
-
-fn parse_datetime(input: &str) -> IResult<&str, Datetime<'_>> {
-    let parse_u8 = |num| u8::from_str_radix(num, 10);
-
-    let (input, year) = map_res(take(4usize), |num| u16::from_str_radix(num, 10))(input)?;
-    let (input, _) = tag("-")(input)?;
-    let (input, month) = map_res(take(2usize), parse_u8)(input)?;
-    let (input, _) = tag("-")(input)?;
-    let (input, day) = map_res(take(2usize), parse_u8)(input)?;
-    let (input, _) = space1(input)?;
-    let (input, dayname) = take_while(|c: char| {
-        !c.is_ascii_whitespace()
-            && !c.is_ascii_digit()
-            && c != '+'
-            && c != '-'
-            && c != ']'
-            && c != '>'
-    })(input)?;
-    let (input, (hour, minute)) = map(opt(preceded(space1, parse_time)), |time| {
-        (time.map(|t| t.0), time.map(|t| t.1))
-    })(input)?;
-
-    Ok((
-        input,
+impl Datetime<'_> {
+    pub fn into_owned(self) -> Datetime<'static> {
         Datetime {
-            year,
-            month,
-            day,
-            dayname: dayname.into(),
-            hour,
-            minute,
-        },
-    ))
+            year: self.year,
+            month: self.month,
+            day: self.day,
+            dayname: self.dayname.into_owned().into(),
+            hour: self.hour,
+            minute: self.minute,
+        }
+    }
 }
 
 #[cfg(feature = "chrono")]
@@ -281,6 +251,97 @@ impl Timestamp<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> Timestamp<'static> {
+        match self {
+            Timestamp::Active {
+                start,
+                repeater,
+                delay,
+            } => Timestamp::Active {
+                start: start.into_owned(),
+                repeater: repeater.map(Into::into).map(Cow::Owned),
+                delay: delay.map(Into::into).map(Cow::Owned),
+            },
+            Timestamp::Inactive {
+                start,
+                repeater,
+                delay,
+            } => Timestamp::Inactive {
+                start: start.into_owned(),
+                repeater: repeater.map(Into::into).map(Cow::Owned),
+                delay: delay.map(Into::into).map(Cow::Owned),
+            },
+            Timestamp::ActiveRange {
+                start,
+                end,
+                repeater,
+                delay,
+            } => Timestamp::ActiveRange {
+                start: start.into_owned(),
+                end: end.into_owned(),
+                repeater: repeater.map(Into::into).map(Cow::Owned),
+                delay: delay.map(Into::into).map(Cow::Owned),
+            },
+            Timestamp::InactiveRange {
+                start,
+                end,
+                repeater,
+                delay,
+            } => Timestamp::InactiveRange {
+                start: start.into_owned(),
+                end: end.into_owned(),
+                repeater: repeater.map(Into::into).map(Cow::Owned),
+                delay: delay.map(Into::into).map(Cow::Owned),
+            },
+            Timestamp::Diary { value } => Timestamp::Diary {
+                value: value.into_owned().into(),
+            },
+        }
+    }
+}
+
+fn parse_time(input: &str) -> IResult<&str, (u8, u8)> {
+    let (input, hour) = map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), |num| {
+        u8::from_str_radix(num, 10)
+    })(input)?;
+    let (input, _) = tag(":")(input)?;
+    let (input, minute) = map_res(take(2usize), |num| u8::from_str_radix(num, 10))(input)?;
+    Ok((input, (hour, minute)))
+}
+
+fn parse_datetime(input: &str) -> IResult<&str, Datetime<'_>> {
+    let parse_u8 = |num| u8::from_str_radix(num, 10);
+
+    let (input, year) = map_res(take(4usize), |num| u16::from_str_radix(num, 10))(input)?;
+    let (input, _) = tag("-")(input)?;
+    let (input, month) = map_res(take(2usize), parse_u8)(input)?;
+    let (input, _) = tag("-")(input)?;
+    let (input, day) = map_res(take(2usize), parse_u8)(input)?;
+    let (input, _) = space1(input)?;
+    let (input, dayname) = take_while(|c: char| {
+        !c.is_ascii_whitespace()
+            && !c.is_ascii_digit()
+            && c != '+'
+            && c != '-'
+            && c != ']'
+            && c != '>'
+    })(input)?;
+    let (input, (hour, minute)) = map(opt(preceded(space1, parse_time)), |time| {
+        (time.map(|t| t.0), time.map(|t| t.1))
+    })(input)?;
+
+    Ok((
+        input,
+        Datetime {
+            year,
+            month,
+            day,
+            dayname: dayname.into(),
+            hour,
+            minute,
+        },
+    ))
 }
 
 // TODO

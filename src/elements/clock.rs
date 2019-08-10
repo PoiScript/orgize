@@ -90,6 +90,33 @@ impl Clock<'_> {
         }
     }
 
+    pub fn into_onwed(self) -> Clock<'static> {
+        match self {
+            Clock::Closed {
+                start,
+                end,
+                repeater,
+                delay,
+                duration,
+            } => Clock::Closed {
+                start: start.into_owned(),
+                end: end.into_owned(),
+                repeater: repeater.map(Into::into).map(Cow::Owned),
+                delay: delay.map(Into::into).map(Cow::Owned),
+                duration: duration.into_owned().into(),
+            },
+            Clock::Running {
+                start,
+                repeater,
+                delay,
+            } => Clock::Running {
+                start: start.into_owned(),
+                repeater: repeater.map(Into::into).map(Cow::Owned),
+                delay: delay.map(Into::into).map(Cow::Owned),
+            },
+        }
+    }
+
     /// returns `true` if the clock is running
     pub fn is_running(&self) -> bool {
         match self {

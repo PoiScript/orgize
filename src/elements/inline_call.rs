@@ -49,6 +49,15 @@ impl InlineCall<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> InlineCall<'static> {
+        InlineCall {
+            name: self.name.into_owned().into(),
+            arguments: self.arguments.into_owned().into(),
+            inside_header: self.inside_header.map(Into::into).map(Cow::Owned),
+            end_header: self.end_header.map(Into::into).map(Cow::Owned),
+        }
+    }
 }
 
 #[test]

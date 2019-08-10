@@ -12,11 +12,28 @@ pub struct SpecialBlock<'a> {
     pub name: Cow<'a, str>,
 }
 
+impl SpecialBlock<'_> {
+    pub fn into_owned(self) -> SpecialBlock<'static> {
+        SpecialBlock {
+            name: self.name.into_owned().into(),
+            parameters: self.parameters.map(Into::into).map(Cow::Owned),
+        }
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct QuoteBlock<'a> {
     pub parameters: Option<Cow<'a, str>>,
+}
+
+impl QuoteBlock<'_> {
+    pub fn into_owned(self) -> QuoteBlock<'static> {
+        QuoteBlock {
+            parameters: self.parameters.map(Into::into).map(Cow::Owned),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -26,11 +43,27 @@ pub struct CenterBlock<'a> {
     pub parameters: Option<Cow<'a, str>>,
 }
 
+impl CenterBlock<'_> {
+    pub fn into_owned(self) -> CenterBlock<'static> {
+        CenterBlock {
+            parameters: self.parameters.map(Into::into).map(Cow::Owned),
+        }
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct VerseBlock<'a> {
     pub parameters: Option<Cow<'a, str>>,
+}
+
+impl VerseBlock<'_> {
+    pub fn into_owned(self) -> VerseBlock<'static> {
+        VerseBlock {
+            parameters: self.parameters.map(Into::into).map(Cow::Owned),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -41,12 +74,30 @@ pub struct CommentBlock<'a> {
     pub contents: Cow<'a, str>,
 }
 
+impl CommentBlock<'_> {
+    pub fn into_owned(self) -> CommentBlock<'static> {
+        CommentBlock {
+            data: self.data.map(Into::into).map(Cow::Owned),
+            contents: self.contents.into_owned().into(),
+        }
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExampleBlock<'a> {
     pub data: Option<Cow<'a, str>>,
     pub contents: Cow<'a, str>,
+}
+
+impl ExampleBlock<'_> {
+    pub fn into_owned(self) -> ExampleBlock<'static> {
+        ExampleBlock {
+            data: self.data.map(Into::into).map(Cow::Owned),
+            contents: self.contents.into_owned().into(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -57,6 +108,15 @@ pub struct ExportBlock<'a> {
     pub contents: Cow<'a, str>,
 }
 
+impl ExportBlock<'_> {
+    pub fn into_owned(self) -> ExportBlock<'static> {
+        ExportBlock {
+            data: self.data.into_owned().into(),
+            contents: self.contents.into_owned().into(),
+        }
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
@@ -64,6 +124,16 @@ pub struct SourceBlock<'a> {
     pub contents: Cow<'a, str>,
     pub language: Cow<'a, str>,
     pub arguments: Cow<'a, str>,
+}
+
+impl SourceBlock<'_> {
+    pub fn into_owned(self) -> SourceBlock<'static> {
+        SourceBlock {
+            language: self.language.into_owned().into(),
+            arguments: self.arguments.into_owned().into(),
+            contents: self.contents.into_owned().into(),
+        }
+    }
 }
 
 pub(crate) fn parse_block_element(input: &str) -> IResult<&str, (&str, Option<&str>, &str)> {

@@ -24,8 +24,8 @@ mod timestamp;
 mod title;
 
 pub(crate) use self::{
-    block::parse_block_element, emphasis::parse_emphasis, keyword::parse_keyword, rule::parse_rule,
-    table::parse_table_el,
+    block::parse_block_element, emphasis::parse_emphasis, keyword::parse_keyword,
+    radio_target::parse_radio_target, rule::parse_rule, table::parse_table_el,
 };
 
 pub use self::{
@@ -46,7 +46,6 @@ pub use self::{
     list::{List, ListItem},
     macros::Macros,
     planning::Planning,
-    radio_target::RadioTarget,
     snippet::Snippet,
     table::{Table, TableRow},
     target::Target,
@@ -74,7 +73,7 @@ pub enum Element<'a> {
     Section,
     Clock(Clock<'a>),
     Cookie(Cookie<'a>),
-    RadioTarget(RadioTarget),
+    RadioTarget,
     Drawer(Drawer<'a>),
     Document,
     DynBlock(DynBlock<'a>),
@@ -89,7 +88,7 @@ pub enum Element<'a> {
     ListItem(ListItem<'a>),
     Macros(Macros<'a>),
     Snippet(Snippet<'a>),
-    Text { value: &'a str },
+    Text { value: Cow<'a, str> },
     Paragraph,
     Rule,
     Timestamp(Timestamp<'a>),
@@ -110,27 +109,74 @@ pub enum Element<'a> {
 
 impl Element<'_> {
     pub fn is_container(&self) -> bool {
+        use Element::*;
+
         match self {
-            Element::SpecialBlock(_)
-            | Element::QuoteBlock(_)
-            | Element::CenterBlock(_)
-            | Element::VerseBlock(_)
-            | Element::Bold
-            | Element::Document
-            | Element::DynBlock(_)
-            | Element::Headline
-            | Element::Italic
-            | Element::List(_)
-            | Element::ListItem(_)
-            | Element::Paragraph
-            | Element::Section
-            | Element::Strike
-            | Element::Underline
-            | Element::Title(_)
-            | Element::Table(_)
-            | Element::TableRow(_)
-            | Element::TableCell => true,
+            SpecialBlock(_) | QuoteBlock(_) | CenterBlock(_) | VerseBlock(_) | Bold | Document
+            | DynBlock(_) | Headline | Italic | List(_) | ListItem(_) | Paragraph | Section
+            | Strike | Underline | Title(_) | Table(_) | TableRow(_) | TableCell => true,
             _ => false,
+        }
+    }
+
+    pub fn into_owned(self) -> Element<'static> {
+        use Element::*;
+
+        match self {
+            SpecialBlock(e) => SpecialBlock(e.into_owned()),
+            QuoteBlock(e) => QuoteBlock(e.into_owned()),
+            CenterBlock(e) => CenterBlock(e.into_owned()),
+            VerseBlock(e) => VerseBlock(e.into_owned()),
+            CommentBlock(e) => CommentBlock(e.into_owned()),
+            ExampleBlock(e) => ExampleBlock(e.into_owned()),
+            ExportBlock(e) => ExportBlock(e.into_owned()),
+            SourceBlock(e) => SourceBlock(e.into_owned()),
+            BabelCall(e) => BabelCall(e.into_owned()),
+            Section => Section,
+            Clock(e) => Clock(e.into_onwed()),
+            Cookie(e) => Cookie(e.into_owned()),
+            RadioTarget => RadioTarget,
+            Drawer(e) => Drawer(e.into_owned()),
+            Document => Document,
+            DynBlock(e) => DynBlock(e.into_owned()),
+            FnDef(e) => FnDef(e.into_owned()),
+            FnRef(e) => FnRef(e.into_owned()),
+            Headline => Headline,
+            InlineCall(e) => InlineCall(e.into_owned()),
+            InlineSrc(e) => InlineSrc(e.into_owned()),
+            Keyword(e) => Keyword(e.into_owned()),
+            Link(e) => Link(e.into_owned()),
+            List(e) => List(e),
+            ListItem(e) => ListItem(e.into_owned()),
+            Macros(e) => Macros(e.into_owned()),
+            Snippet(e) => Snippet(e.into_owned()),
+            Text { value } => Text {
+                value: value.into_owned().into(),
+            },
+            Paragraph => Paragraph,
+            Rule => Rule,
+            Timestamp(e) => Timestamp(e.into_owned()),
+            Target(e) => Target(e.into_owned()),
+            Bold => Bold,
+            Strike => Strike,
+            Italic => Italic,
+            Underline => Underline,
+            Verbatim { value } => Verbatim {
+                value: value.into_owned().into(),
+            },
+            Code { value } => Code {
+                value: value.into_owned().into(),
+            },
+            Comment { value } => Comment {
+                value: value.into_owned().into(),
+            },
+            FixedWidth { value } => FixedWidth {
+                value: value.into_owned().into(),
+            },
+            Title(e) => Title(e.into_owned()),
+            Table(e) => Table(e.into_owned()),
+            TableRow(e) => TableRow(e),
+            TableCell => TableCell,
         }
     }
 }
@@ -181,7 +227,6 @@ impl_from!(
     Table,
     Title,
     VerseBlock;
-    RadioTarget,
     List,
     TableRow
 );

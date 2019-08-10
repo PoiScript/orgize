@@ -50,6 +50,13 @@ impl FnRef<'_> {
             },
         ))
     }
+
+    pub fn into_owned(self) -> FnRef<'static> {
+        FnRef {
+            label: self.label.into_owned().into(),
+            definition: self.definition.map(Into::into).map(Cow::Owned),
+        }
+    }
 }
 
 #[test]

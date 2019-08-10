@@ -30,6 +30,12 @@ impl Drawer<'_> {
 
         Ok((input, (Drawer { name: name.into() }, contents)))
     }
+
+    pub fn into_owned(self) -> Drawer<'static> {
+        Drawer {
+            name: self.name.into_owned().into(),
+        }
+    }
 }
 
 #[test]

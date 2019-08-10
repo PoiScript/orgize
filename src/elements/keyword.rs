@@ -19,11 +19,29 @@ pub struct Keyword<'a> {
     pub value: Cow<'a, str>,
 }
 
+impl Keyword<'_> {
+    pub fn into_owned(self) -> Keyword<'static> {
+        Keyword {
+            key: self.key.into_owned().into(),
+            optional: self.optional.map(Into::into).map(Cow::Owned),
+            value: self.value.into_owned().into(),
+        }
+    }
+}
+
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct BabelCall<'a> {
     pub value: Cow<'a, str>,
+}
+
+impl BabelCall<'_> {
+    pub fn into_owned(self) -> BabelCall<'static> {
+        BabelCall {
+            value: self.value.into_owned().into(),
+        }
+    }
 }
 
 pub(crate) fn parse_keyword(input: &str) -> IResult<&str, (&str, Option<&str>, &str)> {

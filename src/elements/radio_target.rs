@@ -5,44 +5,30 @@ use nom::{
     IResult,
 };
 
-use crate::elements::Element;
-
 // TODO: text-markup, entities, latex-fragments, subscript and superscript
-#[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
-pub struct RadioTarget;
 
-impl RadioTarget {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, (Element, &str)> {
-        let (input, contents) = delimited(
-            tag("<<<"),
-            verify(
-                take_while(|c: char| c != '<' && c != '\n' && c != '>'),
-                |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
-            ),
-            tag(">>>"),
-        )(input)?;
+#[inline]
+pub(crate) fn parse_radio_target(input: &str) -> IResult<&str, &str> {
+    let (input, contents) = delimited(
+        tag("<<<"),
+        verify(
+            take_while(|c: char| c != '<' && c != '\n' && c != '>'),
+            |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
+        ),
+        tag(">>>"),
+    )(input)?;
 
-        Ok((input, (Element::RadioTarget(RadioTarget), contents)))
-    }
+    Ok((input, contents))
 }
 
 #[test]
 fn parse() {
-    assert_eq!(
-        RadioTarget::parse("<<<target>>>"),
-        Ok(("", (Element::RadioTarget(RadioTarget), "target")))
-    );
-    assert_eq!(
-        RadioTarget::parse("<<<tar get>>>"),
-        Ok(("", (Element::RadioTarget(RadioTarget), "tar get")))
-    );
-    assert!(RadioTarget::parse("<<<target >>>").is_err());
-    assert!(RadioTarget::parse("<<< target>>>").is_err());
-    assert!(RadioTarget::parse("<<<ta<get>>>").is_err());
-    assert!(RadioTarget::parse("<<<ta>get>>>").is_err());
-    assert!(RadioTarget::parse("<<<ta\nget>>>").is_err());
-    assert!(RadioTarget::parse("<<<target>>").is_err());
+    assert_eq!(parse_radio_target("<<<target>>>"), Ok(("", "target")));
+    assert_eq!(parse_radio_target("<<<tar get>>>"), Ok(("", "tar get")));
+    assert!(parse_radio_target("<<<target >>>").is_err());
+    assert!(parse_radio_target("<<< target>>>").is_err());
+    assert!(parse_radio_target("<<<ta<get>>>").is_err());
+    assert!(parse_radio_target("<<<ta>get>>>").is_err());
+    assert!(parse_radio_target("<<<ta\nget>>>").is_err());
+    assert!(parse_radio_target("<<<target>>").is_err());
 }

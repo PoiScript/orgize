@@ -18,6 +18,19 @@ pub enum Table<'a> {
     TableEl { value: Cow<'a, str> },
 }
 
+impl Table<'_> {
+    pub fn into_owned(self) -> Table<'static> {
+        match self {
+            Table::Org { tblfm } => Table::Org {
+                tblfm: tblfm.map(Into::into).map(Cow::Owned),
+            },
+            Table::TableEl { value } => Table::TableEl {
+                value: value.into_owned().into(),
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]

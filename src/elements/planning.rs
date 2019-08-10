@@ -64,6 +64,14 @@ impl Planning<'_> {
             ))
         }
     }
+
+    pub fn into_owned(self) -> Planning<'static> {
+        Planning {
+            deadline: self.deadline.map(|x| x.into_owned()),
+            scheduled: self.scheduled.map(|x| x.into_owned()),
+            closed: self.closed.map(|x| x.into_owned()),
+        }
+    }
 }
 
 #[test]

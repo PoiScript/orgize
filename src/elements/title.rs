@@ -71,6 +71,26 @@ impl Title<'_> {
             ),
         ))
     }
+
+    pub fn into_owned(self) -> Title<'static> {
+        Title {
+            level: self.level,
+            priority: self.priority,
+            tags: self
+                .tags
+                .into_iter()
+                .map(|s| s.into_owned().into())
+                .collect(),
+            keyword: self.keyword.map(Into::into).map(Cow::Owned),
+            raw: self.raw.into_owned().into(),
+            planning: self.planning.map(|p| Box::new(p.into_owned())),
+            properties: self
+                .properties
+                .into_iter()
+                .map(|(k, v)| (k.into_owned().into(), v.into_owned().into()))
+                .collect(),
+        }
+    }
 }
 
 fn parse_headline<'a>(
