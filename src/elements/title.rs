@@ -93,6 +93,20 @@ impl Title<'_> {
     }
 }
 
+impl Default for Title<'_> {
+    fn default() -> Title<'static> {
+        Title {
+            level: 1,
+            priority: None,
+            tags: Vec::new(),
+            keyword: None,
+            raw: Cow::Borrowed(""),
+            planning: None,
+            properties: HashMap::new(),
+        }
+    }
+}
+
 fn parse_headline<'a>(
     input: &'a str,
     config: &ParseConfig,

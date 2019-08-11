@@ -21,7 +21,7 @@ pub trait OrgHandler<E: From<Error>> {
                 }
                 writeln!(&mut w)?;
             }
-            Headline => (),
+            Headline { .. } => (),
             List(_list) => (),
             Italic => write!(w, "/")?,
             ListItem(list_item) => write!(w, "{}", list_item.bullet)?,
@@ -154,7 +154,7 @@ pub trait OrgHandler<E: From<Error>> {
             Bold => write!(w, "*")?,
             Document => (),
             DynBlock(_dyn_block) => writeln!(w, "#+END:")?,
-            Headline => (),
+            Headline { .. } => (),
             List(_list) => (),
             Italic => write!(w, "/")?,
             ListItem(_) => (),

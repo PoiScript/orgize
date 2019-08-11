@@ -42,7 +42,7 @@ pub trait HtmlHandler<E: From<Error>> {
             Bold => write!(w, "<b>")?,
             Document => write!(w, "<main>")?,
             DynBlock(_dyn_block) => (),
-            Headline => (),
+            Headline { .. } => (),
             List(list) => {
                 if list.ordered {
                     write!(w, "<ol>")?;
@@ -166,7 +166,7 @@ pub trait HtmlHandler<E: From<Error>> {
             Bold => write!(w, "</b>")?,
             Document => write!(w, "</main>")?,
             DynBlock(_dyn_block) => (),
-            Headline => (),
+            Headline { .. } => (),
             List(list) => {
                 if list.ordered {
                     write!(w, "</ol>")?;

@@ -79,7 +79,7 @@ pub enum Element<'a> {
     DynBlock(DynBlock<'a>),
     FnDef(FnDef<'a>),
     FnRef(FnRef<'a>),
-    Headline,
+    Headline { level: usize },
     InlineCall(InlineCall<'a>),
     InlineSrc(InlineSrc<'a>),
     Keyword(Keyword<'a>),
@@ -112,9 +112,25 @@ impl Element<'_> {
         use Element::*;
 
         match self {
-            SpecialBlock(_) | QuoteBlock(_) | CenterBlock(_) | VerseBlock(_) | Bold | Document
-            | DynBlock(_) | Headline | Italic | List(_) | ListItem(_) | Paragraph | Section
-            | Strike | Underline | Title(_) | Table(_) | TableRow(_) | TableCell => true,
+            SpecialBlock(_)
+            | QuoteBlock(_)
+            | CenterBlock(_)
+            | VerseBlock(_)
+            | Bold
+            | Document
+            | DynBlock(_)
+            | Headline { .. }
+            | Italic
+            | List(_)
+            | ListItem(_)
+            | Paragraph
+            | Section
+            | Strike
+            | Underline
+            | Title(_)
+            | Table(_)
+            | TableRow(_)
+            | TableCell => true,
             _ => false,
         }
     }
@@ -141,7 +157,7 @@ impl Element<'_> {
             DynBlock(e) => DynBlock(e.into_owned()),
             FnDef(e) => FnDef(e.into_owned()),
             FnRef(e) => FnRef(e.into_owned()),
-            Headline => Headline,
+            Headline { level } => Headline { level },
             InlineCall(e) => InlineCall(e.into_owned()),
             InlineSrc(e) => InlineSrc(e.into_owned()),
             Keyword(e) => Keyword(e.into_owned()),

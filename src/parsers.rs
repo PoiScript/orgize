@@ -9,7 +9,7 @@ use memchr::{memchr, memchr_iter};
 use nom::{
     bytes::complete::take_while1,
     character::complete::{line_ending, not_line_ending},
-    combinator::{map, opt, recognize, verify},
+    combinator::{opt, recognize, verify},
     error::ErrorKind,
     error_position,
     multi::{many0_count, many1_count},
@@ -44,6 +44,42 @@ impl<'a> ElementArena<'a> for Arena<Element<'a>> {
         if let Some(child) = self[parent].last_child() {
             let node = self.new_node(element.into());
             child.insert_before(node, self);
+            node
+        } else {
+            self.push_element(element, parent)
+        }
+    }
+}
+
+pub struct OwnedArena<'a, 'b, 'c> {
+    arena: &'b mut Arena<Element<'c>>,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a, 'b, 'c> OwnedArena<'a, 'b, 'c> {
+    pub fn new(arena: &'b mut Arena<Element<'c>>) -> OwnedArena<'a, 'b, 'c> {
+        OwnedArena {
+            arena,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a> ElementArena<'a> for OwnedArena<'a, '_, '_> {
+    fn push_element<T: Into<Element<'a>>>(&mut self, element: T, parent: NodeId) -> NodeId {
+        let node = self.arena.new_node(element.into().into_owned());
+        parent.append(node, self.arena);
+        node
+    }
+
+    fn insert_before_last_child<T: Into<Element<'a>>>(
+        &mut self,
+        element: T,
+        parent: NodeId,
+    ) -> NodeId {
+        if let Some(child) = self.arena[parent].last_child() {
+            let node = self.arena.new_node(element.into().into_owned());
+            child.insert_before(node, self.arena);
             node
         } else {
             self.push_element(element, parent)
@@ -139,22 +175,22 @@ pub fn parse_section_and_headlines<'a, T: ElementArena<'a>>(
 
     let mut last_end = 0;
     for i in memchr_iter(b'\n', content.as_bytes()) {
-        if let Ok((mut tail, headline_content)) = parse_headline(&content[last_end..]) {
+        if let Ok((mut tail, (headline_content, level))) = parse_headline(&content[last_end..]) {
             if last_end != 0 {
                 let node = arena.push_element(Element::Section, parent);
                 let content = &content[0..last_end];
                 containers.push(Container::Block { content, node });
             }
 
-            let node = arena.push_element(Element::Headline, parent);
+            let node = arena.push_element(Element::Headline { level }, parent);
             containers.push(Container::Headline {
                 content: headline_content,
                 node,
             });
 
-            while let Ok((new_tail, content)) = parse_headline(tail) {
+            while let Ok((new_tail, (content, level))) = parse_headline(tail) {
                 debug_assert_ne!(tail, new_tail);
-                let node = arena.push_element(Element::Headline, parent);
+                let node = arena.push_element(Element::Headline { level }, parent);
                 containers.push(Container::Headline { content, node });
                 tail = new_tail;
             }
@@ -719,24 +755,22 @@ pub fn skip_empty_lines(input: &str) -> &str {
         .unwrap_or(input)
 }
 
-pub fn parse_headline(input: &str) -> IResult<&str, &str> {
-    let (input_, level) = get_headline_level(input)?;
-    map(
-        take_lines_while(move |line| {
-            if let Ok((_, l)) = get_headline_level(line) {
-                l.len() > level.len()
-            } else {
-                true
-            }
-        }),
-        move |s: &str| &input[0..level.len() + s.len()],
-    )(input_)
+pub fn parse_headline(input: &str) -> IResult<&str, (&str, usize)> {
+    let (input_, level) = parse_headline_level(input)?;
+    let (input_, content) = take_lines_while(move |line| {
+        if let Ok((_, l)) = parse_headline_level(line) {
+            l > level
+        } else {
+            true
+        }
+    })(input_)?;
+    Ok((input_, (&input[0..level + content.len()], level)))
 }
 
-pub fn get_headline_level(input: &str) -> IResult<&str, &str> {
+pub fn parse_headline_level(input: &str) -> IResult<&str, usize> {
     let (input, stars) = take_while1(|c: char| c == '*')(input)?;
     if input.is_empty() || input.starts_with(' ') || input.starts_with('\n') {
-        Ok((input, stars))
+        Ok((input, stars.len()))
     } else {
         Err(Err::Error(error_position!(input, ErrorKind::Tag)))
     }
