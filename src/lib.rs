@@ -223,7 +223,10 @@ mod node;
 mod org;
 mod parsers;
 
+mod error;
+
 pub use config::ParseConfig;
 pub use elements::Element;
-pub use node::HeadlineNode;
-pub use org::Org;
+pub use error::OrgizeError;
+pub use node::{DocumentNode, HeadlineNode};
+pub use org::{Event, Org};
