@@ -7,14 +7,8 @@ use indextree::{Arena, NodeId};
 use jetscii::bytes;
 use memchr::{memchr, memchr_iter};
 use nom::{
-    bytes::complete::take_while1,
-    character::complete::{line_ending, not_line_ending},
-    combinator::{opt, recognize, verify},
-    error::ErrorKind,
-    error_position,
-    multi::{many0_count, many1_count},
-    sequence::terminated,
-    Err, IResult,
+    bytes::complete::take_while1, combinator::verify, error::ErrorKind, error_position, Err,
+    IResult,
 };
 
 use crate::config::ParseConfig;
@@ -710,7 +704,15 @@ pub fn parse_table<'a, T: ElementArena<'a>>(
 }
 
 pub fn line(input: &str) -> IResult<&str, &str> {
-    terminated(not_line_ending, opt(line_ending))(input)
+    if let Some(i) = memchr(b'\n', input.as_bytes()) {
+        if i > 0 && input.as_bytes()[i - 1] == b'\r' {
+            Ok((&input[i + 1..], &input[0..i - 1]))
+        } else {
+            Ok((&input[i + 1..], &input[0..i]))
+        }
+    } else {
+        Ok(("", input))
+    }
 }
 
 pub fn eol(input: &str) -> IResult<&str, &str> {
@@ -719,33 +721,24 @@ pub fn eol(input: &str) -> IResult<&str, &str> {
 
 pub fn take_lines_while(predicate: impl Fn(&str) -> bool) -> impl Fn(&str) -> IResult<&str, &str> {
     move |input| {
-        recognize(many0_count(verify(
-            |s: &str| {
-                // repeat until eof
-                if s.is_empty() {
-                    Err(Err::Error(error_position!(s, ErrorKind::Eof)))
-                } else {
-                    line(s)
+        let mut last_end = 0;
+        for i in memchr_iter(b'\n', input.as_bytes()) {
+            if i > 0 && input.as_bytes()[i - 1] == b'\r' {
+                if !predicate(&input[last_end..i - 1]) {
+                    return Ok((&input[last_end..], &input[0..last_end]));
                 }
-            },
-            |s: &str| predicate(s),
-        )))(input)
-    }
-}
-
-pub fn take_lines_while1(predicate: impl Fn(&str) -> bool) -> impl Fn(&str) -> IResult<&str, &str> {
-    move |input| {
-        recognize(many1_count(verify(
-            |s: &str| {
-                // repeat until eof
-                if s.is_empty() {
-                    Err(Err::Error(error_position!(s, ErrorKind::Eof)))
-                } else {
-                    line(s)
+            } else {
+                if !predicate(&input[last_end..i]) {
+                    return Ok((&input[last_end..], &input[0..last_end]));
                 }
-            },
-            |s: &str| predicate(s),
-        )))(input)
+            }
+            last_end = i + 1;
+        }
+        if !predicate(&input[last_end..]) {
+            Ok((&input[last_end..], &input[0..last_end]))
+        } else {
+            Ok(("", input))
+        }
     }
 }
 
@@ -769,7 +762,7 @@ pub fn parse_headline(input: &str) -> IResult<&str, (&str, usize)> {
 
 pub fn parse_headline_level(input: &str) -> IResult<&str, usize> {
     let (input, stars) = take_while1(|c: char| c == '*')(input)?;
-    if input.is_empty() || input.starts_with(' ') || input.starts_with('\n') {
+    if input.starts_with(' ') || input.starts_with('\n') || input.is_empty() {
         Ok((input, stars.len()))
     } else {
         Err(Err::Error(error_position!(input, ErrorKind::Tag)))
@@ -777,11 +770,17 @@ pub fn parse_headline_level(input: &str) -> IResult<&str, usize> {
 }
 
 pub fn parse_fixed_width(input: &str) -> IResult<&str, &str> {
-    take_lines_while1(|line| line == ":" || line.starts_with(": "))(input)
+    verify(
+        take_lines_while(|line| line == ":" || line.starts_with(": ")),
+        |s: &str| !s.is_empty(),
+    )(input)
 }
 
 pub fn parse_comment(input: &str) -> IResult<&str, &str> {
-    take_lines_while1(|line| line == "#" || line.starts_with("# "))(input)
+    verify(
+        take_lines_while(|line| line == "#" || line.starts_with("# ")),
+        |s: &str| !s.is_empty(),
+    )(input)
 }
 
 pub fn take_one_word(input: &str) -> IResult<&str, &str> {
