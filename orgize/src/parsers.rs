@@ -5,7 +5,7 @@ use std::iter::once;
 use std::marker::PhantomData;
 
 use indextree::{Arena, NodeId};
-use jetscii::bytes;
+use jetscii::{bytes, BytesConst};
 use memchr::{memchr, memchr_iter};
 use nom::{
     bytes::complete::take_while1, combinator::verify, error::ErrorKind, error_position, Err,
@@ -457,8 +457,6 @@ pub fn parse_inlines<'a, T: ElementArena<'a>>(
     let mut text = tail;
     let mut pos = 0;
 
-    let bs = bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n');
-
     macro_rules! insert_text {
         ($value:expr) => {
             arena.insert_before_last_child(
@@ -479,7 +477,12 @@ pub fn parse_inlines<'a, T: ElementArena<'a>>(
         };
     }
 
-    while let Some(off) = bs.find(tail.as_bytes()) {
+    lazy_static::lazy_static! {
+        static ref PRE_BYTES: BytesConst =
+            bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n');
+    }
+
+    while let Some(off) = PRE_BYTES.find(tail.as_bytes()) {
         match tail.as_bytes()[off] {
             b'{' => {
                 if let Some(new_tail) = parse_inline(&tail[off..], arena, containers, parent) {

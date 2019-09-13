@@ -1,6 +1,6 @@
 use super::write_datetime;
 use crate::elements::Element;
-use jetscii::bytes;
+use jetscii::{bytes, BytesConst};
 use std::fmt;
 use std::io::{Error, Write};
 use std::marker::PhantomData;
@@ -11,7 +11,12 @@ impl<S: AsRef<str>> fmt::Display for Escape<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut pos = 0;
         let bytes = self.0.as_ref().as_bytes();
-        while let Some(off) = bytes!(b'<', b'>', b'&', b'\'', b'"').find(&bytes[pos..]) {
+
+        lazy_static::lazy_static! {
+            static ref ESCAPE_BYTES: BytesConst = bytes!(b'<', b'>', b'&', b'\'', b'"');
+        }
+
+        while let Some(off) = ESCAPE_BYTES.find(&bytes[pos..]) {
             write!(f, "{}", &self.0.as_ref()[pos..pos + off])?;
 
             pos += off + 1;
