@@ -11,9 +11,6 @@ script:
   - cargo fmt --all -- --check
   - cargo test --all
 
-before_deploy:
-  - cd orgize-demos/
-
 deploy:
   provider: heroku
   api_key: $HEROKU_API_KEY
