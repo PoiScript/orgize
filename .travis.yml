@@ -9,7 +9,7 @@ before_script:
 
 script:
   - cargo fmt --all -- --check
-  - cargo test
+  - cargo test --all
 
 notifications:
   email:

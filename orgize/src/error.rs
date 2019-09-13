@@ -134,7 +134,7 @@ impl Org<'_> {
                 }
                 // TableCell is a container but it might
                 // not contains anything, e.g. `||||||`
-                Element::TableCell => ()
+                Element::TableCell => (),
             }
         }
         Ok(())

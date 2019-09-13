@@ -2,6 +2,6 @@
 **/*.rs.bk
 Cargo.lock
 
-benches/*.org
+orgize/benches/*.org
 .gdb_history
 perf.data*

@@ -1,0 +1,37 @@
+[package]
+name = "orgize"
+version = "0.3.1"
+authors = ["PoiScript <poiscript@gmail.com>"]
+description = "A Rust library for parsing orgmode files."
+repository = "https://github.com/PoiScript/orgize"
+readme = "README.md"
+edition = "2018"
+license = "MIT"
+keywords = ["orgmode", "emacs", "parser"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[badges]
+travis-ci = { repository = "PoiScript/orgize" }
+
+[features]
+default = ["ser"]
+ser = ["serde", "serde_indextree"]
+
+[dependencies]
+bytecount = "0.6.0"
+chrono = { version = "0.4.9", optional = true }
+indextree = "4.0.0"
+jetscii = "0.4.4"
+memchr = "2.2.1"
+nom = "5.0.1"
+serde = { version = "1.0.100", optional = true, features = ["derive"] }
+serde_indextree = { version = "0.2.0", optional = true }
+
+[dev-dependencies]
+lazy_static = "1.4.0"
+pretty_assertions = "0.6.1"
+serde_json = "1.0.40"
+slugify = "0.1.0"
+syntect = "3.2.1"
