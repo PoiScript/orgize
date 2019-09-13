@@ -26,6 +26,20 @@ pub enum OrgizeError {
     },
 }
 
+impl OrgizeError {
+    pub fn element<'a, 'b>(&self, org: &'a Org<'b>) -> &'a Element<'b> {
+        match &self {
+            OrgizeError::Children { at }
+            | OrgizeError::NoChildren { at }
+            | OrgizeError::HeadlineOrSection { at }
+            | OrgizeError::Title { at }
+            | OrgizeError::Headline { at }
+            | OrgizeError::Detached { at }
+            | OrgizeError::HeadlineLevel { at, .. } => org.arena[*at].get(),
+        }
+    }
+}
+
 impl Org<'_> {
     /// Validate an `Org` struct.
     pub fn validate(&self) -> Result<(), OrgizeError> {
@@ -107,7 +121,6 @@ impl Org<'_> {
                 | Element::Section
                 | Element::Table(Table::Org { .. })
                 | Element::TableRow(TableRow::Standard)
-                | Element::TableCell
                 | Element::Bold
                 | Element::Italic
                 | Element::Underline
@@ -119,6 +132,9 @@ impl Org<'_> {
                         return Err(OrgizeError::Children { at: node_id });
                     }
                 }
+                // TableCell is a container but it might
+                // not contains anything, e.g. `||||||`
+                Element::TableCell => ()
             }
         }
         Ok(())

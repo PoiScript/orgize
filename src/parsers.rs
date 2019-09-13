@@ -1,6 +1,7 @@
 // parser related functions
 
 use std::borrow::Cow;
+use std::iter::once;
 use std::marker::PhantomData;
 
 use indextree::{Arena, NodeId};
@@ -168,7 +169,7 @@ pub fn parse_section_and_headlines<'a, T: ElementArena<'a>>(
     }
 
     let mut last_end = 0;
-    for i in memchr_iter(b'\n', content.as_bytes()) {
+    for i in memchr_iter(b'\n', content.as_bytes()).chain(once(content.len())) {
         if let Ok((mut tail, (headline_content, level))) = parse_headline(&content[last_end..]) {
             if last_end != 0 {
                 let node = arena.push_element(Element::Section, parent);
@@ -668,7 +669,7 @@ pub fn parse_table<'a, T: ElementArena<'a>>(
         let table_node = arena.push_element(Table::Org { tblfm: None }, parent);
 
         let mut last_end = 0;
-        for start in memchr_iter(b'\n', contents.as_bytes()) {
+        for start in memchr_iter(b'\n', contents.as_bytes()).chain(once(contents.len())) {
             let line = contents[last_end..start].trim();
             match TableRow::parse(line) {
                 Some(TableRow::Standard) => {
@@ -727,10 +728,8 @@ pub fn take_lines_while(predicate: impl Fn(&str) -> bool) -> impl Fn(&str) -> IR
                 if !predicate(&input[last_end..i - 1]) {
                     return Ok((&input[last_end..], &input[0..last_end]));
                 }
-            } else {
-                if !predicate(&input[last_end..i]) {
-                    return Ok((&input[last_end..], &input[0..last_end]));
-                }
+            } else if !predicate(&input[last_end..i]) {
+                return Ok((&input[last_end..], &input[0..last_end]));
             }
             last_end = i + 1;
         }
