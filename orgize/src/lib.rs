@@ -148,7 +148,8 @@
 //!
 //! fn main() -> Result<(), MyError> {
 //!     let mut writer = Vec::new();
-//!     Org::parse("* title\n*section*").html_with_handler(&mut writer, MyHtmlHandler(DefaultHtmlHandler))?;
+//!     let mut handler = MyHtmlHandler(DefaultHtmlHandler);
+//!     Org::parse("* title\n*section*").html_with_handler(&mut writer, &mut handler)?;
 //!
 //!     assert_eq!(
 //!         String::from_utf8(writer)?,

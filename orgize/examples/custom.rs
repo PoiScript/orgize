@@ -72,7 +72,8 @@ fn main() -> Result<(), MyError> {
         let contents = String::from_utf8(fs::read(&args[1])?)?;
 
         let mut writer = Vec::new();
-        Org::parse(&contents).html_with_handler(&mut writer, MyHtmlHandler(DefaultHtmlHandler))?;
+        let mut handler = MyHtmlHandler(DefaultHtmlHandler);
+        Org::parse(&contents).html_with_handler(&mut writer, &mut handler)?;
 
         println!("{}", String::from_utf8(writer)?);
     }
