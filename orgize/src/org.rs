@@ -104,10 +104,10 @@ impl<'a> Org<'a> {
     }
 
     pub fn html<W: Write>(&self, wrtier: W) -> Result<(), Error> {
-        self.html_with_handler(wrtier, DefaultHtmlHandler)
+        self.html_with_handler(wrtier, &mut DefaultHtmlHandler)
     }
 
-    pub fn html_with_handler<W, H, E>(&self, mut writer: W, mut handler: H) -> Result<(), E>
+    pub fn html_with_handler<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
     where
         W: Write,
         E: From<Error>,
@@ -124,10 +124,10 @@ impl<'a> Org<'a> {
     }
 
     pub fn org<W: Write>(&self, wrtier: W) -> Result<(), Error> {
-        self.org_with_handler(wrtier, DefaultOrgHandler)
+        self.org_with_handler(wrtier, &mut DefaultOrgHandler)
     }
 
-    pub fn org_with_handler<W, H, E>(&self, mut writer: W, mut handler: H) -> Result<(), E>
+    pub fn org_with_handler<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
     where
         W: Write,
         E: From<Error>,

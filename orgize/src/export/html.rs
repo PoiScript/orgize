@@ -3,6 +3,7 @@ use crate::elements::Element;
 use jetscii::bytes;
 use std::fmt;
 use std::io::{Error, Write};
+use std::marker::PhantomData;
 
 pub struct Escape<S: AsRef<str>>(pub S);
 
@@ -195,3 +196,93 @@ pub trait HtmlHandler<E: From<Error>> {
 pub struct DefaultHtmlHandler;
 
 impl HtmlHandler<Error> for DefaultHtmlHandler {}
+
+#[cfg(feature = "syntect")]
+pub mod syntect_feature {
+    use super::*;
+    use syntect::{
+        easy::HighlightLines,
+        highlighting::ThemeSet,
+        html::{styled_line_to_highlighted_html, IncludeBackground},
+        parsing::SyntaxSet,
+    };
+
+    pub struct SyntectHtmlHandler<E: From<Error>, H: HtmlHandler<E>> {
+        pub syntax_set: SyntaxSet,
+        pub theme_set: ThemeSet,
+        pub inner: H,
+        error_type: PhantomData<E>,
+    }
+
+    impl Default for SyntectHtmlHandler<Error, DefaultHtmlHandler> {
+        fn default() -> Self {
+            SyntectHtmlHandler {
+                syntax_set: SyntaxSet::load_defaults_newlines(),
+                theme_set: ThemeSet::load_defaults(),
+                inner: DefaultHtmlHandler,
+                error_type: PhantomData,
+            }
+        }
+    }
+
+    impl<E: From<Error>, H: HtmlHandler<E>> SyntectHtmlHandler<E, H> {
+        pub fn new(inner: H) -> Self {
+            SyntectHtmlHandler {
+                syntax_set: SyntaxSet::load_defaults_newlines(),
+                theme_set: ThemeSet::load_defaults(),
+                inner,
+                error_type: PhantomData,
+            }
+        }
+
+        fn highlight(&self, language: Option<&str>, content: &str) -> String {
+            let mut highlighter = HighlightLines::new(
+                language
+                    .and_then(|lang| self.syntax_set.find_syntax_by_token(lang))
+                    .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text()),
+                &self.theme_set.themes["InspiredGitHub"],
+            );
+            let regions = highlighter.highlight(content, &self.syntax_set);
+            styled_line_to_highlighted_html(&regions[..], IncludeBackground::No)
+        }
+    }
+
+    impl<E: From<Error>, H: HtmlHandler<E>> HtmlHandler<E> for SyntectHtmlHandler<E, H> {
+        fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), E> {
+            match element {
+                Element::InlineSrc(inline_src) => write!(
+                    w,
+                    "<code>{}</code>",
+                    self.highlight(Some(&inline_src.lang), &inline_src.body)
+                )?,
+                Element::SourceBlock(block) => {
+                    if block.language.is_empty() {
+                        write!(w, "<pre class=\"example\">{}</pre>", block.contents)?;
+                    } else {
+                        write!(
+                        w,
+                        "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
+                        block.language,
+                        self.highlight(Some(&block.language), &block.contents)
+                    )?
+                    }
+                }
+                Element::FixedWidth { value } => write!(
+                    w,
+                    "<pre class=\"example\">{}</pre>",
+                    self.highlight(None, value)
+                )?,
+                Element::ExampleBlock(block) => write!(
+                    w,
+                    "<pre class=\"example\">{}</pre>",
+                    self.highlight(None, &block.contents)
+                )?,
+                _ => self.inner.start(w, element)?,
+            }
+            Ok(())
+        }
+    }
+}
+
+#[cfg(feature = "syntect")]
+pub use syntect_feature::*;

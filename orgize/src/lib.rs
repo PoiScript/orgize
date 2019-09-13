@@ -210,6 +210,8 @@
 //!
 //! + `chrono`: adds the ability to convert `Datetime` into `chrono` structs, disabled by default.
 //!
+//! + `syntect`: provides `SyntectHtmlHandler` for highlighting code block, disabled by default.
+//!
 //! # License
 //!
 //! MIT
