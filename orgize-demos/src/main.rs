@@ -4,6 +4,8 @@ use serde::Deserialize;
 use std::env;
 use std::io::Result;
 
+use orgize::export::html::SyntectHtmlHandler;
+
 #[get("/")]
 fn index() -> HttpResponse {
     HttpResponse::Ok().content_type("text/html").body(
@@ -14,6 +16,7 @@ fn index() -> HttpResponse {
          <p>Output format:</p>\
          <input type=\"radio\" name=\"format\" value=\"json\" checked> Json<br>\
          <input type=\"radio\" name=\"format\" value=\"html\"> HTML<br>\
+         <input type=\"radio\" name=\"format\" value=\"html-with-highlight\"> HTML with highlight<br>\
          <input type=\"radio\" name=\"format\" value=\"org\"> Org<br>\
          <p><input type=\"submit\" value=\"Submit\"></p>\
          </form>",
@@ -36,6 +39,14 @@ fn export(form: web::Form<FormData>) -> Result<HttpResponse> {
         "html" => {
             let mut writer = Vec::new();
             org.html(&mut writer)?;
+            Ok(HttpResponse::Ok()
+                .content_type("text/html")
+                .body(String::from_utf8(writer).unwrap()))
+        }
+        "html-with-highlight" => {
+            let mut writer = Vec::new();
+            let mut handler = SyntectHtmlHandler::default();
+            org.html_with_handler(&mut writer, &mut handler)?;
             Ok(HttpResponse::Ok()
                 .content_type("text/html")
                 .body(String::from_utf8(writer).unwrap()))
