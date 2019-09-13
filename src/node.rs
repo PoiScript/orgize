@@ -85,7 +85,7 @@ impl HeadlineNode {
         self.title_mut(org).raw = content;
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
     }
 
@@ -116,7 +116,7 @@ impl HeadlineNode {
         }
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
     }
 
@@ -169,7 +169,7 @@ impl HeadlineNode {
         self.node.detach(&mut org.arena);
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
     }
 
@@ -207,7 +207,7 @@ impl HeadlineNode {
         self.node.append(headline.node, &mut org.arena);
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
 
         Ok(())
@@ -231,7 +231,7 @@ impl HeadlineNode {
         }
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
 
         Ok(())
@@ -255,7 +255,7 @@ impl HeadlineNode {
         self.node.insert_before(headline.node, &mut org.arena);
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
 
         Ok(())
@@ -281,7 +281,7 @@ impl HeadlineNode {
         self.node.insert_after(headline.node, &mut org.arena);
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
 
         Ok(())
@@ -345,7 +345,7 @@ impl DocumentNode {
         }
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
     }
 
@@ -361,7 +361,7 @@ impl DocumentNode {
         org.root.append(headline.node, &mut org.arena);
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
 
         Ok(())
@@ -383,7 +383,7 @@ impl DocumentNode {
         }
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
 
         Ok(())

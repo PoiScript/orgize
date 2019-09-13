@@ -13,12 +13,13 @@ pub struct Org<'a> {
 }
 
 #[derive(Debug)]
-pub enum Event<'a> {
-    Start(&'a Element<'a>),
-    End(&'a Element<'a>),
+pub enum Event<'a, 'b> {
+    Start(&'b Element<'a>),
+    End(&'b Element<'a>),
 }
 
 impl<'a> Org<'a> {
+    /// Create a new empty Org struct
     pub fn new() -> Org<'static> {
         let mut arena = Arena::new();
         let root = arena.new_node(Element::Document);
@@ -26,10 +27,12 @@ impl<'a> Org<'a> {
         Org { arena, root }
     }
 
+    /// Create a new Org struct from parsing `text`, using the default ParseConfig
     pub fn parse(text: &'a str) -> Org<'a> {
         Org::parse_with_config(text, &ParseConfig::default())
     }
 
+    /// Create a new Org struct from parsing `text`, using a custom ParseConfig
     pub fn parse_with_config(content: &'a str, config: &ParseConfig) -> Org<'a> {
         let mut org = Org::new();
 
@@ -43,30 +46,39 @@ impl<'a> Org<'a> {
         );
 
         if cfg!(debug_assertions) {
-            org.check().unwrap();
+            org.validate().unwrap();
         }
 
         org
     }
 
+    /// Return a DocumentNode
     pub fn document(&self) -> DocumentNode {
         DocumentNode::new(self)
     }
 
-    pub fn headlines(&self) -> impl Iterator<Item = HeadlineNode> + '_ {
+    /// Return an iterator of HeadlineNode
+    pub fn headlines<'b>(&'b self) -> impl Iterator<Item = HeadlineNode> + 'b {
         self.root
             .descendants(&self.arena)
             .skip(1)
-            .filter_map(move |node| match self.arena[node].get() {
-                &Element::Headline { level } => Some(HeadlineNode::new(node, level, self)),
+            .filter_map(move |node| match &self.arena[node].get() {
+                Element::Headline { level } => Some(HeadlineNode::new(node, *level, self)),
                 _ => None,
             })
     }
 
+    /// Return a refrence to underlay arena
     pub fn arena(&self) -> &Arena<Element<'a>> {
         &self.arena
     }
 
+    /// Return a mutual reference to underlay arena
+    pub fn arena_mut(&mut self) -> &mut Arena<Element<'a>> {
+        &mut self.arena
+    }
+
+    /// Create a new headline and return it's HeadlineNode
     pub fn new_headline(&mut self, title: Title<'a>) -> HeadlineNode {
         let level = title.level;
         let title_raw = title.raw.clone();
@@ -83,10 +95,11 @@ impl<'a> Org<'a> {
         headline_node
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Event<'_>> + '_ {
+    /// Return an iterator of Event
+    pub fn iter<'b>(&'b self) -> impl Iterator<Item = Event<'a, 'b>> + 'b {
         self.root.traverse(&self.arena).map(move |edge| match edge {
-            NodeEdge::Start(e) => Event::Start(self.arena[e].get()),
-            NodeEdge::End(e) => Event::End(self.arena[e].get()),
+            NodeEdge::Start(node) => Event::Start(self.arena[node].get()),
+            NodeEdge::End(node) => Event::End(self.arena[node].get()),
         })
     }
 
@@ -128,6 +141,12 @@ impl<'a> Org<'a> {
         }
 
         Ok(())
+    }
+}
+
+impl Default for Org<'static> {
+    fn default() -> Self {
+        Org::new()
     }
 }
 

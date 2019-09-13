@@ -3,7 +3,7 @@ use indextree::NodeId;
 use crate::elements::*;
 use crate::Org;
 
-/// Orgize Error
+/// Orgize Validation Error
 #[derive(Debug)]
 pub enum OrgizeError {
     /// Expect this node has children
@@ -27,7 +27,8 @@ pub enum OrgizeError {
 }
 
 impl Org<'_> {
-    pub fn check(&self) -> Result<(), OrgizeError> {
+    /// Validate an `Org` struct.
+    pub fn validate(&self) -> Result<(), OrgizeError> {
         for node_id in self.root.descendants(&self.arena) {
             let node = &self.arena[node_id];
             match node.get() {
@@ -121,5 +122,11 @@ impl Org<'_> {
             }
         }
         Ok(())
+    }
+
+    #[deprecated(since = "0.3.1", note = "rename to validate")]
+    /// Validate an `Org` struct.
+    pub fn check(&self) -> Result<(), OrgizeError> {
+        self.validate()
     }
 }
