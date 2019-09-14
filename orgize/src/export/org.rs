@@ -1,6 +1,7 @@
-use super::write_datetime;
-use crate::elements::{Element, Timestamp};
 use std::io::{Error, Write};
+
+use crate::elements::{Element, Timestamp};
+use crate::export::write_datetime;
 
 pub trait OrgHandler<E: From<Error>> {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {

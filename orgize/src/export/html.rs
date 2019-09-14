@@ -1,9 +1,11 @@
-use super::write_datetime;
-use crate::elements::Element;
-use jetscii::{bytes, BytesConst};
 use std::fmt;
 use std::io::{Error, Write};
 use std::marker::PhantomData;
+
+use jetscii::{bytes, BytesConst};
+
+use crate::elements::Element;
+use crate::export::write_datetime;
 
 pub struct Escape<S: AsRef<str>>(pub S);
 

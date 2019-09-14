@@ -1,6 +1,7 @@
 //! Headline Title
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use memchr::memrchr;
 use nom::{
@@ -13,9 +14,8 @@ use nom::{
     sequence::{delimited, preceded},
     Err, IResult,
 };
-use std::collections::HashMap;
 
-use crate::config::ParseConfig;
+use crate::config::{ParseConfig, DEFAULT_CONFIG};
 use crate::elements::{Drawer, Planning};
 use crate::parsers::{line, skip_empty_lines, take_one_word};
 
@@ -196,15 +196,10 @@ impl Title<'_> {
     }
 }
 
-#[cfg(test)]
-lazy_static::lazy_static! {
-    static ref CONFIG: ParseConfig = ParseConfig::default();
-}
-
 #[test]
 fn parse_headline_() {
     assert_eq!(
-        parse_headline("**** DONE [#A] COMMENT Title :tag:a2%:", &CONFIG),
+        parse_headline("**** DONE [#A] COMMENT Title :tag:a2%:", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -217,27 +212,27 @@ fn parse_headline_() {
         ))
     );
     assert_eq!(
-        parse_headline("**** ToDO [#A] COMMENT Title", &CONFIG),
+        parse_headline("**** ToDO [#A] COMMENT Title", &DEFAULT_CONFIG),
         Ok(("", (4, None, None, "ToDO [#A] COMMENT Title", vec![])))
     );
     assert_eq!(
-        parse_headline("**** T0DO [#A] COMMENT Title", &CONFIG),
+        parse_headline("**** T0DO [#A] COMMENT Title", &DEFAULT_CONFIG),
         Ok(("", (4, None, None, "T0DO [#A] COMMENT Title", vec![])))
     );
     assert_eq!(
-        parse_headline("**** DONE [#1] COMMENT Title", &CONFIG),
+        parse_headline("**** DONE [#1] COMMENT Title", &DEFAULT_CONFIG),
         Ok(("", (4, Some("DONE"), None, "[#1] COMMENT Title", vec![],)))
     );
     assert_eq!(
-        parse_headline("**** DONE [#a] COMMENT Title", &CONFIG),
+        parse_headline("**** DONE [#a] COMMENT Title", &DEFAULT_CONFIG),
         Ok(("", (4, Some("DONE"), None, "[#a] COMMENT Title", vec![],)))
     );
     assert_eq!(
-        parse_headline("**** Title :tag:a2%", &CONFIG),
+        parse_headline("**** Title :tag:a2%", &DEFAULT_CONFIG),
         Ok(("", (4, None, None, "Title :tag:a2%", vec![],)))
     );
     assert_eq!(
-        parse_headline("**** Title tag:a2%:", &CONFIG),
+        parse_headline("**** Title tag:a2%:", &DEFAULT_CONFIG),
         Ok(("", (4, None, None, "Title tag:a2%:", vec![],)))
     );
 
@@ -278,14 +273,14 @@ fn parse_properties_drawer_() {
 
 // #[test]
 // fn is_commented() {
-//     assert!(Title::parse("* COMMENT Title", &CONFIG)
+//     assert!(Title::parse("* COMMENT Title", &DEFAULT_CONFIG)
 //         .1
 //         .is_commented());
-//     assert!(!Title::parse("* Title", &CONFIG).1.is_commented());
-//     assert!(!Title::parse("* C0MMENT Title", &CONFIG)
+//     assert!(!Title::parse("* Title", &DEFAULT_CONFIG).1.is_commented());
+//     assert!(!Title::parse("* C0MMENT Title", &DEFAULT_CONFIG)
 //         .1
 //         .is_commented());
-//     assert!(!Title::parse("* comment Title", &CONFIG)
+//     assert!(!Title::parse("* comment Title", &DEFAULT_CONFIG)
 //         .1
 //         .is_commented());
 // }

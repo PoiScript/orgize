@@ -1,7 +1,7 @@
 use indextree::{Arena, NodeEdge, NodeId};
 use std::io::{Error, Write};
 
-use crate::config::ParseConfig;
+use crate::config::{ParseConfig, DEFAULT_CONFIG};
 use crate::elements::{Element, Title};
 use crate::export::*;
 use crate::node::{DocumentNode, HeadlineNode};
@@ -29,7 +29,7 @@ impl<'a> Org<'a> {
 
     /// Create a new Org struct from parsing `text`, using the default ParseConfig
     pub fn parse(text: &'a str) -> Org<'a> {
-        Org::parse_with_config(text, &ParseConfig::default())
+        Org::parse_with_config(text, &DEFAULT_CONFIG)
     }
 
     /// Create a new Org struct from parsing `text`, using a custom ParseConfig

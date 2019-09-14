@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 
-use crate::parsers::{line, take_lines_while};
-
 use nom::{
     bytes::complete::tag_no_case,
     character::complete::{alpha1, space1},
     IResult,
 };
+
+use crate::parsers::{line, take_lines_while};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]

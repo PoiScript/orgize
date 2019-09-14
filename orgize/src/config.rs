@@ -3,9 +3,9 @@
 /// Parse configuration
 #[derive(Clone, Debug)]
 pub struct ParseConfig {
-    /// Headline's TODO keywords, todo type
+    /// Headline's todo keywords, todo type
     pub todo_keywords: Vec<String>,
-    /// Headline's TODO keywords, done type
+    /// Headline's todo keywords, done type
     pub done_keywords: Vec<String>,
 }
 
@@ -16,4 +16,8 @@ impl Default for ParseConfig {
             done_keywords: vec![String::from("DONE")],
         }
     }
+}
+
+lazy_static::lazy_static! {
+    pub static ref DEFAULT_CONFIG: ParseConfig = ParseConfig::default();
 }

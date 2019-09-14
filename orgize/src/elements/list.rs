@@ -1,7 +1,7 @@
 use std::borrow::Cow;
+use std::iter::once;
 
 use memchr::memchr_iter;
-use std::iter::once;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]

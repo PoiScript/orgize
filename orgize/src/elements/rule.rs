@@ -1,5 +1,6 @@
-use nom::{bytes::complete::take_while_m_n, IResult};
 use std::usize;
+
+use nom::{bytes::complete::take_while_m_n, IResult};
 
 use crate::parsers::eol;
 

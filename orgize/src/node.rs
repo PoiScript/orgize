@@ -4,8 +4,7 @@ use std::borrow::Cow;
 use crate::config::ParseConfig;
 use crate::elements::{Element, Title};
 use crate::parsers::{parse_container, Container, OwnedArena};
-use crate::Org;
-use crate::OrgizeError;
+use crate::{Org, OrgizeError};
 
 #[derive(Copy, Clone, Debug)]
 pub struct HeadlineNode {
