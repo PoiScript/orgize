@@ -15,7 +15,7 @@ use nom::{
     Err, IResult,
 };
 
-use crate::config::{ParseConfig, DEFAULT_CONFIG};
+use crate::config::ParseConfig;
 use crate::elements::{Drawer, Planning};
 use crate::parsers::{line, skip_empty_lines, take_one_word};
 
@@ -47,7 +47,41 @@ impl Title<'_> {
         input: &'a str,
         config: &ParseConfig,
     ) -> IResult<&'a str, (Title<'a>, &'a str)> {
-        let (input, (level, keyword, priority, raw, tags)) = parse_headline(input, config)?;
+        let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
+
+        debug_assert!(level > 0);
+
+        let (input, keyword) = opt(preceded(
+            space1,
+            verify(take_one_word, |s: &str| {
+                config.todo_keywords.iter().any(|x| x == s)
+                    || config.done_keywords.iter().any(|x| x == s)
+            }),
+        ))(input)?;
+
+        let (input, priority) = opt(preceded(
+            space1,
+            map_parser(
+                take_one_word,
+                delimited(
+                    tag("[#"),
+                    verify(anychar, |c: &char| c.is_ascii_uppercase()),
+                    tag("]"),
+                ),
+            ),
+        ))(input)?;
+        let (input, tail) = line(input)?;
+        let tail = tail.trim();
+        let (raw, tags) = memrchr(b' ', tail.as_bytes())
+            .map(|i| (tail[0..i].trim(), &tail[i + 1..]))
+            .filter(|(_, x)| x.len() > 2 && x.starts_with(':') && x.ends_with(':'))
+            .unwrap_or((tail, ""));
+
+        let tags = tags
+            .split(':')
+            .filter(|s| !s.is_empty())
+            .map(Into::into)
+            .collect();
 
         let (input, planning) = Planning::parse(input)
             .map(|(input, planning)| (input, Some(Box::new(planning))))
@@ -107,63 +141,6 @@ impl Default for Title<'_> {
     }
 }
 
-fn parse_headline<'a>(
-    input: &'a str,
-    config: &ParseConfig,
-) -> IResult<
-    &'a str,
-    (
-        usize,
-        Option<&'a str>,
-        Option<char>,
-        &'a str,
-        Vec<Cow<'a, str>>,
-    ),
-> {
-    let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
-
-    debug_assert!(level > 0);
-
-    let (input, keyword) = opt(preceded(
-        space1,
-        verify(take_one_word, |s: &str| {
-            config.todo_keywords.iter().any(|x| x == s)
-                || config.done_keywords.iter().any(|x| x == s)
-        }),
-    ))(input)?;
-    let (input, priority) = opt(preceded(
-        space1,
-        map_parser(
-            take_one_word,
-            delimited(
-                tag("[#"),
-                verify(anychar, |c: &char| c.is_ascii_uppercase()),
-                tag("]"),
-            ),
-        ),
-    ))(input)?;
-    let (input, tail) = line(input)?;
-    let tail = tail.trim();
-    let (raw, tags) = memrchr(b' ', tail.as_bytes())
-        .map(|i| (tail[0..i].trim(), &tail[i + 1..]))
-        .filter(|(_, x)| x.len() > 2 && x.starts_with(':') && x.ends_with(':'))
-        .unwrap_or((tail, ""));
-
-    Ok((
-        input,
-        (
-            level,
-            keyword,
-            priority,
-            raw,
-            tags.split(':')
-                .filter(|s| !s.is_empty())
-                .map(Into::into)
-                .collect(),
-        ),
-    ))
-}
-
 fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>> {
     let (input, (drawer, content)) = Drawer::parse(input.trim_start())?;
     if drawer.name != "PROPERTIES" {
@@ -197,64 +174,183 @@ impl Title<'_> {
 }
 
 #[test]
-fn parse_headline_() {
+fn parse_title() {
+    use crate::config::DEFAULT_CONFIG;
+
     assert_eq!(
-        parse_headline("**** DONE [#A] COMMENT Title :tag:a2%:", &DEFAULT_CONFIG),
+        Title::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &DEFAULT_CONFIG),
         Ok((
             "",
             (
-                4,
-                Some("DONE"),
-                Some('A'),
-                "COMMENT Title",
-                vec!["tag".into(), "a2%".into()]
+                Title {
+                    level: 4,
+                    keyword: Some("DONE".into()),
+                    priority: Some('A'),
+                    raw: "COMMENT Title".into(),
+                    tags: vec!["tag".into(), "a2%".into()],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "COMMENT Title"
             )
         ))
     );
     assert_eq!(
-        parse_headline("**** ToDO [#A] COMMENT Title", &DEFAULT_CONFIG),
-        Ok(("", (4, None, None, "ToDO [#A] COMMENT Title", vec![])))
+        Title::parse("**** ToDO [#A] COMMENT Title", &DEFAULT_CONFIG),
+        Ok((
+            "",
+            (
+                Title {
+                    level: 4,
+                    keyword: None,
+                    priority: None,
+                    raw: "ToDO [#A] COMMENT Title".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "ToDO [#A] COMMENT Title"
+            )
+        ))
     );
     assert_eq!(
-        parse_headline("**** T0DO [#A] COMMENT Title", &DEFAULT_CONFIG),
-        Ok(("", (4, None, None, "T0DO [#A] COMMENT Title", vec![])))
+        Title::parse("**** T0DO [#A] COMMENT Title", &DEFAULT_CONFIG),
+        Ok((
+            "",
+            (
+                Title {
+                    level: 4,
+                    keyword: None,
+                    priority: None,
+                    raw: "T0DO [#A] COMMENT Title".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "T0DO [#A] COMMENT Title"
+            )
+        ))
     );
     assert_eq!(
-        parse_headline("**** DONE [#1] COMMENT Title", &DEFAULT_CONFIG),
-        Ok(("", (4, Some("DONE"), None, "[#1] COMMENT Title", vec![],)))
+        Title::parse("**** DONE [#1] COMMENT Title", &DEFAULT_CONFIG),
+        Ok((
+            "",
+            (
+                Title {
+                    level: 4,
+                    keyword: Some("DONE".into()),
+                    priority: None,
+                    raw: "[#1] COMMENT Title".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "[#1] COMMENT Title"
+            )
+        ))
     );
     assert_eq!(
-        parse_headline("**** DONE [#a] COMMENT Title", &DEFAULT_CONFIG),
-        Ok(("", (4, Some("DONE"), None, "[#a] COMMENT Title", vec![],)))
+        Title::parse("**** DONE [#a] COMMENT Title", &DEFAULT_CONFIG),
+        Ok((
+            "",
+            (
+                Title {
+                    level: 4,
+                    keyword: Some("DONE".into()),
+                    priority: None,
+                    raw: "[#a] COMMENT Title".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "[#a] COMMENT Title"
+            )
+        ))
     );
     assert_eq!(
-        parse_headline("**** Title :tag:a2%", &DEFAULT_CONFIG),
-        Ok(("", (4, None, None, "Title :tag:a2%", vec![],)))
+        Title::parse("**** Title :tag:a2%", &DEFAULT_CONFIG),
+        Ok((
+            "",
+            (
+                Title {
+                    level: 4,
+                    keyword: None,
+                    priority: None,
+                    raw: "Title :tag:a2%".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "Title :tag:a2%"
+            )
+        ))
     );
     assert_eq!(
-        parse_headline("**** Title tag:a2%:", &DEFAULT_CONFIG),
-        Ok(("", (4, None, None, "Title tag:a2%:", vec![],)))
+        Title::parse("**** Title tag:a2%:", &DEFAULT_CONFIG),
+        Ok((
+            "",
+            (
+                Title {
+                    level: 4,
+                    keyword: None,
+                    priority: None,
+                    raw: "Title tag:a2%:".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "Title tag:a2%:"
+            )
+        ))
     );
 
     assert_eq!(
-        parse_headline(
+        Title::parse(
             "**** DONE Title",
             &ParseConfig {
                 done_keywords: vec![],
                 ..Default::default()
             }
         ),
-        Ok(("", (4, None, None, "DONE Title", vec![])))
+        Ok((
+            "",
+            (
+                Title {
+                    level: 4,
+                    keyword: None,
+                    priority: None,
+                    raw: "DONE Title".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "DONE Title"
+            )
+        ))
     );
     assert_eq!(
-        parse_headline(
+        Title::parse(
             "**** TASK [#A] Title",
             &ParseConfig {
                 todo_keywords: vec!["TASK".to_string()],
                 ..Default::default()
             }
         ),
-        Ok(("", (4, Some("TASK"), Some('A'), "Title", vec![],)))
+        Ok((
+            "",
+            (
+                Title {
+                    level: 4,
+                    keyword: Some("TASK".into()),
+                    priority: Some('A'),
+                    raw: "Title".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new()
+                },
+                "Title"
+            )
+        ))
     );
 }
 

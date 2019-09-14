@@ -1,5 +1,7 @@
 //! A Rust library for parsing orgmode files.
 //!
+//! Live demo: https://orgize.herokuapp.com/
+//!
 //! # Parse
 //!
 //! To parse a orgmode string, simply invoking the [`Org::parse`] function:
@@ -116,31 +118,29 @@
 //!
 //! impl HtmlHandler<MyError> for MyHtmlHandler {
 //!     fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
-//!         match element {
-//!             Element::Title(title) => {
-//!                 if title.level > 6 {
-//!                     return Err(MyError::Heading);
-//!                 } else {
-//!                     write!(
-//!                         w,
-//!                         "<h{0}><a id=\"{1}\" href=\"#{1}\">",
-//!                         title.level,
-//!                         slugify!(&title.raw),
-//!                     )?;
-//!                 }
+//!         if let Element::Title(title) = element {
+//!             if title.level > 6 {
+//!                 return Err(MyError::Heading);
+//!             } else {
+//!                 write!(
+//!                     w,
+//!                     "<h{0}><a id=\"{1}\" href=\"#{1}\">",
+//!                     title.level,
+//!                     slugify!(&title.raw),
+//!                 )?;
 //!             }
+//!         } else {
 //!             // fallthrough to default handler
-//!             _ => self.0.start(w, element)?,
+//!             self.0.start(w, element)?;
 //!         }
 //!         Ok(())
 //!     }
 //!
 //!     fn end<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
-//!         match element {
-//!             Element::Title(title) => {
-//!                 write!(w, "</a></h{}>", title.level,)?;
-//!             }
-//!             _ => self.0.end(w, element)?,
+//!         if let Element::Title(title) = element {
+//!             write!(w, "</a></h{}>", title.level)?;
+//!         } else {
+//!             self.0.end(w, element)?;
 //!         }
 //!         Ok(())
 //!     }
