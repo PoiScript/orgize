@@ -3,3 +3,6 @@ members = [
     "orgize",
     "orgize-demos",
 ]
+
+[profile.release]
+lto = true
