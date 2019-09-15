@@ -2,6 +2,7 @@
 members = [
     "orgize",
     "orgize-demos",
+    "orgize-sync",
 ]
 
 [profile.release]
