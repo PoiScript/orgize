@@ -2,7 +2,12 @@
 name = "orgize-sync"
 version = "0.1.0"
 authors = ["PoiScript <poiscript@gmail.com>"]
+description = "Sync your Org with your favourite applications."
+repository = "https://github.com/PoiScript/orgize"
+readme = "README.md"
 edition = "2018"
+license = "MIT"
+keywords = ["orgmode"]
 
 [package.metadata.docs.rs]
 all-features = true
