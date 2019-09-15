@@ -1,6 +1,7 @@
 language: rust
 rust:
   - stable
+  - nightly
 
 cache: cargo
 
@@ -9,12 +10,18 @@ before_script:
 
 script:
   - cargo fmt --all -- --check
-  - cargo test --all
+  - if [ $TRAVIS_RUST_VERSION == "stable" ]; then
+        cargo test -p orgize-demos -p orgize;
+    else
+        cargo test -p orgize-sync;
+    fi
 
 deploy:
   provider: heroku
   api_key: $HEROKU_API_KEY
   app: orgize
+  on:
+    condition: "$TRAVIS_RUST_VERSION == stable"
 
 notifications:
   email:
