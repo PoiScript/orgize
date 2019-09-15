@@ -1,5 +1,6 @@
 mod conf;
 mod error;
+mod google;
 
 use std::fs;
 use std::path::PathBuf;
@@ -10,6 +11,7 @@ use crate::conf::{
     default_config_path, default_env_path, user_cache_path, user_config_path, Conf, EnvConf,
 };
 use crate::error::Result;
+use crate::google::auth::Auth;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "orgize-sync")]
@@ -38,7 +40,8 @@ enum Cmd {
     },
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let opt = Opt::from_args();
 
     match opt.subcommand {
@@ -81,7 +84,11 @@ fn main() -> Result<()> {
         } => {
             let conf = Conf::new(conf_path)?;
 
-            if cfg!(feature = "google_calendar") && !skip_google_calendar {}
+            if cfg!(feature = "google_calendar") && !skip_google_calendar {
+                if let Some(google_calendar) = conf.google_calendar {
+                    let auth = Auth::new(&google_calendar).await;
+                }
+            }
 
             if cfg!(feature = "toggl") && !skip_toggl {}
         }

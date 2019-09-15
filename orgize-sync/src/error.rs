@@ -2,6 +2,7 @@ use app_dirs::AppDirsError;
 use dotenv::Error as EnvError;
 use isahc::http::Error as HttpError;
 use isahc::Error as IsahcError;
+use serde_json::Error as JsonError;
 use std::convert::From;
 use std::io::Error as IOError;
 use toml::de::Error as TomlDeError;
@@ -16,6 +17,7 @@ pub enum Error {
     IO(IOError),
     TomlDe(TomlDeError),
     TomlSer(TomlSerError),
+    Json(JsonError),
     Url(ParseError),
 }
 
@@ -58,6 +60,12 @@ impl From<TomlDeError> for Error {
 impl From<TomlSerError> for Error {
     fn from(err: TomlSerError) -> Self {
         Error::TomlSer(err)
+    }
+}
+
+impl From<JsonError> for Error {
+    fn from(err: JsonError) -> Self {
+        Error::Json(err)
     }
 }
 

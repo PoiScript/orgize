@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use app_dirs::{app_root, AppDataType, AppInfo};
 use serde::{Deserialize, Serialize};
 
-use crate::conf::google_calendar::*;
+pub use crate::conf::google_calendar::*;
 use crate::error::Result;
 
 const APP_INFO: AppInfo = AppInfo {
