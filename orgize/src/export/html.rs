@@ -1,6 +1,5 @@
 use std::fmt;
 use std::io::{Error, Write};
-use std::marker::PhantomData;
 
 use jetscii::{bytes, BytesConst};
 

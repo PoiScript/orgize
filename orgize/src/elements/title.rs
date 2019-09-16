@@ -16,7 +16,7 @@ use nom::{
 };
 
 use crate::config::ParseConfig;
-use crate::elements::{Drawer, Planning};
+use crate::elements::{Drawer, Planning, Timestamp};
 use crate::parsers::{line, skip_empty_lines, take_one_word};
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -104,6 +104,24 @@ impl Title<'_> {
                 raw,
             ),
         ))
+    }
+
+    pub fn closed(&self) -> Option<&Timestamp> {
+        self.planning
+            .as_ref()
+            .and_then(|planning| planning.closed.as_ref())
+    }
+
+    pub fn scheduled(&self) -> Option<&Timestamp> {
+        self.planning
+            .as_ref()
+            .and_then(|planning| planning.scheduled.as_ref())
+    }
+
+    pub fn deadline(&self) -> Option<&Timestamp> {
+        self.planning
+            .as_ref()
+            .and_then(|planning| planning.deadline.as_ref())
     }
 
     pub fn into_owned(self) -> Title<'static> {
