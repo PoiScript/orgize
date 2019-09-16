@@ -66,6 +66,12 @@ mod chrono {
         }
     }
 
+    impl Into<DateTime<Utc>> for Datetime<'_> {
+        fn into(self) -> DateTime<Utc> {
+            (&self).into()
+        }
+    }
+
     impl Into<NaiveDate> for &Datetime<'_> {
         fn into(self) -> NaiveDate {
             NaiveDate::from_ymd(self.year.into(), self.month.into(), self.day.into())
@@ -85,6 +91,12 @@ mod chrono {
     impl Into<NaiveDateTime> for &Datetime<'_> {
         fn into(self) -> NaiveDateTime {
             NaiveDateTime::new(self.into(), self.into())
+        }
+    }
+
+    impl Into<DateTime<Utc>> for &Datetime<'_> {
+        fn into(self) -> DateTime<Utc> {
+            DateTime::from_utc(self.into(), Utc)
         }
     }
 }
