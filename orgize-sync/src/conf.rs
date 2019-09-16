@@ -13,23 +13,6 @@ const APP_INFO: AppInfo = AppInfo {
     author: "PoiScript",
 };
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Conf {
-    #[serde(default = "default_env_path")]
-    pub env_path: PathBuf,
-    #[serde(default)]
-    pub files: Vec<File>,
-    #[cfg(feature = "google_calendar")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub google_calendar: Option<GoogleCalendarGlobalConf>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct EnvConf {
-    #[serde(default = "default_env_path")]
-    pub env_path: PathBuf,
-}
-
 pub fn user_config_path() -> PathBuf {
     app_root(AppDataType::UserConfig, &APP_INFO).unwrap()
 }
@@ -50,26 +33,68 @@ pub fn default_env_path() -> PathBuf {
     path
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(default)]
+pub struct Conf {
+    #[cfg(feature = "dotenv")]
+    pub env_path: PathBuf,
+    pub up_days: i64,
+    pub down_days: i64,
+    pub files: Vec<FileConf>,
+    #[cfg(feature = "google_calendar")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub google_calendar: Option<GoogleCalendarGlobalConf>,
+}
+
+impl Default for Conf {
+    fn default() -> Self {
+        Conf {
+            #[cfg(feature = "dotenv")]
+            env_path: default_env_path(),
+            up_days: 7,
+            down_days: 7,
+            files: Vec::new(),
+            google_calendar: None,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(default)]
+pub struct EnvConf {
+    pub env_path: PathBuf,
+}
+
+impl Default for EnvConf {
+    fn default() -> Self {
+        EnvConf {
+            env_path: default_env_path(),
+        }
+    }
+}
+
 impl Conf {
     pub fn new(path: Option<PathBuf>) -> Result<Self> {
         let path = path.unwrap_or_else(default_config_path);
 
         let content = fs::read(&path).expect(&format!(
-            "Failed to read file: {}",
+            "Failed to read fileConf: {}",
             path.as_path().display()
         ));
 
         if cfg!(feature = "dotenv") {
             let env_conf: EnvConf = toml::from_slice(&content)?;
-            dotenv::from_path(env_conf.env_path.as_path())?;
+            if env_conf.env_path.as_path().exists() {
+                dotenv::from_path(env_conf.env_path.as_path())?;
+            }
         }
 
         Ok(toml::from_slice(&content)?)
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct File {
+#[derive(Serialize, Deserialize)]
+pub struct FileConf {
     pub path: String,
     pub name: Option<String>,
     #[cfg(feature = "google_calendar")]
@@ -81,56 +106,45 @@ pub struct File {
 pub mod google_calendar {
     use super::*;
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize)]
+    #[serde(default)]
     pub struct GoogleCalendarGlobalConf {
-        #[serde(default = "default_client_id")]
         pub client_id: String,
-        #[serde(default = "default_client_secret")]
         pub client_secret: String,
-        #[serde(default = "default_token_dir")]
         pub token_dir: PathBuf,
-        #[serde(default = "default_token_filename")]
         pub token_filename: String,
-        #[serde(default = "default_property")]
-        pub property: String,
-        #[serde(default = "default_redirect_uri")]
         pub redirect_uri: String,
     }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    impl Default for GoogleCalendarGlobalConf {
+        fn default() -> Self {
+            GoogleCalendarGlobalConf {
+                client_id: env::var("GOOGLE_CLIENT_ID").unwrap(),
+                client_secret: env::var("GOOGLE_CLIENT_SECRET").unwrap(),
+                token_dir: user_cache_path(),
+                token_filename: "google-token.json".into(),
+                redirect_uri: "http://localhost".into(),
+            }
+        }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(default)]
     pub struct GoogleCalendarConf {
         pub calendar: String,
-        #[serde(default)]
         pub append_new: bool,
-        #[serde(default = "default_append_headline")]
         pub append_headline: String,
+        pub property: String,
     }
 
-    fn default_client_id() -> String {
-        env::var("GOOGLE_CLIENT_ID").unwrap()
-    }
-
-    fn default_client_secret() -> String {
-        env::var("GOOGLE_CLIENT_SECRET").unwrap()
-    }
-
-    fn default_token_dir() -> PathBuf {
-        app_root(AppDataType::UserCache, &APP_INFO).unwrap()
-    }
-
-    fn default_token_filename() -> String {
-        "google-token.json".into()
-    }
-
-    fn default_property() -> String {
-        "EVENT_ID".into()
-    }
-
-    fn default_redirect_uri() -> String {
-        "http://localhost".into()
-    }
-
-    fn default_append_headline() -> String {
-        "Sync".into()
+    impl Default for GoogleCalendarConf {
+        fn default() -> Self {
+            GoogleCalendarConf {
+                calendar: String::new(),
+                append_new: false,
+                append_headline: "Sync".into(),
+                property: "EVENT_ID".into(),
+            }
+        }
     }
 }
