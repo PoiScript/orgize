@@ -7,13 +7,17 @@ use nom::{
     IResult,
 };
 
+/// Inline Src Block Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct InlineSrc<'a> {
+    /// Language of the code
     pub lang: Cow<'a, str>,
+    /// Optional header arguments
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub options: Option<Cow<'a, str>>,
+    /// Source code
     pub body: Cow<'a, str>,
 }
 

@@ -8,10 +8,12 @@ use nom::{
 
 use crate::parsers::{eol, line, take_lines_while};
 
+/// Drawer Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Drawer<'a> {
+    /// Drawer name
     pub name: Cow<'a, str>,
 }
 

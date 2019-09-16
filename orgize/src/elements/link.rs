@@ -7,10 +7,12 @@ use nom::{
     IResult,
 };
 
+/// Link Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Link<'a> {
+    /// Link destination
     pub path: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub desc: Option<Cow<'a, str>>,

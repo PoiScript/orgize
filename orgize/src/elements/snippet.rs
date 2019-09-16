@@ -1,16 +1,19 @@
 use std::borrow::Cow;
 
 use nom::{
-    bytes::complete::{tag, take_until, take_while1},
+    bytes::complete::{tag, take, take_until, take_while1},
     sequence::{delimited, separated_pair},
     IResult,
 };
 
+/// Export Snippet Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Snippet<'a> {
+    /// Back-end name
     pub name: Cow<'a, str>,
+    /// Export code
     pub value: Cow<'a, str>,
 }
 
@@ -24,7 +27,7 @@ impl Snippet<'_> {
                 tag(":"),
                 take_until("@@"),
             ),
-            tag("@@"),
+            take(2usize),
         )(input)?;
 
         Ok((

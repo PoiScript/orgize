@@ -19,24 +19,28 @@ use crate::config::ParseConfig;
 use crate::elements::{Drawer, Planning, Timestamp};
 use crate::parsers::{line, skip_empty_lines, take_one_word};
 
+/// Title Elemenet
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Title<'a> {
-    /// headline level, number of stars
+    /// Headline level, number of stars
     pub level: usize,
-    /// priority cookie
+    /// Headline priority cookie
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub priority: Option<char>,
-    /// headline tags, including the sparated colons
+    /// Headline title tags, including the sparated colons
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Vec::is_empty"))]
     pub tags: Vec<Cow<'a, str>>,
-    /// headline keyword
+    /// Headline title keyword
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub keyword: Option<Cow<'a, str>>,
+    /// Raw headline's text, without the stars and the tags
     pub raw: Cow<'a, str>,
+    /// Planning elemenet associated to this headline
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub planning: Option<Box<Planning<'a>>>,
+    /// Property drawer associated to this headline
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "HashMap::is_empty"))]
     pub properties: HashMap<Cow<'a, str>, Cow<'a, str>>,
 }
@@ -106,18 +110,26 @@ impl Title<'_> {
         ))
     }
 
+    // TODO: fn is_archived(&self) -> bool { }
+    // TODO: fn is_commented(&self) -> bool { }
+    // TODO: fn is_quoted(&self) -> bool { }
+    // TODO: fn is_footnote_section(&self) -> bool { }
+
+    /// Returns this headline's closed timestamp, or `None` if not set.
     pub fn closed(&self) -> Option<&Timestamp> {
         self.planning
             .as_ref()
             .and_then(|planning| planning.closed.as_ref())
     }
 
+    /// Returns this headline's scheduled timestamp, or `None` if not set.
     pub fn scheduled(&self) -> Option<&Timestamp> {
         self.planning
             .as_ref()
             .and_then(|planning| planning.scheduled.as_ref())
     }
 
+    /// Returns this headline's deadline timestamp, or `None` if not set.
     pub fn deadline(&self) -> Option<&Timestamp> {
         self.planning
             .as_ref()

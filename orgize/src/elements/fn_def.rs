@@ -8,10 +8,12 @@ use nom::{
 
 use crate::parsers::line;
 
+/// Footnote Definition Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct FnDef<'a> {
+    /// Footnote label, used for refrence
     pub label: Cow<'a, str>,
 }
 

@@ -8,11 +8,14 @@ use nom::{
 
 use crate::parsers::{line, take_lines_while};
 
+/// Dynamic Block Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct DynBlock<'a> {
+    /// Block name
     pub block_name: Cow<'a, str>,
+    /// Block argument
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub arguments: Option<Cow<'a, str>>,
 }

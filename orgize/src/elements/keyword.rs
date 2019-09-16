@@ -9,13 +9,16 @@ use nom::{
 
 use crate::parsers::line;
 
+/// Keyword Elemenet
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Keyword<'a> {
+    /// Keyword name
     pub key: Cow<'a, str>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub optional: Option<Cow<'a, str>>,
+    /// Keyword value
     pub value: Cow<'a, str>,
 }
 
@@ -29,6 +32,7 @@ impl Keyword<'_> {
     }
 }
 
+/// Babel Call Elemenet
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]

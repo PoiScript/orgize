@@ -3,6 +3,7 @@ use std::iter::once;
 
 use memchr::memchr_iter;
 
+/// Plain List Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -63,10 +64,12 @@ impl List {
     }
 }
 
+/// List Item Elemenet
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct ListItem<'a> {
+    /// List item bullet
     pub bullet: Cow<'a, str>,
 }
 

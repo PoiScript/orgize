@@ -2,18 +2,18 @@ use memchr::memchr;
 
 use crate::elements::Timestamp;
 
-/// palnning elements
+/// Palnning element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Planning<'a> {
-    /// the date when the task should be done
+    /// Timestamp associated to deadline keyword
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub deadline: Option<Timestamp<'a>>,
-    /// the date when you should start working on the task
+    /// Timestamp associated to scheduled keyword
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub scheduled: Option<Timestamp<'a>>,
-    /// the date when the task is closed
+    /// Timestamp associated to closed keyword
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub closed: Option<Timestamp<'a>>,
 }

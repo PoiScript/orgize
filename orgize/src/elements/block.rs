@@ -4,11 +4,14 @@ use nom::{bytes::complete::tag_no_case, character::complete::alpha1, sequence::p
 
 use crate::parsers::{line, take_lines_while};
 
+/// Special Block Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SpecialBlock<'a> {
+    /// Optional block parameters
     pub parameters: Option<Cow<'a, str>>,
+    /// Block name
     pub name: Cow<'a, str>,
 }
 
@@ -21,10 +24,12 @@ impl SpecialBlock<'_> {
     }
 }
 
+/// Quote Block Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct QuoteBlock<'a> {
+    /// Optional block parameters
     pub parameters: Option<Cow<'a, str>>,
 }
 
@@ -36,10 +41,12 @@ impl QuoteBlock<'_> {
     }
 }
 
+/// Center Block Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CenterBlock<'a> {
+    /// Optional block parameters
     pub parameters: Option<Cow<'a, str>>,
 }
 
@@ -51,10 +58,12 @@ impl CenterBlock<'_> {
     }
 }
 
+/// Verse Block Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct VerseBlock<'a> {
+    /// Optional block parameters
     pub parameters: Option<Cow<'a, str>>,
 }
 
@@ -66,11 +75,13 @@ impl VerseBlock<'_> {
     }
 }
 
+/// Comment Block Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CommentBlock<'a> {
     pub data: Option<Cow<'a, str>>,
+    /// Comment, without block's boundaries
     pub contents: Cow<'a, str>,
 }
 
@@ -83,11 +94,13 @@ impl CommentBlock<'_> {
     }
 }
 
+/// Example Block Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExampleBlock<'a> {
     pub data: Option<Cow<'a, str>>,
+    ///  Block contents
     pub contents: Cow<'a, str>,
 }
 
@@ -100,11 +113,13 @@ impl ExampleBlock<'_> {
     }
 }
 
+/// Export Block Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExportBlock<'a> {
     pub data: Cow<'a, str>,
+    ///  Block contents
     pub contents: Cow<'a, str>,
 }
 
@@ -117,11 +132,14 @@ impl ExportBlock<'_> {
     }
 }
 
+/// Src Block Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SourceBlock<'a> {
+    ///  Block contents
     pub contents: Cow<'a, str>,
+    /// Language of the code in the block
     pub language: Cow<'a, str>,
     pub arguments: Cow<'a, str>,
 }
@@ -134,6 +152,12 @@ impl SourceBlock<'_> {
             contents: self.contents.into_owned().into(),
         }
     }
+
+    // TODO: fn number_lines() -> Some(New) | Some(Continued) | None {  }
+    // TODO: fn preserve_indent() -> bool {  }
+    // TODO: fn use_labels() -> bool {  }
+    // TODO: fn label_fmt() -> Option<String> {  }
+    // TODO: fn retain_labels() -> bool {  }
 }
 
 pub(crate) fn parse_block_element(input: &str) -> IResult<&str, (&str, Option<&str>, &str)> {

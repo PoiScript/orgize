@@ -7,10 +7,12 @@ use nom::{
     IResult,
 };
 
+/// Target Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Target<'a> {
+    /// Target ID
     pub target: Cow<'a, str>,
 }
 

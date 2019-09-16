@@ -7,13 +7,16 @@ use nom::{
 
 use crate::parsers::{line, take_lines_while};
 
+/// Table Elemenet
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(tag = "table_type"))]
 pub enum Table<'a> {
+    /// "org" type table
     #[cfg_attr(feature = "ser", serde(rename = "org"))]
     Org { tblfm: Option<Cow<'a, str>> },
+    /// "table.el" type table
     #[cfg_attr(feature = "ser", serde(rename = "table.el"))]
     TableEl { value: Cow<'a, str> },
 }
@@ -31,13 +34,12 @@ impl Table<'_> {
     }
 }
 
+/// Table Row Elemenet
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[cfg_attr(
-    feature = "ser",
-    serde(tag = "table_row_type", rename_all = "kebab-case")
-)]
+#[cfg_attr(feature = "ser", serde(tag = "table_row_type"))]
+#[cfg_attr(feature = "ser", serde(rename_all = "kebab-case"))]
 pub enum TableRow {
     Standard,
     Rule,

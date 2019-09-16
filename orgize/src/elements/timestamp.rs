@@ -8,14 +8,7 @@ use nom::{
     IResult,
 };
 
-/// Datetime
-///
-/// # Syntax
-///
-/// ```text
-/// YYYY-MM-DD DAYNAME
-/// ```
-///
+/// Orgize Datetime Struct
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug, Clone)]
@@ -101,12 +94,11 @@ mod chrono {
     }
 }
 
+/// Timestamp Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[cfg_attr(
-    feature = "ser",
-    serde(tag = "timestamp_type", rename_all = "kebab-case")
-)]
+#[cfg_attr(feature = "ser", serde(rename_all = "kebab-case"))]
+#[cfg_attr(feature = "ser", serde(tag = "timestamp_type"))]
 #[derive(Debug)]
 pub enum Timestamp<'a> {
     Active {

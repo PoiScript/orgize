@@ -7,11 +7,14 @@ use nom::{
     IResult,
 };
 
+/// Macro Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct Macros<'a> {
+    /// Macro name
     pub name: Cow<'a, str>,
+    /// Arguments passed to the macro
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub arguments: Option<Cow<'a, str>>,
 }

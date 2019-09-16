@@ -55,7 +55,7 @@ pub use self::{
 
 use std::borrow::Cow;
 
-/// Org-mode element enum
+/// Orgize Element Enum
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]

@@ -11,26 +11,28 @@ use nom::{
 use crate::elements::{Datetime, Timestamp};
 use crate::parsers::eol;
 
-/// clock elements
-///
-/// there are two types of clock: *closed* clock and *running* clock.
+/// Clock Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(untagged))]
 #[derive(Debug)]
 pub enum Clock<'a> {
-    /// closed Clock
+    /// Closed Clock
     Closed {
+        /// Time start
         start: Datetime<'a>,
+        /// Time end
         end: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<Cow<'a, str>>,
+        /// Clock duration
         duration: Cow<'a, str>,
     },
-    /// running Clock
+    /// Running Clock
     Running {
+        /// Time start
         start: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
         repeater: Option<Cow<'a, str>>,
@@ -117,7 +119,7 @@ impl Clock<'_> {
         }
     }
 
-    /// returns `true` if the clock is running
+    /// Returns `true` if the clock is running.
     pub fn is_running(&self) -> bool {
         match self {
             Clock::Closed { .. } => false,
@@ -125,7 +127,7 @@ impl Clock<'_> {
         }
     }
 
-    /// returns `true` if the clock is closed
+    /// Returns `true` if the clock is closed.
     pub fn is_closed(&self) -> bool {
         match self {
             Clock::Closed { .. } => true,
@@ -133,7 +135,7 @@ impl Clock<'_> {
         }
     }
 
-    /// returns `Some` if the clock is closed, `None` if running
+    /// Returns clock duration, or `None` if it's running.
     pub fn duration(&self) -> Option<&str> {
         match self {
             Clock::Closed { duration, .. } => Some(duration),
@@ -141,7 +143,7 @@ impl Clock<'_> {
         }
     }
 
-    /// constructs a new timestamp object from the clock
+    /// Constructs a timestamp from the clock.
     pub fn value(&self) -> Timestamp<'_> {
         match &*self {
             Clock::Closed {
