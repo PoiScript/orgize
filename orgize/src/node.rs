@@ -83,9 +83,7 @@ impl HeadlineNode {
 
         self.title_mut(org).raw = content;
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
     }
 
     pub fn set_section_content<'a, S: Into<Cow<'a, str>>>(self, content: S, org: &mut Org<'a>) {
@@ -114,9 +112,7 @@ impl HeadlineNode {
             ),
         }
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
     }
 
     pub fn parent(self, org: &Org<'_>) -> Option<HeadlineNode> {
@@ -167,9 +163,7 @@ impl HeadlineNode {
     pub fn detach(self, org: &mut Org<'_>) {
         self.node.detach(&mut org.arena);
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
     }
 
     pub fn is_detached(self, org: &Org<'_>) -> bool {
@@ -205,9 +199,7 @@ impl HeadlineNode {
 
         self.node.append(headline.node, &mut org.arena);
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
 
         Ok(())
     }
@@ -229,9 +221,7 @@ impl HeadlineNode {
             self.title_node.insert_after(headline.node, &mut org.arena);
         }
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
 
         Ok(())
     }
@@ -253,9 +243,7 @@ impl HeadlineNode {
 
         self.node.insert_before(headline.node, &mut org.arena);
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
 
         Ok(())
     }
@@ -279,9 +267,7 @@ impl HeadlineNode {
 
         self.node.insert_after(headline.node, &mut org.arena);
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
 
         Ok(())
     }
@@ -343,9 +329,7 @@ impl DocumentNode {
             ),
         }
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
     }
 
     pub fn append(self, headline: HeadlineNode, org: &mut Org<'_>) -> Result<(), OrgizeError> {
@@ -359,9 +343,7 @@ impl DocumentNode {
 
         org.root.append(headline.node, &mut org.arena);
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
 
         Ok(())
     }
@@ -381,9 +363,7 @@ impl DocumentNode {
             org.root.prepend(headline.node, &mut org.arena);
         }
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
 
         Ok(())
     }

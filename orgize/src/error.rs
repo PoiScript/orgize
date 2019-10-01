@@ -104,7 +104,6 @@ impl Org<'_> {
                 | Element::Comment { .. }
                 | Element::FixedWidth { .. }
                 | Element::Keyword(_)
-                | Element::Drawer(_)
                 | Element::Rule
                 | Element::Cookie(_)
                 | Element::Table(Table::TableEl { .. })
@@ -134,7 +133,7 @@ impl Org<'_> {
                 }
                 // TableCell is a container but it might
                 // not contains anything, e.g. `||||||`
-                Element::TableCell => (),
+                Element::Drawer(_) | Element::TableCell => (),
             }
         }
         Ok(())
@@ -144,5 +143,17 @@ impl Org<'_> {
     /// Validate an `Org` struct.
     pub fn check(&self) -> Result<(), OrgizeError> {
         self.validate()
+    }
+
+    pub(crate) fn debug_validate(&self) {
+        if cfg!(debug_assertions) {
+            if let Err(err) = self.validate() {
+                panic!(
+                    "Validation error: {:?} at element: {:?}",
+                    err,
+                    err.element(self)
+                );
+            }
+        }
     }
 }

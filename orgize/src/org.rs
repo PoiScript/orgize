@@ -45,9 +45,7 @@ impl<'a> Org<'a> {
             config,
         );
 
-        if cfg!(debug_assertions) {
-            org.validate().unwrap();
-        }
+        org.debug_validate();
 
         org
     }
