@@ -60,3 +60,20 @@ test_suite!(
     "@@html:<del>@@delete this@@html:</del>@@",
     "<main><section><p><del>delete this</del></p></section></main>"
 );
+
+test_suite!(
+    paragraphs,
+    r#"* title
+
+paragraph 1
+
+paragraph 2
+
+paragraph 3
+
+paragraph 4"#,
+    "<main><h1>title</h1><section>\
+     <p>paragraph 1</p><p>paragraph 2</p>\
+     <p>paragraph 3</p><p>paragraph 4</p>\
+     </section></main>"
+);
