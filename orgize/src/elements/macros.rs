@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take, take_until, take_while1},
     combinator::{opt, verify},
+    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -20,23 +21,8 @@ pub struct Macros<'a> {
 }
 
 impl Macros<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Macros<'_>> {
-        let (input, _) = tag("{{{")(input)?;
-        let (input, name) = verify(
-            take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
-            |s: &str| s.starts_with(|c: char| c.is_ascii_alphabetic()),
-        )(input)?;
-        let (input, arguments) = opt(delimited(tag("("), take_until(")}}}"), take(1usize)))(input)?;
-        let (input, _) = tag("}}}")(input)?;
-
-        Ok((
-            input,
-            Macros {
-                name: name.into(),
-                arguments: arguments.map(Into::into),
-            },
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, Macros<'_>)> {
+        parse_macros::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> Macros<'static> {
@@ -47,10 +33,31 @@ impl Macros<'_> {
     }
 }
 
+#[inline]
+fn parse_macros<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Macros<'a>, E> {
+    let (input, _) = tag("{{{")(input)?;
+    let (input, name) = verify(
+        take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
+        |s: &str| s.starts_with(|c: char| c.is_ascii_alphabetic()),
+    )(input)?;
+    let (input, arguments) = opt(delimited(tag("("), take_until(")}}}"), take(1usize)))(input)?;
+    let (input, _) = tag("}}}")(input)?;
+
+    Ok((
+        input,
+        Macros {
+            name: name.into(),
+            arguments: arguments.map(Into::into),
+        },
+    ))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        Macros::parse("{{{poem(red,blue)}}}"),
+        parse_macros::<VerboseError<&str>>("{{{poem(red,blue)}}}"),
         Ok((
             "",
             Macros {
@@ -60,7 +67,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Macros::parse("{{{poem())}}}"),
+        parse_macros::<VerboseError<&str>>("{{{poem())}}}"),
         Ok((
             "",
             Macros {
@@ -70,7 +77,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Macros::parse("{{{author}}}"),
+        parse_macros::<VerboseError<&str>>("{{{author}}}"),
         Ok((
             "",
             Macros {
@@ -79,8 +86,8 @@ fn parse() {
             }
         ))
     );
-    assert!(Macros::parse("{{{0uthor}}}").is_err());
-    assert!(Macros::parse("{{{author}}").is_err());
-    assert!(Macros::parse("{{{poem(}}}").is_err());
-    assert!(Macros::parse("{{{poem)}}}").is_err());
+    assert!(parse_macros::<VerboseError<&str>>("{{{0uthor}}}").is_err());
+    assert!(parse_macros::<VerboseError<&str>>("{{{author}}").is_err());
+    assert!(parse_macros::<VerboseError<&str>>("{{{poem(}}}").is_err());
+    assert!(parse_macros::<VerboseError<&str>>("{{{poem)}}}").is_err());
 }

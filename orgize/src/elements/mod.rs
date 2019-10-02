@@ -1,32 +1,27 @@
 //! Org-mode elements
 
-mod block;
-mod clock;
-mod cookie;
-mod drawer;
-mod dyn_block;
-mod emphasis;
-mod fn_def;
-mod fn_ref;
-mod inline_call;
-mod inline_src;
-mod keyword;
-mod link;
-mod list;
-mod macros;
-mod planning;
-mod radio_target;
-mod rule;
-mod snippet;
-mod table;
-mod target;
-mod timestamp;
-mod title;
-
-pub(crate) use self::{
-    block::parse_block_element, emphasis::parse_emphasis, keyword::parse_keyword,
-    radio_target::parse_radio_target, rule::parse_rule, table::parse_table_el,
-};
+pub(crate) mod block;
+pub(crate) mod clock;
+pub(crate) mod cookie;
+pub(crate) mod drawer;
+pub(crate) mod dyn_block;
+pub(crate) mod emphasis;
+pub(crate) mod fn_def;
+pub(crate) mod fn_ref;
+pub(crate) mod inline_call;
+pub(crate) mod inline_src;
+pub(crate) mod keyword;
+pub(crate) mod link;
+pub(crate) mod list;
+pub(crate) mod macros;
+pub(crate) mod planning;
+pub(crate) mod radio_target;
+pub(crate) mod rule;
+pub(crate) mod snippet;
+pub(crate) mod table;
+pub(crate) mod target;
+pub(crate) mod timestamp;
+pub(crate) mod title;
 
 pub use self::{
     block::{

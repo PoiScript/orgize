@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_till, take_while1},
     combinator::opt,
+    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -22,27 +23,8 @@ pub struct InlineSrc<'a> {
 }
 
 impl InlineSrc<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, InlineSrc<'_>> {
-        let (input, _) = tag("src_")(input)?;
-        let (input, lang) =
-            take_while1(|c: char| !c.is_ascii_whitespace() && c != '[' && c != '{')(input)?;
-        let (input, options) = opt(delimited(
-            tag("["),
-            take_till(|c| c == '\n' || c == ']'),
-            tag("]"),
-        ))(input)?;
-        let (input, body) =
-            delimited(tag("{"), take_till(|c| c == '\n' || c == '}'), tag("}"))(input)?;
-
-        Ok((
-            input,
-            InlineSrc {
-                lang: lang.into(),
-                options: options.map(Into::into),
-                body: body.into(),
-            },
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, InlineSrc<'_>)> {
+        parse_inline_src::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> InlineSrc<'static> {
@@ -54,10 +36,36 @@ impl InlineSrc<'_> {
     }
 }
 
+#[inline]
+fn parse_inline_src<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, InlineSrc<'a>, E> {
+    let (input, _) = tag("src_")(input)?;
+    let (input, lang) =
+        take_while1(|c: char| !c.is_ascii_whitespace() && c != '[' && c != '{')(input)?;
+    let (input, options) = opt(delimited(
+        tag("["),
+        take_till(|c| c == '\n' || c == ']'),
+        tag("]"),
+    ))(input)?;
+    let (input, body) = delimited(tag("{"), take_till(|c| c == '\n' || c == '}'), tag("}"))(input)?;
+
+    Ok((
+        input,
+        InlineSrc {
+            lang: lang.into(),
+            options: options.map(Into::into),
+            body: body.into(),
+        },
+    ))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        InlineSrc::parse("src_C{int a = 0;}"),
+        parse_inline_src::<VerboseError<&str>>("src_C{int a = 0;}"),
         Ok((
             "",
             InlineSrc {
@@ -68,7 +76,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        InlineSrc::parse("src_xml[:exports code]{<tag>text</tag>}"),
+        parse_inline_src::<VerboseError<&str>>("src_xml[:exports code]{<tag>text</tag>}"),
         Ok((
             "",
             InlineSrc {
@@ -79,7 +87,11 @@ fn parse() {
         ))
     );
 
-    assert!(InlineSrc::parse("src_xml[:exports code]{<tag>text</tag>").is_err());
-    assert!(InlineSrc::parse("src_[:exports code]{<tag>text</tag>}").is_err());
-    assert!(InlineSrc::parse("src_xml[:exports code]").is_err());
+    assert!(
+        parse_inline_src::<VerboseError<&str>>("src_xml[:exports code]{<tag>text</tag>").is_err()
+    );
+    assert!(
+        parse_inline_src::<VerboseError<&str>>("src_[:exports code]{<tag>text</tag>}").is_err()
+    );
+    assert!(parse_inline_src::<VerboseError<&str>>("src_xml[:exports code]").is_err());
 }

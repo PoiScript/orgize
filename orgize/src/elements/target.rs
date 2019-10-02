@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::verify,
+    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -18,22 +19,8 @@ pub struct Target<'a> {
 
 impl Target<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Target<'_>> {
-        let (input, target) = delimited(
-            tag("<<"),
-            verify(
-                take_while(|c: char| c != '<' && c != '\n' && c != '>'),
-                |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
-            ),
-            tag(">>"),
-        )(input)?;
-
-        Ok((
-            input,
-            Target {
-                target: target.into(),
-            },
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, Target<'_>)> {
+        parse_target::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> Target<'static> {
@@ -43,10 +30,31 @@ impl Target<'_> {
     }
 }
 
+#[inline]
+fn parse_target<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Target<'a>, E> {
+    let (input, target) = delimited(
+        tag("<<"),
+        verify(
+            take_while(|c: char| c != '<' && c != '\n' && c != '>'),
+            |s: &str| s.starts_with(|c| c != ' ') && s.ends_with(|c| c != ' '),
+        ),
+        tag(">>"),
+    )(input)?;
+
+    Ok((
+        input,
+        Target {
+            target: target.into(),
+        },
+    ))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        Target::parse("<<target>>"),
+        parse_target::<VerboseError<&str>>("<<target>>"),
         Ok((
             "",
             Target {
@@ -55,7 +63,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Target::parse("<<tar get>>"),
+        parse_target::<VerboseError<&str>>("<<tar get>>"),
         Ok((
             "",
             Target {
@@ -63,10 +71,10 @@ fn parse() {
             }
         ))
     );
-    assert!(Target::parse("<<target >>").is_err());
-    assert!(Target::parse("<< target>>").is_err());
-    assert!(Target::parse("<<ta<get>>").is_err());
-    assert!(Target::parse("<<ta>get>>").is_err());
-    assert!(Target::parse("<<ta\nget>>").is_err());
-    assert!(Target::parse("<<target>").is_err());
+    assert!(parse_target::<VerboseError<&str>>("<<target >>").is_err());
+    assert!(parse_target::<VerboseError<&str>>("<< target>>").is_err());
+    assert!(parse_target::<VerboseError<&str>>("<<ta<get>>").is_err());
+    assert!(parse_target::<VerboseError<&str>>("<<ta>get>>").is_err());
+    assert!(parse_target::<VerboseError<&str>>("<<ta\nget>>").is_err());
+    assert!(parse_target::<VerboseError<&str>>("<<target>").is_err());
 }

@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_till},
     combinator::opt,
+    error::ParseError,
     sequence::{delimited, preceded},
     IResult,
 };
@@ -25,34 +26,8 @@ pub struct InlineCall<'a> {
 }
 
 impl InlineCall<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, InlineCall<'_>> {
-        let (input, name) = preceded(
-            tag("call_"),
-            take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')'),
-        )(input)?;
-        let (input, inside_header) = opt(delimited(
-            tag("["),
-            take_till(|c| c == ']' || c == '\n'),
-            tag("]"),
-        ))(input)?;
-        let (input, arguments) =
-            delimited(tag("("), take_till(|c| c == ')' || c == '\n'), tag(")"))(input)?;
-        let (input, end_header) = opt(delimited(
-            tag("["),
-            take_till(|c| c == ']' || c == '\n'),
-            tag("]"),
-        ))(input)?;
-
-        Ok((
-            input,
-            InlineCall {
-                name: name.into(),
-                arguments: arguments.into(),
-                inside_header: inside_header.map(Into::into),
-                end_header: end_header.map(Into::into),
-            },
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, InlineCall<'_>)> {
+        parse_inline_call::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> InlineCall<'static> {
@@ -65,10 +40,44 @@ impl InlineCall<'_> {
     }
 }
 
+#[inline]
+fn parse_inline_call<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, InlineCall<'a>, E> {
+    let (input, name) = preceded(
+        tag("call_"),
+        take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')'),
+    )(input)?;
+    let (input, inside_header) = opt(delimited(
+        tag("["),
+        take_till(|c| c == ']' || c == '\n'),
+        tag("]"),
+    ))(input)?;
+    let (input, arguments) =
+        delimited(tag("("), take_till(|c| c == ')' || c == '\n'), tag(")"))(input)?;
+    let (input, end_header) = opt(delimited(
+        tag("["),
+        take_till(|c| c == ']' || c == '\n'),
+        tag("]"),
+    ))(input)?;
+
+    Ok((
+        input,
+        InlineCall {
+            name: name.into(),
+            arguments: arguments.into(),
+            inside_header: inside_header.map(Into::into),
+            end_header: end_header.map(Into::into),
+        },
+    ))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        InlineCall::parse("call_square(4)"),
+        parse_inline_call::<VerboseError<&str>>("call_square(4)"),
         Ok((
             "",
             InlineCall {
@@ -80,7 +89,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        InlineCall::parse("call_square[:results output](4)"),
+        parse_inline_call::<VerboseError<&str>>("call_square[:results output](4)"),
         Ok((
             "",
             InlineCall {
@@ -92,7 +101,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        InlineCall::parse("call_square(4)[:results html]"),
+        parse_inline_call::<VerboseError<&str>>("call_square(4)[:results html]"),
         Ok((
             "",
             InlineCall {
@@ -104,7 +113,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        InlineCall::parse("call_square[:results output](4)[:results html]"),
+        parse_inline_call::<VerboseError<&str>>("call_square[:results output](4)[:results html]"),
         Ok((
             "",
             InlineCall {

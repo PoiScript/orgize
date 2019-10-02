@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use nom::{
     bytes::complete::{tag, take, take_until, take_while1},
+    error::ParseError,
     sequence::{delimited, separated_pair},
     IResult,
 };
@@ -18,25 +19,8 @@ pub struct Snippet<'a> {
 }
 
 impl Snippet<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Snippet<'_>> {
-        let (input, (name, value)) = delimited(
-            tag("@@"),
-            separated_pair(
-                take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
-                tag(":"),
-                take_until("@@"),
-            ),
-            take(2usize),
-        )(input)?;
-
-        Ok((
-            input,
-            Snippet {
-                name: name.into(),
-                value: value.into(),
-            },
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, Snippet<'_>)> {
+        parse_snippet::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> Snippet<'static> {
@@ -47,10 +31,33 @@ impl Snippet<'_> {
     }
 }
 
+#[inline]
+fn parse_snippet<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Snippet<'a>, E> {
+    let (input, (name, value)) = delimited(
+        tag("@@"),
+        separated_pair(
+            take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
+            tag(":"),
+            take_until("@@"),
+        ),
+        take(2usize),
+    )(input)?;
+
+    Ok((
+        input,
+        Snippet {
+            name: name.into(),
+            value: value.into(),
+        },
+    ))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        Snippet::parse("@@html:<b>@@"),
+        parse_snippet::<VerboseError<&str>>("@@html:<b>@@"),
         Ok((
             "",
             Snippet {
@@ -60,7 +67,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Snippet::parse("@@latex:any arbitrary LaTeX code@@"),
+        parse_snippet::<VerboseError<&str>>("@@latex:any arbitrary LaTeX code@@"),
         Ok((
             "",
             Snippet {
@@ -70,7 +77,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Snippet::parse("@@html:@@"),
+        parse_snippet::<VerboseError<&str>>("@@html:@@"),
         Ok((
             "",
             Snippet {
@@ -80,7 +87,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Snippet::parse("@@html:<p>@</p>@@"),
+        parse_snippet::<VerboseError<&str>>("@@html:<p>@</p>@@"),
         Ok((
             "",
             Snippet {
@@ -89,7 +96,7 @@ fn parse() {
             }
         ))
     );
-    assert!(Snippet::parse("@@html:<b>@").is_err());
-    assert!(Snippet::parse("@@html<b>@@").is_err());
-    assert!(Snippet::parse("@@:<b>@@").is_err());
+    assert!(parse_snippet::<VerboseError<&str>>("@@html:<b>@").is_err());
+    assert!(parse_snippet::<VerboseError<&str>>("@@html<b>@@").is_err());
+    assert!(parse_snippet::<VerboseError<&str>>("@@:<b>@@").is_err());
 }

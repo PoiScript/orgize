@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::opt,
+    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -20,25 +21,8 @@ pub struct Link<'a> {
 
 impl Link<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Link<'_>> {
-        let (input, path) = delimited(
-            tag("[["),
-            take_while(|c: char| c != '<' && c != '>' && c != '\n' && c != ']'),
-            tag("]"),
-        )(input)?;
-        let (input, desc) = opt(delimited(
-            tag("["),
-            take_while(|c: char| c != '[' && c != ']'),
-            tag("]"),
-        ))(input)?;
-        let (input, _) = tag("]")(input)?;
-        Ok((
-            input,
-            Link {
-                path: path.into(),
-                desc: desc.map(Into::into),
-            },
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, Link<'_>)> {
+        parse_link::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> Link<'static> {
@@ -49,10 +33,34 @@ impl Link<'_> {
     }
 }
 
+#[inline]
+fn parse_link<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Link<'a>, E> {
+    let (input, path) = delimited(
+        tag("[["),
+        take_while(|c: char| c != '<' && c != '>' && c != '\n' && c != ']'),
+        tag("]"),
+    )(input)?;
+    let (input, desc) = opt(delimited(
+        tag("["),
+        take_while(|c: char| c != '[' && c != ']'),
+        tag("]"),
+    ))(input)?;
+    let (input, _) = tag("]")(input)?;
+    Ok((
+        input,
+        Link {
+            path: path.into(),
+            desc: desc.map(Into::into),
+        },
+    ))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        Link::parse("[[#id]]"),
+        parse_link::<VerboseError<&str>>("[[#id]]"),
         Ok((
             "",
             Link {
@@ -62,7 +70,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Link::parse("[[#id][desc]]"),
+        parse_link::<VerboseError<&str>>("[[#id][desc]]"),
         Ok((
             "",
             Link {
@@ -71,5 +79,5 @@ fn parse() {
             }
         ))
     );
-    assert!(Link::parse("[[#id][desc]").is_err());
+    assert!(parse_link::<VerboseError<&str>>("[[#id][desc]").is_err());
 }

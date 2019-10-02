@@ -4,8 +4,7 @@ use memchr::memchr2_iter;
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::opt,
-    error::ErrorKind,
-    error_position,
+    error::{ErrorKind, ParseError},
     sequence::preceded,
     Err, IResult,
 };
@@ -21,36 +20,9 @@ pub struct FnRef<'a> {
     pub definition: Option<Cow<'a, str>>,
 }
 
-fn balanced_brackets(input: &str) -> IResult<&str, &str> {
-    let mut pairs = 1;
-    for i in memchr2_iter(b'[', b']', input.as_bytes()) {
-        if input.as_bytes()[i] == b'[' {
-            pairs += 1;
-        } else if pairs != 1 {
-            pairs -= 1;
-        } else {
-            return Ok((&input[i..], &input[0..i]));
-        }
-    }
-    Err(Err::Error(error_position!(input, ErrorKind::Tag)))
-}
-
 impl FnRef<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, FnRef<'_>> {
-        let (input, _) = tag("[fn:")(input)?;
-        let (input, label) =
-            take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_')(input)?;
-        let (input, definition) = opt(preceded(tag(":"), balanced_brackets))(input)?;
-        let (input, _) = tag("]")(input)?;
-
-        Ok((
-            input,
-            FnRef {
-                label: label.into(),
-                definition: definition.map(Into::into),
-            },
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, FnRef<'_>)> {
+        parse_fn_ref::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> FnRef<'static> {
@@ -61,10 +33,43 @@ impl FnRef<'_> {
     }
 }
 
+#[inline]
+fn parse_fn_ref<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, FnRef<'a>, E> {
+    let (input, _) = tag("[fn:")(input)?;
+    let (input, label) =
+        take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_')(input)?;
+    let (input, definition) = opt(preceded(tag(":"), balanced_brackets))(input)?;
+    let (input, _) = tag("]")(input)?;
+
+    Ok((
+        input,
+        FnRef {
+            label: label.into(),
+            definition: definition.map(Into::into),
+        },
+    ))
+}
+
+fn balanced_brackets<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    let mut pairs = 1;
+    for i in memchr2_iter(b'[', b']', input.as_bytes()) {
+        if input.as_bytes()[i] == b'[' {
+            pairs += 1;
+        } else if pairs != 1 {
+            pairs -= 1;
+        } else {
+            return Ok((&input[i..], &input[0..i]));
+        }
+    }
+    Err(Err::Error(E::from_error_kind(input, ErrorKind::Tag)))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        FnRef::parse("[fn:1]"),
+        parse_fn_ref::<VerboseError<&str>>("[fn:1]"),
         Ok((
             "",
             FnRef {
@@ -74,7 +79,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        FnRef::parse("[fn:1:2]"),
+        parse_fn_ref::<VerboseError<&str>>("[fn:1:2]"),
         Ok((
             "",
             FnRef {
@@ -84,7 +89,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        FnRef::parse("[fn::2]"),
+        parse_fn_ref::<VerboseError<&str>>("[fn::2]"),
         Ok((
             "",
             FnRef {
@@ -94,7 +99,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        FnRef::parse("[fn::[]]"),
+        parse_fn_ref::<VerboseError<&str>>("[fn::[]]"),
         Ok((
             "",
             FnRef {
@@ -104,5 +109,5 @@ fn parse() {
         ))
     );
 
-    assert!(FnRef::parse("[fn::[]").is_err());
+    assert!(parse_fn_ref::<VerboseError<&str>>("[fn::[]").is_err());
 }

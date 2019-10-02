@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
-use nom::{bytes::complete::tag_no_case, character::complete::alpha1, sequence::preceded, IResult};
+use nom::{
+    bytes::complete::tag_no_case, character::complete::alpha1, error::ParseError,
+    sequence::preceded, IResult,
+};
 
 use crate::parsers::{line, take_lines_while};
 
@@ -160,12 +163,20 @@ impl SourceBlock<'_> {
     // TODO: fn retain_labels() -> bool {  }
 }
 
-pub(crate) fn parse_block_element(input: &str) -> IResult<&str, (&str, Option<&str>, &str)> {
+#[inline]
+pub fn parse_block_element(input: &str) -> Option<(&str, (&str, Option<&str>, &str))> {
+    parse_block_element_internal::<()>(input).ok()
+}
+
+#[inline]
+fn parse_block_element_internal<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, (&'a str, Option<&'a str>, &'a str), E> {
     let (input, name) = preceded(tag_no_case("#+BEGIN_"), alpha1)(input)?;
     let (input, args) = line(input)?;
-    let end_line = format!(r"#+END_{}", name);
+    let end_line = format!("#+END_{}", name);
     let (input, contents) =
-        take_lines_while(|line| !line.trim().eq_ignore_ascii_case(&end_line))(input)?;
+        take_lines_while(|line| !line.trim().eq_ignore_ascii_case(&end_line))(input);
     let (input, _) = line(input)?;
 
     Ok((
@@ -184,22 +195,24 @@ pub(crate) fn parse_block_element(input: &str) -> IResult<&str, (&str, Option<&s
 
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        parse_block_element(
+        parse_block_element_internal::<VerboseError<&str>>(
             r#"#+BEGIN_SRC
 #+END_SRC"#
         ),
         Ok(("", ("SRC".into(), None, "")))
     );
     assert_eq!(
-        parse_block_element(
+        parse_block_element_internal::<VerboseError<&str>>(
             r#"#+begin_src
    #+end_src"#
         ),
         Ok(("", ("src".into(), None, "")))
     );
     assert_eq!(
-        parse_block_element(
+        parse_block_element_internal::<VerboseError<&str>>(
             r#"#+BEGIN_SRC javascript
 console.log('Hello World!');
 #+END_SRC

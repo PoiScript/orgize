@@ -8,15 +8,14 @@ use nom::{
     bytes::complete::{tag, take_until, take_while},
     character::complete::{anychar, space1},
     combinator::{map, map_parser, opt, verify},
-    error::ErrorKind,
-    error_position,
+    error::{ErrorKind, ParseError},
     multi::fold_many0,
     sequence::{delimited, preceded},
     Err, IResult,
 };
 
 use crate::config::ParseConfig;
-use crate::elements::{Drawer, Planning, Timestamp};
+use crate::elements::{drawer::parse_drawer, Planning, Timestamp};
 use crate::parsers::{line, skip_empty_lines, take_one_word};
 
 /// Title Elemenet
@@ -46,68 +45,11 @@ pub struct Title<'a> {
 }
 
 impl Title<'_> {
-    #[inline]
     pub(crate) fn parse<'a>(
         input: &'a str,
         config: &ParseConfig,
-    ) -> IResult<&'a str, (Title<'a>, &'a str)> {
-        let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
-
-        debug_assert!(level > 0);
-
-        let (input, keyword) = opt(preceded(
-            space1,
-            verify(take_one_word, |s: &str| {
-                config.todo_keywords.iter().any(|x| x == s)
-                    || config.done_keywords.iter().any(|x| x == s)
-            }),
-        ))(input)?;
-
-        let (input, priority) = opt(preceded(
-            space1,
-            map_parser(
-                take_one_word,
-                delimited(
-                    tag("[#"),
-                    verify(anychar, |c: &char| c.is_ascii_uppercase()),
-                    tag("]"),
-                ),
-            ),
-        ))(input)?;
-        let (input, tail) = line(input)?;
-        let tail = tail.trim();
-        let (raw, tags) = memrchr(b' ', tail.as_bytes())
-            .map(|i| (tail[0..i].trim(), &tail[i + 1..]))
-            .filter(|(_, x)| x.len() > 2 && x.starts_with(':') && x.ends_with(':'))
-            .unwrap_or((tail, ""));
-
-        let tags = tags
-            .split(':')
-            .filter(|s| !s.is_empty())
-            .map(Into::into)
-            .collect();
-
-        let (input, planning) = Planning::parse(input)
-            .map(|(input, planning)| (input, Some(Box::new(planning))))
-            .unwrap_or((input, None));
-
-        let (input, properties) = opt(parse_properties_drawer)(input)?;
-
-        Ok((
-            input,
-            (
-                Title {
-                    properties: properties.unwrap_or_default(),
-                    level,
-                    keyword: keyword.map(Into::into),
-                    priority,
-                    tags,
-                    raw: raw.into(),
-                    planning,
-                },
-                raw,
-            ),
-        ))
+    ) -> Option<(&'a str, (Title<'a>, &'a str))> {
+        parse_title::<()>(input, config).ok()
     }
 
     // TODO: fn is_archived(&self) -> bool { }
@@ -134,6 +76,11 @@ impl Title<'_> {
         self.planning
             .as_ref()
             .and_then(|planning| planning.deadline.as_ref())
+    }
+
+    /// checks if this headline is "archived"
+    pub fn is_archived(&self) -> bool {
+        self.tags.iter().any(|tag| tag == "ARCHIVE")
     }
 
     pub fn into_owned(self) -> Title<'static> {
@@ -171,10 +118,77 @@ impl Default for Title<'_> {
     }
 }
 
-fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>> {
-    let (input, (drawer, content)) = Drawer::parse(input.trim_start())?;
+#[inline]
+fn parse_title<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+    config: &ParseConfig,
+) -> IResult<&'a str, (Title<'a>, &'a str), E> {
+    let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
+
+    debug_assert!(level > 0);
+
+    let (input, keyword) = opt(preceded(
+        space1,
+        verify(take_one_word, |s: &str| {
+            config.todo_keywords.iter().any(|x| x == s)
+                || config.done_keywords.iter().any(|x| x == s)
+        }),
+    ))(input)?;
+
+    let (input, priority) = opt(preceded(
+        space1,
+        map_parser(
+            take_one_word,
+            delimited(
+                tag("[#"),
+                verify(anychar, |c: &char| c.is_ascii_uppercase()),
+                tag("]"),
+            ),
+        ),
+    ))(input)?;
+    let (input, tail) = line(input)?;
+    let tail = tail.trim();
+    let (raw, tags) = memrchr(b' ', tail.as_bytes())
+        .map(|i| (tail[0..i].trim(), &tail[i + 1..]))
+        .filter(|(_, x)| x.len() > 2 && x.starts_with(':') && x.ends_with(':'))
+        .unwrap_or((tail, ""));
+
+    let tags = tags
+        .split(':')
+        .filter(|s| !s.is_empty())
+        .map(Into::into)
+        .collect();
+
+    let (input, planning) = Planning::parse(input)
+        .map(|(input, planning)| (input, Some(Box::new(planning))))
+        .unwrap_or((input, None));
+
+    let (input, properties) = opt(parse_properties_drawer)(input)?;
+
+    Ok((
+        input,
+        (
+            Title {
+                properties: properties.unwrap_or_default(),
+                level,
+                keyword: keyword.map(Into::into),
+                priority,
+                tags,
+                raw: raw.into(),
+                planning,
+            },
+            raw,
+        ),
+    ))
+}
+
+#[inline]
+fn parse_properties_drawer<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, HashMap<Cow<'a, str>, Cow<'a, str>>, E> {
+    let (input, (drawer, content)) = parse_drawer(input.trim_start())?;
     if drawer.name != "PROPERTIES" {
-        return Err(Err::Error(error_position!(input, ErrorKind::Tag)));
+        return Err(Err::Error(E::from_error_kind(input, ErrorKind::Tag)));
     }
     let (_, map) = fold_many0(
         parse_node_property,
@@ -187,7 +201,10 @@ fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<Cow<'_, str>, C
     Ok((input, map))
 }
 
-fn parse_node_property(input: &str) -> IResult<&str, (&str, &str)> {
+#[inline]
+fn parse_node_property<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, (&'a str, &'a str), E> {
     let input = skip_empty_lines(input).trim_start();
     let (input, name) = map(delimited(tag(":"), take_until(":"), tag(":")), |s: &str| {
         s.trim_end_matches('+')
@@ -196,19 +213,17 @@ fn parse_node_property(input: &str) -> IResult<&str, (&str, &str)> {
     Ok((input, (name, value.trim())))
 }
 
-impl Title<'_> {
-    /// checks if this headline is "archived"
-    pub fn is_archived(&self) -> bool {
-        self.tags.iter().any(|tag| tag == "ARCHIVE")
-    }
-}
-
 #[test]
-fn parse_title() {
+fn parse_title_() {
+    use nom::error::VerboseError;
+
     use crate::config::DEFAULT_CONFIG;
 
     assert_eq!(
-        Title::parse("**** DONE [#A] COMMENT Title :tag:a2%:", &DEFAULT_CONFIG),
+        parse_title::<VerboseError<&str>>(
+            "**** DONE [#A] COMMENT Title :tag:a2%:",
+            &DEFAULT_CONFIG
+        ),
         Ok((
             "",
             (
@@ -226,7 +241,7 @@ fn parse_title() {
         ))
     );
     assert_eq!(
-        Title::parse("**** ToDO [#A] COMMENT Title", &DEFAULT_CONFIG),
+        parse_title::<VerboseError<&str>>("**** ToDO [#A] COMMENT Title", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -244,7 +259,7 @@ fn parse_title() {
         ))
     );
     assert_eq!(
-        Title::parse("**** T0DO [#A] COMMENT Title", &DEFAULT_CONFIG),
+        parse_title::<VerboseError<&str>>("**** T0DO [#A] COMMENT Title", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -262,7 +277,7 @@ fn parse_title() {
         ))
     );
     assert_eq!(
-        Title::parse("**** DONE [#1] COMMENT Title", &DEFAULT_CONFIG),
+        parse_title::<VerboseError<&str>>("**** DONE [#1] COMMENT Title", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -280,7 +295,7 @@ fn parse_title() {
         ))
     );
     assert_eq!(
-        Title::parse("**** DONE [#a] COMMENT Title", &DEFAULT_CONFIG),
+        parse_title::<VerboseError<&str>>("**** DONE [#a] COMMENT Title", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -298,7 +313,7 @@ fn parse_title() {
         ))
     );
     assert_eq!(
-        Title::parse("**** Title :tag:a2%", &DEFAULT_CONFIG),
+        parse_title::<VerboseError<&str>>("**** Title :tag:a2%", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -316,7 +331,7 @@ fn parse_title() {
         ))
     );
     assert_eq!(
-        Title::parse("**** Title tag:a2%:", &DEFAULT_CONFIG),
+        parse_title::<VerboseError<&str>>("**** Title tag:a2%:", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -335,7 +350,7 @@ fn parse_title() {
     );
 
     assert_eq!(
-        Title::parse(
+        parse_title::<VerboseError<&str>>(
             "**** DONE Title",
             &ParseConfig {
                 done_keywords: vec![],
@@ -359,7 +374,7 @@ fn parse_title() {
         ))
     );
     assert_eq!(
-        Title::parse(
+        parse_title::<VerboseError<&str>>(
             "**** TASK [#A] Title",
             &ParseConfig {
                 todo_keywords: vec!["TASK".to_string()],
@@ -386,8 +401,12 @@ fn parse_title() {
 
 #[test]
 fn parse_properties_drawer_() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        parse_properties_drawer("   :PROPERTIES:\n   :CUSTOM_ID: id\n   :END:"),
+        parse_properties_drawer::<VerboseError<&str>>(
+            "   :PROPERTIES:\n   :CUSTOM_ID: id\n   :END:"
+        ),
         Ok((
             "",
             vec![("CUSTOM_ID".into(), "id".into())]
@@ -399,14 +418,14 @@ fn parse_properties_drawer_() {
 
 // #[test]
 // fn is_commented() {
-//     assert!(Title::parse("* COMMENT Title", &DEFAULT_CONFIG)
+//     assert!(parse_title::<VerboseError<&str>>("* COMMENT Title", &DEFAULT_CONFIG)
 //         .1
 //         .is_commented());
-//     assert!(!Title::parse("* Title", &DEFAULT_CONFIG).1.is_commented());
-//     assert!(!Title::parse("* C0MMENT Title", &DEFAULT_CONFIG)
+//     assert!(!parse_title::<VerboseError<&str>>("* Title", &DEFAULT_CONFIG).1.is_commented());
+//     assert!(!parse_title::<VerboseError<&str>>("* C0MMENT Title", &DEFAULT_CONFIG)
 //         .1
 //         .is_commented());
-//     assert!(!Title::parse("* comment Title", &DEFAULT_CONFIG)
+//     assert!(!parse_title::<VerboseError<&str>>("* comment Title", &DEFAULT_CONFIG)
 //         .1
 //         .is_commented());
 // }

@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use nom::{
     combinator::{peek, verify},
+    error::ParseError,
     IResult,
 };
 
@@ -57,19 +58,30 @@ impl TableRow {
     }
 }
 
-pub(crate) fn parse_table_el(input: &str) -> IResult<&str, &str> {
+pub(crate) fn parse_table_el(input: &str) -> Option<(&str, &str)> {
+    parse_table_el_internal::<()>(input).ok()
+}
+
+fn parse_table_el_internal<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, &'a str, E> {
     let (input, _) = peek(verify(line, |s: &str| {
         let s = s.trim();
         s.starts_with("+-") && s.as_bytes().iter().all(|&c| c == b'+' || c == b'-')
     }))(input)?;
 
-    take_lines_while(|line| line.starts_with('|') || line.starts_with('+'))(input)
+    let (input, content) =
+        take_lines_while(|line| line.starts_with('|') || line.starts_with('+'))(input);
+
+    Ok((input, content))
 }
 
 #[test]
 fn parse_table_el_() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        parse_table_el(
+        parse_table_el_internal::<VerboseError<&str>>(
             r#"+---+
 |   |
 +---+
@@ -85,6 +97,6 @@ fn parse_table_el_() {
 "#
         ))
     );
-    assert!(parse_table_el("").is_err());
-    assert!(parse_table_el("+----|---").is_err());
+    assert!(parse_table_el_internal::<VerboseError<&str>>("").is_err());
+    assert!(parse_table_el_internal::<VerboseError<&str>>("+----|---").is_err());
 }

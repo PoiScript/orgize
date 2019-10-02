@@ -5,6 +5,7 @@ use nom::{
     bytes::complete::tag,
     character::complete::digit0,
     combinator::recognize,
+    error::ParseError,
     sequence::{delimited, pair, separated_pair},
     IResult,
 };
@@ -19,23 +20,8 @@ pub struct Cookie<'a> {
 }
 
 impl Cookie<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, Cookie<'_>> {
-        let (input, value) = recognize(delimited(
-            tag("["),
-            alt((
-                separated_pair(digit0, tag("/"), digit0),
-                pair(digit0, tag("%")),
-            )),
-            tag("]"),
-        ))(input)?;
-
-        Ok((
-            input,
-            Cookie {
-                value: value.into(),
-            },
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, Cookie<'_>)> {
+        parse_cookie::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> Cookie<'static> {
@@ -45,10 +31,31 @@ impl Cookie<'_> {
     }
 }
 
+#[inline]
+fn parse_cookie<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Cookie<'a>, E> {
+    let (input, value) = recognize(delimited(
+        tag("["),
+        alt((
+            separated_pair(digit0, tag("/"), digit0),
+            pair(digit0, tag("%")),
+        )),
+        tag("]"),
+    ))(input)?;
+
+    Ok((
+        input,
+        Cookie {
+            value: value.into(),
+        },
+    ))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        Cookie::parse("[1/10]"),
+        parse_cookie::<VerboseError<&str>>("[1/10]"),
         Ok((
             "",
             Cookie {
@@ -57,7 +64,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Cookie::parse("[1/1000]"),
+        parse_cookie::<VerboseError<&str>>("[1/1000]"),
         Ok((
             "",
             Cookie {
@@ -66,7 +73,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Cookie::parse("[10%]"),
+        parse_cookie::<VerboseError<&str>>("[10%]"),
         Ok((
             "",
             Cookie {
@@ -75,7 +82,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Cookie::parse("[%]"),
+        parse_cookie::<VerboseError<&str>>("[%]"),
         Ok((
             "",
             Cookie {
@@ -84,7 +91,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Cookie::parse("[/]"),
+        parse_cookie::<VerboseError<&str>>("[/]"),
         Ok((
             "",
             Cookie {
@@ -93,7 +100,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Cookie::parse("[100/]"),
+        parse_cookie::<VerboseError<&str>>("[100/]"),
         Ok((
             "",
             Cookie {
@@ -102,7 +109,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Cookie::parse("[/100]"),
+        parse_cookie::<VerboseError<&str>>("[/100]"),
         Ok((
             "",
             Cookie {
@@ -111,8 +118,8 @@ fn parse() {
         ))
     );
 
-    assert!(Cookie::parse("[10% ]").is_err());
-    assert!(Cookie::parse("[1//100]").is_err());
-    assert!(Cookie::parse("[1\\100]").is_err());
-    assert!(Cookie::parse("[10%%]").is_err());
+    assert!(parse_cookie::<VerboseError<&str>>("[10% ]").is_err());
+    assert!(parse_cookie::<VerboseError<&str>>("[1//100]").is_err());
+    assert!(parse_cookie::<VerboseError<&str>>("[1\\100]").is_err());
+    assert!(parse_cookie::<VerboseError<&str>>("[10%%]").is_err());
 }

@@ -4,11 +4,13 @@ use nom::{
     bytes::complete::tag,
     character::complete::{char, digit1, space0},
     combinator::recognize,
+    error::ParseError,
     sequence::separated_pair,
     IResult,
 };
 
-use crate::elements::{Datetime, Timestamp};
+use crate::elements::timestamp::{parse_inactive, Datetime, Timestamp};
+
 use crate::parsers::eol;
 
 /// Clock Element
@@ -42,54 +44,8 @@ pub enum Clock<'a> {
 }
 
 impl Clock<'_> {
-    pub(crate) fn parse(input: &str) -> IResult<&str, Clock<'_>> {
-        let (input, _) = tag("CLOCK:")(input)?;
-        let (input, _) = space0(input)?;
-        let (input, timestamp) = Timestamp::parse_inactive(input)?;
-
-        match timestamp {
-            Timestamp::InactiveRange {
-                start,
-                end,
-                repeater,
-                delay,
-            } => {
-                let (input, _) = space0(input)?;
-                let (input, _) = tag("=>")(input)?;
-                let (input, _) = space0(input)?;
-                let (input, duration) =
-                    recognize(separated_pair(digit1, char(':'), digit1))(input)?;
-                let (input, _) = eol(input)?;
-                Ok((
-                    input,
-                    Clock::Closed {
-                        start,
-                        end,
-                        repeater,
-                        delay,
-                        duration: duration.into(),
-                    },
-                ))
-            }
-            Timestamp::Inactive {
-                start,
-                repeater,
-                delay,
-            } => {
-                let (input, _) = eol(input)?;
-                Ok((
-                    input,
-                    Clock::Running {
-                        start,
-                        repeater,
-                        delay,
-                    },
-                ))
-            }
-            _ => unreachable!(
-                "`Timestamp::parse_inactive` only returns `Timestamp::InactiveRange` or `Timestamp::Inactive`."
-            ),
-        }
+    pub(crate) fn parse(input: &str) -> Option<(&str, Clock<'_>)> {
+        parse_clock::<()>(input).ok()
     }
 
     pub fn into_onwed(self) -> Clock<'static> {
@@ -171,10 +127,61 @@ impl Clock<'_> {
     }
 }
 
+fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Clock<'_>, E> {
+    let (input, _) = tag("CLOCK:")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, timestamp) = parse_inactive(input)?;
+
+    match timestamp {
+        Timestamp::InactiveRange {
+            start,
+            end,
+            repeater,
+            delay,
+        } => {
+            let (input, _) = space0(input)?;
+            let (input, _) = tag("=>")(input)?;
+            let (input, _) = space0(input)?;
+            let (input, duration) = recognize(separated_pair(digit1, char(':'), digit1))(input)?;
+            let (input, _) = eol(input)?;
+            Ok((
+                input,
+                Clock::Closed {
+                    start,
+                    end,
+                    repeater,
+                    delay,
+                    duration: duration.into(),
+                },
+            ))
+        }
+        Timestamp::Inactive {
+            start,
+            repeater,
+            delay,
+        } => {
+            let (input, _) = eol(input)?;
+            Ok((
+                input,
+                Clock::Running {
+                    start,
+                    repeater,
+                    delay,
+                },
+            ))
+        }
+        _ => unreachable!(
+            "`parse_inactive` only returns `Timestamp::InactiveRange` or `Timestamp::Inactive`."
+        ),
+    }
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        Clock::parse("CLOCK: [2003-09-16 Tue 09:39]"),
+        parse_clock::<VerboseError<&str>>("CLOCK: [2003-09-16 Tue 09:39]"),
         Ok((
             "",
             Clock::Running {
@@ -192,7 +199,9 @@ fn parse() {
         ))
     );
     assert_eq!(
-        Clock::parse("CLOCK: [2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39] =>  1:00"),
+        parse_clock::<VerboseError<&str>>(
+            "CLOCK: [2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39] =>  1:00"
+        ),
         Ok((
             "",
             Clock::Closed {

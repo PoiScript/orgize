@@ -30,23 +30,18 @@ impl Planning<'_> {
             let next = &tail[i + 1..].trim_start();
 
             macro_rules! set_timestamp {
-                ($timestamp:expr) => {
-                    if $timestamp.is_none() {
-                        let (new_tail, timestamp) = Timestamp::parse_active(next)
-                            .or_else(|_| Timestamp::parse_inactive(next))
-                            .ok()?;
-                        $timestamp = Some(timestamp);
-                        tail = new_tail.trim_start();
-                    } else {
-                        return None;
-                    }
-                };
+                ($timestamp:expr) => {{
+                    let (new_tail, timestamp) =
+                        Timestamp::parse_active(next).or(Timestamp::parse_inactive(next))?;
+                    $timestamp = Some(timestamp);
+                    tail = new_tail.trim_start();
+                }};
             }
 
             match &tail[..i] {
-                "DEADLINE:" => set_timestamp!(deadline),
-                "SCHEDULED:" => set_timestamp!(scheduled),
-                "CLOSED:" => set_timestamp!(closed),
+                "DEADLINE:" if deadline.is_none() => set_timestamp!(deadline),
+                "SCHEDULED:" if scheduled.is_none() => set_timestamp!(scheduled),
+                "CLOSED:" if closed.is_none() => set_timestamp!(closed),
                 _ => return None,
             }
         }

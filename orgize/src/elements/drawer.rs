@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use nom::{
     bytes::complete::{tag, take_while1},
+    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -18,19 +19,8 @@ pub struct Drawer<'a> {
 }
 
 impl Drawer<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, (Drawer<'_>, &str)> {
-        let (input, name) = delimited(
-            tag(":"),
-            take_while1(|c: char| c.is_ascii_alphabetic() || c == '-' || c == '_'),
-            tag(":"),
-        )(input)?;
-        let (input, _) = eol(input)?;
-        let (input, contents) =
-            take_lines_while(|line| !line.trim().eq_ignore_ascii_case(":END:"))(input)?;
-        let (input, _) = line(input)?;
-
-        Ok((input, (Drawer { name: name.into() }, contents)))
+    pub(crate) fn parse(input: &str) -> Option<(&str, (Drawer<'_>, &str))> {
+        parse_drawer::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> Drawer<'static> {
@@ -40,10 +30,29 @@ impl Drawer<'_> {
     }
 }
 
+#[inline]
+pub fn parse_drawer<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, (Drawer<'a>, &'a str), E> {
+    let (input, name) = delimited(
+        tag(":"),
+        take_while1(|c: char| c.is_ascii_alphabetic() || c == '-' || c == '_'),
+        tag(":"),
+    )(input)?;
+    let (input, _) = eol(input)?;
+    let (input, contents) =
+        take_lines_while(|line| !line.trim().eq_ignore_ascii_case(":END:"))(input);
+    let (input, _) = line(input)?;
+
+    Ok((input, (Drawer { name: name.into() }, contents)))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     assert_eq!(
-        Drawer::parse(":PROPERTIES:\n  :CUSTOM_ID: id\n  :END:"),
+        parse_drawer::<VerboseError<&str>>(":PROPERTIES:\n  :CUSTOM_ID: id\n  :END:"),
         Ok((
             "",
             (

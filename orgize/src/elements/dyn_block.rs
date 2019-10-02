@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::tag_no_case,
     character::complete::{alpha1, space1},
+    error::ParseError,
     IResult,
 };
 
@@ -21,30 +22,8 @@ pub struct DynBlock<'a> {
 }
 
 impl DynBlock<'_> {
-    #[inline]
-    pub(crate) fn parse(input: &str) -> IResult<&str, (DynBlock<'_>, &str)> {
-        let (input, _) = tag_no_case("#+BEGIN:")(input)?;
-        let (input, _) = space1(input)?;
-        let (input, name) = alpha1(input)?;
-        let (input, args) = line(input)?;
-        let (input, contents) =
-            take_lines_while(|line| !line.trim().eq_ignore_ascii_case("#+END:"))(input)?;
-        let (input, _) = line(input)?;
-
-        Ok((
-            input,
-            (
-                DynBlock {
-                    block_name: name.into(),
-                    arguments: if args.trim().is_empty() {
-                        None
-                    } else {
-                        Some(args.trim().into())
-                    },
-                },
-                contents,
-            ),
-        ))
+    pub(crate) fn parse(input: &str) -> Option<(&str, (DynBlock<'_>, &str))> {
+        parse_dyn_block::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> DynBlock<'static> {
@@ -55,11 +34,41 @@ impl DynBlock<'_> {
     }
 }
 
+#[inline]
+fn parse_dyn_block<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, (DynBlock<'a>, &'a str), E> {
+    let (input, _) = tag_no_case("#+BEGIN:")(input)?;
+    let (input, _) = space1(input)?;
+    let (input, name) = alpha1(input)?;
+    let (input, args) = line(input)?;
+    let (input, contents) =
+        take_lines_while(|line| !line.trim().eq_ignore_ascii_case("#+END:"))(input);
+    let (input, _) = line(input)?;
+
+    Ok((
+        input,
+        (
+            DynBlock {
+                block_name: name.into(),
+                arguments: if args.trim().is_empty() {
+                    None
+                } else {
+                    Some(args.trim().into())
+                },
+            },
+            contents,
+        ),
+    ))
+}
+
 #[test]
 fn parse() {
+    use nom::error::VerboseError;
+
     // TODO: testing
     assert_eq!(
-        DynBlock::parse(
+        parse_dyn_block::<VerboseError<&str>>(
             r#"#+BEGIN: clocktable :scope file
 CONTENTS
 #+END:
