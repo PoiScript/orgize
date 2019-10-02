@@ -205,8 +205,8 @@ impl HtmlHandler<Error> for DefaultHtmlHandler {}
 
 #[cfg(feature = "syntect")]
 pub mod syntect_feature {
-    use std::marker::PhantomData;
     use super::*;
+    use std::marker::PhantomData;
 
     use syntect::{
         easy::HighlightLines,
