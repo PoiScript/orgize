@@ -437,6 +437,48 @@ pub fn match_block<'a, T: ElementArena<'a>>(
     }
 }
 
+struct InlinePositions<'a> {
+    bytes: &'a [u8],
+    position: usize,
+    next: Option<usize>,
+}
+
+impl InlinePositions<'_> {
+    fn new(bytes: &[u8]) -> InlinePositions<'_> {
+        InlinePositions {
+            bytes,
+            position: 0,
+            next: Some(0),
+        }
+    }
+}
+
+impl Iterator for InlinePositions<'_> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        lazy_static::lazy_static! {
+            static ref PRE_BYTES: BytesConst =
+                bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n');
+        }
+
+        self.next.take().or_else(|| {
+            PRE_BYTES.find(&self.bytes[self.position..]).map(|i| {
+                self.position += i + 1;
+
+                match self.bytes[self.position - 1] {
+                    b'{' => {
+                        self.next = Some(self.position);
+                        self.position - 1
+                    }
+                    b' ' | b'(' | b'\'' | b'"' | b'\n' => self.position,
+                    _ => self.position - 1,
+                }
+            })
+        })
+    }
+}
+
 pub fn parse_inlines<'a, T: ElementArena<'a>>(
     arena: &mut T,
     content: &'a str,
@@ -445,78 +487,27 @@ pub fn parse_inlines<'a, T: ElementArena<'a>>(
 ) {
     let mut tail = content;
 
-    if let Some(new_tail) = parse_inline(tail, arena, containers, parent) {
-        tail = new_tail;
+    if let Some(tail_) = parse_inline(tail, arena, containers, parent) {
+        tail = tail_;
     }
 
-    let mut text = tail;
-    let mut pos = 0;
-
-    macro_rules! insert_text {
-        ($value:expr) => {
+    while let Some((tail_, i)) = InlinePositions::new(tail.as_bytes())
+        .filter_map(|i| parse_inline(&tail[i..], arena, containers, parent).map(|tail| (tail, i)))
+        .next()
+    {
+        if i != 0 {
             arena.insert_before_last_child(
                 Element::Text {
-                    value: $value.into(),
+                    value: tail[0..i].into(),
                 },
                 parent,
             );
-            pos = 0;
-        };
-    }
-
-    macro_rules! update_tail {
-        ($new_tail:ident) => {
-            debug_assert_ne!(tail, $new_tail);
-            tail = $new_tail;
-            text = $new_tail;
-        };
-    }
-
-    lazy_static::lazy_static! {
-        static ref PRE_BYTES: BytesConst =
-            bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n');
-    }
-
-    while let Some(off) = PRE_BYTES.find(tail.as_bytes()) {
-        match tail.as_bytes()[off] {
-            b'{' => {
-                if let Some(new_tail) = parse_inline(&tail[off..], arena, containers, parent) {
-                    if pos != 0 {
-                        insert_text!(&text[0..pos + off]);
-                    }
-                    update_tail!(new_tail);
-                    continue;
-                } else if let Some(new_tail) =
-                    parse_inline(&tail[off + 1..], arena, containers, parent)
-                {
-                    insert_text!(&text[0..pos + off + 1]);
-                    update_tail!(new_tail);
-                    continue;
-                }
-            }
-            b' ' | b'(' | b'\'' | b'"' | b'\n' => {
-                if let Some(new_tail) = parse_inline(&tail[off + 1..], arena, containers, parent) {
-                    insert_text!(&text[0..pos + off + 1]);
-                    update_tail!(new_tail);
-                    continue;
-                }
-            }
-            _ => {
-                if let Some(new_tail) = parse_inline(&tail[off..], arena, containers, parent) {
-                    if pos != 0 {
-                        insert_text!(&text[0..pos + off]);
-                    }
-                    update_tail!(new_tail);
-                    continue;
-                }
-            }
         }
-        tail = &tail[off + 1..];
-        pos += off + 1;
+        tail = tail_;
     }
 
-    if !text.is_empty() {
-        arena.append_element(Element::Text { value: text.into() }, parent);
+    if !tail.is_empty() {
+        arena.append_element(Element::Text { value: tail.into() }, parent);
     }
 }
 

@@ -22,6 +22,12 @@ test_suite!(
 );
 
 test_suite!(
+    link,
+    "Visit[[http://example.com][link1]]or[[http://example.com][link1]].",
+    r#"<main><section><p>Visit<a href="http://example.com">link1</a>or<a href="http://example.com">link1</a>.</p></section></main>"#
+);
+
+test_suite!(
     section_and_headline,
     r#"* title 1
 section 1
