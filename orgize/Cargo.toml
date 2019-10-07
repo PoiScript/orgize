@@ -1,6 +1,6 @@
 [package]
 name = "orgize"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["PoiScript <poiscript@gmail.com>"]
 description = "A Rust library for parsing orgmode files."
 repository = "https://github.com/PoiScript/orgize"
