@@ -34,6 +34,18 @@ impl HeadlineNode {
         }
     }
 
+    pub fn node(self) -> NodeId {
+        self.node
+    }
+
+    pub fn title_node(self) -> NodeId {
+        self.title_node
+    }
+
+    pub fn section_node(self) -> Option<NodeId> {
+        self.section_node
+    }
+
     pub fn level(self) -> usize {
         self.level
     }
@@ -275,7 +287,7 @@ impl HeadlineNode {
 
 #[derive(Copy, Clone, Debug)]
 pub struct DocumentNode {
-    pub(crate) section_node: Option<NodeId>,
+    section_node: Option<NodeId>,
 }
 
 impl DocumentNode {

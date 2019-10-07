@@ -228,6 +228,9 @@ mod parsers;
 
 mod error;
 
+// Re-export of the indextree crate.
+pub use indextree;
+
 pub use config::ParseConfig;
 pub use elements::Element;
 pub use error::OrgizeError;
