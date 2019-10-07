@@ -27,11 +27,11 @@ jetscii = "0.4.4"
 lazy_static = "1.4.0"
 memchr = "2.2.1"
 nom = "5.0.1"
-serde = { version = "1.0.100", optional = true, features = ["derive"] }
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
 serde_indextree = { version = "0.2.0", optional = true }
-syntect = { version = "3.2.1", optional = true }
+syntect = { version = "3.3.0", optional = true }
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
-serde_json = "1.0.40"
+serde_json = "1.0.41"
 slugify = "0.1.0"
