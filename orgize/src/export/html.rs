@@ -220,6 +220,7 @@ pub mod syntect_feature {
         pub theme_set: ThemeSet,
         pub inner: H,
         error_type: PhantomData<E>,
+        theme: String,
     }
 
     impl Default for SyntectHtmlHandler<Error, DefaultHtmlHandler> {
@@ -229,17 +230,19 @@ pub mod syntect_feature {
                 theme_set: ThemeSet::load_defaults(),
                 inner: DefaultHtmlHandler,
                 error_type: PhantomData,
+                theme: "InspiredGitHub".into(),
             }
         }
     }
 
     impl<E: From<Error>, H: HtmlHandler<E>> SyntectHtmlHandler<E, H> {
-        pub fn new(inner: H) -> Self {
+        pub fn new(inner: H, theme: impl Into<String>) -> Self {
             SyntectHtmlHandler {
                 syntax_set: SyntaxSet::load_defaults_newlines(),
                 theme_set: ThemeSet::load_defaults(),
                 inner,
                 error_type: PhantomData,
+                theme: theme.into(),
             }
         }
 
@@ -248,7 +251,7 @@ pub mod syntect_feature {
                 language
                     .and_then(|lang| self.syntax_set.find_syntax_by_token(lang))
                     .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text()),
-                &self.theme_set.themes["InspiredGitHub"],
+                &self.theme_set.themes[&self.theme],
             );
             let regions = highlighter.highlight(content, &self.syntax_set);
             styled_line_to_highlighted_html(&regions[..], IncludeBackground::No)
@@ -288,6 +291,23 @@ pub mod syntect_feature {
                 _ => self.inner.start(w, element)?,
             }
             Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_highlight_code() {
+            let handler = SyntectHtmlHandler::new(DefaultHtmlHandler, "Solarized (light)");
+            let code = r#"let name = "James";"#;
+            let result = handler.highlight(Some("rust"), code);
+
+            assert!(result.len() > 0);
+            // Contains Solarized colors
+            assert!(result.contains("#657b83"));
+            assert!(result.contains("#268bd2"));
         }
     }
 }
