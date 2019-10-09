@@ -57,7 +57,7 @@ pub fn parse_keyword(input: &str) -> Option<(&str, (&str, Option<&str>, &str))> 
 #[inline]
 fn parse_keyword_internal<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, (&'a str, Option<&'a str>, &'a str), E> {
+) -> IResult<&str, (&str, Option<&str>, &str), E> {
     let (input, _) = tag("#+")(input)?;
     let (input, key) = take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '[')(input)?;
     let (input, optional) = opt(delimited(

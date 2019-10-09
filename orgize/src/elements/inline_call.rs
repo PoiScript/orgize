@@ -26,7 +26,7 @@ pub struct InlineCall<'a> {
 }
 
 impl InlineCall<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, InlineCall<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, InlineCall)> {
         parse_inline_call::<()>(input).ok()
     }
 
@@ -41,9 +41,7 @@ impl InlineCall<'_> {
 }
 
 #[inline]
-fn parse_inline_call<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, InlineCall<'a>, E> {
+fn parse_inline_call<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, InlineCall, E> {
     let (input, name) = preceded(
         tag("call_"),
         take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')'),

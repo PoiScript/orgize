@@ -23,7 +23,7 @@ pub struct InlineSrc<'a> {
 }
 
 impl InlineSrc<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, InlineSrc<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, InlineSrc)> {
         parse_inline_src::<()>(input).ok()
     }
 
@@ -37,9 +37,7 @@ impl InlineSrc<'_> {
 }
 
 #[inline]
-fn parse_inline_src<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, InlineSrc<'a>, E> {
+fn parse_inline_src<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, InlineSrc, E> {
     let (input, _) = tag("src_")(input)?;
     let (input, lang) =
         take_while1(|c: char| !c.is_ascii_whitespace() && c != '[' && c != '{')(input)?;

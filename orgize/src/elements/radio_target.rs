@@ -16,7 +16,7 @@ pub fn parse_radio_target(input: &str) -> Option<(&str, &str)> {
 #[inline]
 fn parse_radio_target_internal<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+) -> IResult<&str, &str, E> {
     let (input, contents) = delimited(
         tag("<<<"),
         verify(

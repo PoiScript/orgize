@@ -19,7 +19,7 @@ pub struct Target<'a> {
 
 impl Target<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> Option<(&str, Target<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, Target)> {
         parse_target::<()>(input).ok()
     }
 
@@ -31,7 +31,7 @@ impl Target<'_> {
 }
 
 #[inline]
-fn parse_target<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Target<'a>, E> {
+fn parse_target<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Target, E> {
     let (input, target) = delimited(
         tag("<<"),
         verify(

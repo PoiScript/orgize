@@ -19,7 +19,7 @@ pub struct Snippet<'a> {
 }
 
 impl Snippet<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, Snippet<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, Snippet)> {
         parse_snippet::<()>(input).ok()
     }
 
@@ -32,7 +32,7 @@ impl Snippet<'_> {
 }
 
 #[inline]
-fn parse_snippet<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Snippet<'a>, E> {
+fn parse_snippet<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Snippet, E> {
     let (input, (name, value)) = delimited(
         tag("@@"),
         separated_pair(

@@ -21,7 +21,7 @@ pub struct FnRef<'a> {
 }
 
 impl FnRef<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, FnRef<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, FnRef)> {
         parse_fn_ref::<()>(input).ok()
     }
 
@@ -34,7 +34,7 @@ impl FnRef<'_> {
 }
 
 #[inline]
-fn parse_fn_ref<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, FnRef<'a>, E> {
+fn parse_fn_ref<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, FnRef, E> {
     let (input, _) = tag("[fn:")(input)?;
     let (input, label) =
         take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_')(input)?;
@@ -50,7 +50,7 @@ fn parse_fn_ref<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, 
     ))
 }
 
-fn balanced_brackets<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+fn balanced_brackets<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
     let mut pairs = 1;
     for i in memchr2_iter(b'[', b']', input.as_bytes()) {
         if input.as_bytes()[i] == b'[' {

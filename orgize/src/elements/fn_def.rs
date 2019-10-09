@@ -19,7 +19,7 @@ pub struct FnDef<'a> {
 }
 
 impl FnDef<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, (FnDef<'_>, &str))> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, (FnDef, &str))> {
         parse_fn_def::<()>(input).ok()
     }
 
@@ -31,9 +31,7 @@ impl FnDef<'_> {
 }
 
 #[inline]
-fn parse_fn_def<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, (FnDef<'a>, &'a str), E> {
+fn parse_fn_def<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, (FnDef, &str), E> {
     let (input, label) = delimited(
         tag("[fn:"),
         take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),

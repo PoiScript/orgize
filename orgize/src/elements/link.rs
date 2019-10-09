@@ -21,7 +21,7 @@ pub struct Link<'a> {
 
 impl Link<'_> {
     #[inline]
-    pub(crate) fn parse(input: &str) -> Option<(&str, Link<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, Link)> {
         parse_link::<()>(input).ok()
     }
 
@@ -34,7 +34,7 @@ impl Link<'_> {
 }
 
 #[inline]
-fn parse_link<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Link<'a>, E> {
+fn parse_link<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Link, E> {
     let (input, path) = delimited(
         tag("[["),
         take_while(|c: char| c != '<' && c != '>' && c != '\n' && c != ']'),

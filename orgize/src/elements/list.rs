@@ -75,7 +75,7 @@ pub struct ListItem<'a> {
 
 impl ListItem<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str, indent: usize) -> (&str, ListItem<'_>, &str) {
+    pub(crate) fn parse(text: &str, indent: usize) -> (&str, ListItem, &str) {
         debug_assert!(&text[0..indent].trim().is_empty());
         let off = &text[indent..].find(' ').unwrap() + 1 + indent;
 

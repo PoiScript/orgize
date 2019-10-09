@@ -444,7 +444,7 @@ struct InlinePositions<'a> {
 }
 
 impl InlinePositions<'_> {
-    fn new(bytes: &[u8]) -> InlinePositions<'_> {
+    fn new(bytes: &[u8]) -> InlinePositions {
         InlinePositions {
             bytes,
             position: 0,
@@ -670,7 +670,7 @@ pub fn parse_table<'a, T: ElementArena<'a>>(
     }
 }
 
-pub fn line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+pub fn line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
     if let Some(i) = memchr(b'\n', input.as_bytes()) {
         if i > 0 && input.as_bytes()[i - 1] == b'\r' {
             Ok((&input[i + 1..], &input[0..i - 1]))
@@ -682,7 +682,7 @@ pub fn line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a 
     }
 }
 
-pub fn eol<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+pub fn eol<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
     verify(line, |s: &str| s.trim().is_empty())(input)
 }
 
@@ -751,7 +751,7 @@ pub fn parse_comment(input: &str) -> Option<(&str, &str)> {
     }
 }
 
-pub fn take_one_word<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+pub fn take_one_word<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
     take_while1(|c: char| !c.is_ascii_whitespace())(input)
 }
 

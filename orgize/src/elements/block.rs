@@ -171,7 +171,7 @@ pub fn parse_block_element(input: &str) -> Option<(&str, (&str, Option<&str>, &s
 #[inline]
 fn parse_block_element_internal<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, (&'a str, Option<&'a str>, &'a str), E> {
+) -> IResult<&str, (&str, Option<&str>, &str), E> {
     let (input, name) = preceded(tag_no_case("#+BEGIN_"), alpha1)(input)?;
     let (input, args) = line(input)?;
     let end_line = format!("#+END_{}", name);

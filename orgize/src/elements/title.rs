@@ -185,7 +185,7 @@ fn parse_title<'a, E: ParseError<&'a str>>(
 #[inline]
 fn parse_properties_drawer<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, HashMap<Cow<'a, str>, Cow<'a, str>>, E> {
+) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>, E> {
     let (input, (drawer, content)) = parse_drawer(input.trim_start())?;
     if drawer.name != "PROPERTIES" {
         return Err(Err::Error(E::from_error_kind(input, ErrorKind::Tag)));
@@ -204,7 +204,7 @@ fn parse_properties_drawer<'a, E: ParseError<&'a str>>(
 #[inline]
 fn parse_node_property<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, (&'a str, &'a str), E> {
+) -> IResult<&str, (&str, &str), E> {
     let input = skip_empty_lines(input).trim_start();
     let (input, name) = map(delimited(tag(":"), take_until(":"), tag(":")), |s: &str| {
         s.trim_end_matches('+')

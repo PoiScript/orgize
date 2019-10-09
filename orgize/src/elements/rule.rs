@@ -10,7 +10,7 @@ pub fn parse_rule(input: &str) -> Option<&str> {
         .map(|(input, _)| input)
 }
 
-fn parse_rule_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
+fn parse_rule_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, (), E> {
     let (input, _) = take_while_m_n(5, usize::MAX, |c| c == '-')(input)?;
     let (input, _) = eol(input)?;
     Ok((input, ()))

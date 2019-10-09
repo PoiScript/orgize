@@ -19,7 +19,7 @@ pub struct Drawer<'a> {
 }
 
 impl Drawer<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, (Drawer<'_>, &str))> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, (Drawer, &str))> {
         parse_drawer::<()>(input).ok()
     }
 
@@ -33,7 +33,7 @@ impl Drawer<'_> {
 #[inline]
 pub fn parse_drawer<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, (Drawer<'a>, &'a str), E> {
+) -> IResult<&str, (Drawer, &str), E> {
     let (input, name) = delimited(
         tag(":"),
         take_while1(|c: char| c.is_ascii_alphabetic() || c == '-' || c == '_'),

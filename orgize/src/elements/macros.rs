@@ -21,7 +21,7 @@ pub struct Macros<'a> {
 }
 
 impl Macros<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, Macros<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, Macros)> {
         parse_macros::<()>(input).ok()
     }
 
@@ -34,7 +34,7 @@ impl Macros<'_> {
 }
 
 #[inline]
-fn parse_macros<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Macros<'a>, E> {
+fn parse_macros<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Macros, E> {
     let (input, _) = tag("{{{")(input)?;
     let (input, name) = verify(
         take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),

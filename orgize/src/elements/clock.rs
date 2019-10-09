@@ -44,7 +44,7 @@ pub enum Clock<'a> {
 }
 
 impl Clock<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, Clock<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, Clock)> {
         parse_clock::<()>(input).ok()
     }
 
@@ -100,7 +100,7 @@ impl Clock<'_> {
     }
 
     /// Constructs a timestamp from the clock.
-    pub fn value(&self) -> Timestamp<'_> {
+    pub fn value(&self) -> Timestamp {
         match &*self {
             Clock::Closed {
                 start,
@@ -127,7 +127,7 @@ impl Clock<'_> {
     }
 }
 
-fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Clock<'_>, E> {
+fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Clock, E> {
     let (input, _) = tag("CLOCK:")(input)?;
     let (input, _) = space0(input)?;
     let (input, timestamp) = parse_inactive(input)?;

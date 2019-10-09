@@ -138,15 +138,15 @@ pub enum Timestamp<'a> {
 }
 
 impl Timestamp<'_> {
-    pub(crate) fn parse_active(input: &str) -> Option<(&str, Timestamp<'_>)> {
+    pub(crate) fn parse_active(input: &str) -> Option<(&str, Timestamp)> {
         parse_active::<()>(input).ok()
     }
 
-    pub(crate) fn parse_inactive(input: &str) -> Option<(&str, Timestamp<'_>)> {
+    pub(crate) fn parse_inactive(input: &str) -> Option<(&str, Timestamp)> {
         parse_inactive::<()>(input).ok()
     }
 
-    pub(crate) fn parse_diary(input: &str) -> Option<(&str, Timestamp<'_>)> {
+    pub(crate) fn parse_diary(input: &str) -> Option<(&str, Timestamp)> {
         parse_diary::<()>(input).ok()
     }
 
@@ -199,9 +199,7 @@ impl Timestamp<'_> {
     }
 }
 
-pub fn parse_active<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Timestamp<'a>, E> {
+pub fn parse_active<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Timestamp, E> {
     let (input, _) = tag("<")(input)?;
     let (input, start) = parse_datetime(input)?;
 
@@ -254,9 +252,7 @@ pub fn parse_active<'a, E: ParseError<&'a str>>(
     }
 }
 
-pub fn parse_inactive<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Timestamp<'a>, E> {
+pub fn parse_inactive<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Timestamp, E> {
     let (input, _) = tag("[")(input)?;
     let (input, start) = parse_datetime(input)?;
 
@@ -309,9 +305,7 @@ pub fn parse_inactive<'a, E: ParseError<&'a str>>(
     }
 }
 
-pub fn parse_diary<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Timestamp<'a>, E> {
+pub fn parse_diary<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Timestamp, E> {
     let (input, _) = tag("<%%(")(input)?;
     let (input, value) = take_till(|c| c == ')' || c == '>' || c == '\n')(input)?;
     let (input, _) = tag(")>")(input)?;
@@ -324,7 +318,7 @@ pub fn parse_diary<'a, E: ParseError<&'a str>>(
     ))
 }
 
-fn parse_time<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (u8, u8), E> {
+fn parse_time<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, (u8, u8), E> {
     let (input, hour) = map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), |num| {
         u8::from_str_radix(num, 10)
     })(input)?;
@@ -333,7 +327,7 @@ fn parse_time<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (u
     Ok((input, (hour, minute)))
 }
 
-fn parse_datetime<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Datetime<'a>, E> {
+fn parse_datetime<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Datetime, E> {
     let parse_u8 = |num| u8::from_str_radix(num, 10);
 
     let (input, year) = map_res(take(4usize), |num| u16::from_str_radix(num, 10))(input)?;

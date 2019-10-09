@@ -20,7 +20,7 @@ pub struct Cookie<'a> {
 }
 
 impl Cookie<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, Cookie<'_>)> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, Cookie)> {
         parse_cookie::<()>(input).ok()
     }
 
@@ -32,7 +32,7 @@ impl Cookie<'_> {
 }
 
 #[inline]
-fn parse_cookie<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Cookie<'a>, E> {
+fn parse_cookie<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Cookie, E> {
     let (input, value) = recognize(delimited(
         tag("["),
         alt((

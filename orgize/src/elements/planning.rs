@@ -20,7 +20,7 @@ pub struct Planning<'a> {
 
 impl Planning<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, Planning<'_>)> {
+    pub(crate) fn parse(text: &str) -> Option<(&str, Planning)> {
         let (mut deadline, mut scheduled, mut closed) = (None, None, None);
         let (mut tail, off) = memchr(b'\n', text.as_bytes())
             .map(|i| (text[..i].trim(), i + 1))

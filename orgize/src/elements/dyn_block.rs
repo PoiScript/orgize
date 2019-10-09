@@ -22,7 +22,7 @@ pub struct DynBlock<'a> {
 }
 
 impl DynBlock<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, (DynBlock<'_>, &str))> {
+    pub(crate) fn parse(input: &str) -> Option<(&str, (DynBlock, &str))> {
         parse_dyn_block::<()>(input).ok()
     }
 
@@ -37,7 +37,7 @@ impl DynBlock<'_> {
 #[inline]
 fn parse_dyn_block<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, (DynBlock<'a>, &'a str), E> {
+) -> IResult<&str, (DynBlock, &str), E> {
     let (input, _) = tag_no_case("#+BEGIN:")(input)?;
     let (input, _) = space1(input)?;
     let (input, name) = alpha1(input)?;
