@@ -4,22 +4,46 @@ use serde::Deserialize;
 use std::env;
 use std::io::Result;
 
-use orgize::export::html::SyntectHtmlHandler;
+use orgize::export::html::{DefaultHtmlHandler, SyntectHtmlHandler};
+use orgize::syntect::html::IncludeBackground;
 
 #[get("/")]
 fn index() -> HttpResponse {
     HttpResponse::Ok().content_type("text/html").body(
-        "<h3><a href=\"https://github.com/PoiScript/orgize\">Orgize</a> demos</h3>\
-         <form action=\"/export\" method=\"post\">\
-         <p>Input content:</p>\
-         <div><textarea name=\"content\" rows=\"10\" cols=\"100\">* DONE Title :tag:</textarea></div>\
-         <p>Output format:</p>\
-         <input type=\"radio\" name=\"format\" value=\"json\" checked> Json<br>\
-         <input type=\"radio\" name=\"format\" value=\"html\"> HTML<br>\
-         <input type=\"radio\" name=\"format\" value=\"html-with-highlight\"> HTML with highlight<br>\
-         <input type=\"radio\" name=\"format\" value=\"org\"> Org<br>\
-         <p><input type=\"submit\" value=\"Submit\"></p>\
-         </form>",
+        r#"<h3><a href="https://github.com/PoiScript/orgize">Orgize</a> demos</h3>
+<form action="/export" method="post">
+    <p>Input content:</p>
+    <div>
+        <textarea name="content" rows="10" cols="100">
+* DONE Title :tag:
+
+#+BEGIN_SRC rust
+println!("Hello");
+#+END_SRC
+        </textarea>
+    </div>
+    <p>Output format:</p>
+        <input type="radio" name="format" value="json" checked> Json<br>
+        <input type="radio" name="format" value="html"> HTML<br>
+        <input type="radio" name="format" value="org"> Org<br>
+        <input type="radio" name="format" value="syntect"> HTML with highlight<br>
+    <p>Highlight theme:</p>
+    <select name="theme">
+        <option value="InspiredGitHub" selected="selected">InspiredGitHub</option>
+        <option value="base16-ocean.dark">base16-ocean.dark</option>
+        <option value="base16-eighties.dark">base16-eighties.dark</option>
+        <option value="base16-mocha.dark">base16-mocha.dark</option>
+        <option value="base16-ocean.light">base16-ocean.light</option>
+        <option value="Solarized (dark)">Solarized (dark)</option>
+        <option value="Solarized (light)">Solarized (light)</option>
+    </select>
+    <p>Highlight background:</p>
+    <select name="background">
+        <option value="no" selected="selected">No</option>
+        <option value="yes">Yes</option>
+    </select>
+    <p><input type="submit" value="Submit"></p>
+</form>"#,
     )
 }
 
@@ -27,6 +51,8 @@ fn index() -> HttpResponse {
 struct FormData {
     format: String,
     content: String,
+    theme: String,
+    background: String,
 }
 
 #[post("/export")]
@@ -43,10 +69,31 @@ fn export(form: web::Form<FormData>) -> Result<HttpResponse> {
                 .content_type("text/html")
                 .body(String::from_utf8(writer).unwrap()))
         }
-        "html-with-highlight" => {
+        "syntect" => {
+            let mut handler = SyntectHtmlHandler::new(DefaultHtmlHandler);
+
+            match &*form.theme {
+                "InspiredGitHub"
+                | "base16-ocean.dark"
+                | "base16-eighties.dark"
+                | "base16-mocha.dark"
+                | "base16-ocean.light"
+                | "Solarized (dark)"
+                | "Solarized (light)" => handler.theme = form.theme.clone(),
+                _ => return Ok(HttpResponse::BadRequest().body("Unsupported theme".to_string())),
+            }
+
+            match &*form.background {
+                "yes" => handler.background = IncludeBackground::Yes,
+                "no" => handler.background = IncludeBackground::No,
+                _ => {
+                    return Ok(HttpResponse::BadRequest().body("Unsupported background".to_string()))
+                }
+            }
+
             let mut writer = Vec::new();
-            let mut handler = SyntectHtmlHandler::default();
             org.html_with_handler(&mut writer, &mut handler)?;
+
             Ok(HttpResponse::Ok()
                 .content_type("text/html")
                 .body(String::from_utf8(writer).unwrap()))
