@@ -9,7 +9,7 @@ use crate::export::write_datetime;
 pub struct Escape<S: AsRef<str>>(pub S);
 
 impl<S: AsRef<str>> fmt::Display for Escape<S> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut pos = 0;
         let bytes = self.0.as_ref().as_bytes();
 
@@ -308,7 +308,7 @@ mod syntect_handler {
     }
 
     impl<E: From<Error>, H: HtmlHandler<E>> HtmlHandler<E> for SyntectHtmlHandler<E, H> {
-        fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), E> {
+        fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
             match element {
                 Element::InlineSrc(inline_src) => write!(
                     w,
@@ -342,7 +342,7 @@ mod syntect_handler {
             Ok(())
         }
 
-        fn end<W: Write>(&mut self, w: W, element: &Element<'_>) -> Result<(), E> {
+        fn end<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E> {
             self.inner.end(w, element)
         }
     }

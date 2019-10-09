@@ -107,7 +107,7 @@ impl From<FromUtf8Error> for MyError {
 struct MyHtmlHandler(DefaultHtmlHandler);
 
 impl HtmlHandler<MyError> for MyHtmlHandler {
-    fn start<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
+    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), MyError> {
         if let Element::Title(title) = element {
             if title.level > 6 {
                 return Err(MyError::Heading);
@@ -126,7 +126,7 @@ impl HtmlHandler<MyError> for MyHtmlHandler {
         Ok(())
     }
 
-    fn end<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), MyError> {
+    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), MyError> {
         if let Element::Title(title) = element {
             write!(w, "</a></h{}>", title.level)?;
         } else {

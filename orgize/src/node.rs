@@ -15,7 +15,7 @@ pub struct HeadlineNode {
 }
 
 impl HeadlineNode {
-    pub(crate) fn new(node: NodeId, level: usize, org: &Org<'_>) -> HeadlineNode {
+    pub(crate) fn new(node: NodeId, level: usize, org: &Org) -> HeadlineNode {
         let title_node = org.arena[node].first_child().unwrap();
         let section_node = if let Some(node) = org.arena[title_node].next_sibling() {
             if let Element::Section = org.arena[node].get() {
@@ -127,7 +127,7 @@ impl HeadlineNode {
         org.debug_validate();
     }
 
-    pub fn parent(self, org: &Org<'_>) -> Option<HeadlineNode> {
+    pub fn parent(self, org: &Org) -> Option<HeadlineNode> {
         org.arena[self.node].parent().map(|node| {
             if let Element::Headline { level } = *org.arena[node].get() {
                 HeadlineNode::new(node, level, org)
@@ -137,7 +137,7 @@ impl HeadlineNode {
         })
     }
 
-    pub fn children<'c>(self, org: &'c Org<'_>) -> impl Iterator<Item = HeadlineNode> + 'c {
+    pub fn children<'a>(self, org: &'a Org) -> impl Iterator<Item = HeadlineNode> + 'a {
         self.node.children(&org.arena).filter_map(move |node| {
             if let Element::Headline { level } = *org.arena[node].get() {
                 Some(HeadlineNode::new(node, level, org))
@@ -147,7 +147,7 @@ impl HeadlineNode {
         })
     }
 
-    pub fn previous_headline(self, org: &Org<'_>) -> Option<HeadlineNode> {
+    pub fn previous_headline(self, org: &Org) -> Option<HeadlineNode> {
         if let Some(node) = org.arena[self.node].previous_sibling() {
             if let Element::Headline { level } = *org.arena[node].get() {
                 Some(HeadlineNode::new(node, level, org))
@@ -160,7 +160,7 @@ impl HeadlineNode {
         }
     }
 
-    pub fn next_headline(self, org: &Org<'_>) -> Option<HeadlineNode> {
+    pub fn next_headline(self, org: &Org) -> Option<HeadlineNode> {
         if let Some(node) = org.arena[self.node].next_sibling() {
             if let Element::Headline { level } = *org.arena[node].get() {
                 Some(HeadlineNode::new(node, level, org))
@@ -172,13 +172,13 @@ impl HeadlineNode {
         }
     }
 
-    pub fn detach(self, org: &mut Org<'_>) {
+    pub fn detach(self, org: &mut Org) {
         self.node.detach(&mut org.arena);
 
         org.debug_validate();
     }
 
-    pub fn is_detached(self, org: &Org<'_>) -> bool {
+    pub fn is_detached(self, org: &Org) -> bool {
         self.parent(&org).is_none()
     }
 
@@ -198,7 +198,7 @@ impl HeadlineNode {
         }
     }
 
-    pub fn append(self, headline: HeadlineNode, org: &mut Org<'_>) -> Result<(), OrgizeError> {
+    pub fn append(self, headline: HeadlineNode, org: &mut Org) -> Result<(), OrgizeError> {
         if !headline.is_detached(org) {
             return Err(OrgizeError::Detached { at: headline.node });
         }
@@ -216,7 +216,7 @@ impl HeadlineNode {
         Ok(())
     }
 
-    pub fn prepend(self, headline: HeadlineNode, org: &mut Org<'_>) -> Result<(), OrgizeError> {
+    pub fn prepend(self, headline: HeadlineNode, org: &mut Org) -> Result<(), OrgizeError> {
         if !headline.is_detached(org) {
             return Err(OrgizeError::Detached { at: headline.node });
         }
@@ -238,11 +238,7 @@ impl HeadlineNode {
         Ok(())
     }
 
-    pub fn insert_before(
-        self,
-        headline: HeadlineNode,
-        org: &mut Org<'_>,
-    ) -> Result<(), OrgizeError> {
+    pub fn insert_before(self, headline: HeadlineNode, org: &mut Org) -> Result<(), OrgizeError> {
         if !headline.is_detached(org) {
             return Err(OrgizeError::Detached { at: headline.node });
         }
@@ -260,11 +256,7 @@ impl HeadlineNode {
         Ok(())
     }
 
-    pub fn insert_after(
-        self,
-        headline: HeadlineNode,
-        org: &mut Org<'_>,
-    ) -> Result<(), OrgizeError> {
+    pub fn insert_after(self, headline: HeadlineNode, org: &mut Org) -> Result<(), OrgizeError> {
         if !headline.is_detached(org) {
             return Err(OrgizeError::Detached { at: headline.node });
         }
@@ -291,7 +283,7 @@ pub struct DocumentNode {
 }
 
 impl DocumentNode {
-    pub(crate) fn new(org: &Org<'_>) -> DocumentNode {
+    pub(crate) fn new(org: &Org) -> DocumentNode {
         if let Some(node) = org.arena[org.root].first_child() {
             if let Element::Section = org.arena[node].get() {
                 DocumentNode {
@@ -305,7 +297,7 @@ impl DocumentNode {
         }
     }
 
-    pub fn children<'c>(self, org: &'c Org<'_>) -> impl Iterator<Item = HeadlineNode> + 'c {
+    pub fn children<'a>(self, org: &'a Org) -> impl Iterator<Item = HeadlineNode> + 'a {
         org.root.children(&org.arena).filter_map(move |node| {
             if let Element::Headline { level } = *org.arena[node].get() {
                 Some(HeadlineNode::new(node, level, org))
@@ -344,7 +336,7 @@ impl DocumentNode {
         org.debug_validate();
     }
 
-    pub fn append(self, headline: HeadlineNode, org: &mut Org<'_>) -> Result<(), OrgizeError> {
+    pub fn append(self, headline: HeadlineNode, org: &mut Org) -> Result<(), OrgizeError> {
         if !headline.is_detached(org) {
             return Err(OrgizeError::Detached { at: headline.node });
         }
@@ -360,7 +352,7 @@ impl DocumentNode {
         Ok(())
     }
 
-    pub fn prepend(self, headline: HeadlineNode, org: &mut Org<'_>) -> Result<(), OrgizeError> {
+    pub fn prepend(self, headline: HeadlineNode, org: &mut Org) -> Result<(), OrgizeError> {
         if !headline.is_detached(org) {
             return Err(OrgizeError::Detached { at: headline.node });
         }
