@@ -199,13 +199,14 @@ pub trait HtmlHandler<E: From<Error>>: Default {
     }
 }
 
+/// Default Html Handler
 #[derive(Default)]
 pub struct DefaultHtmlHandler;
 
 impl HtmlHandler<Error> for DefaultHtmlHandler {}
 
 #[cfg(feature = "syntect")]
-pub mod syntect_feature {
+mod syntect_handler {
     use super::*;
     use std::marker::PhantomData;
 
@@ -216,31 +217,68 @@ pub mod syntect_feature {
         parsing::SyntaxSet,
     };
 
+    /// Syntect Html Handler
+    ///
+    /// Simple Usage:
+    ///
+    /// ```rust
+    /// use orgize::Org;
+    /// use orgize::export::html::{DefaultHtmlHandler, SyntectHtmlHandler};
+    ///
+    /// let mut handler = SyntectHtmlHandler::new(DefaultHtmlHandler);
+    /// let org = Org::parse("src_rust{println!(\"Hello\")}");
+    ///
+    /// let mut vec = vec![];
+    ///
+    /// org.html_with_handler(&mut vec, &mut handler).unwrap();
+    /// ```
+    ///
+    /// Customize:
+    ///
+    /// ```rust,no_run
+    /// // orgize has re-exported the whole syntect crate
+    /// use orgize::syntect::parsing::SyntaxSet;
+    /// use orgize::export::html::{DefaultHtmlHandler, SyntectHtmlHandler};
+    ///
+    /// let mut handler = SyntectHtmlHandler {
+    ///     syntax_set: {
+    ///         let set = SyntaxSet::load_defaults_newlines();
+    ///         let mut builder = set.into_builder();
+    ///         // add extra language syntax
+    ///         builder.add_from_folder("path/to/syntax/dir", true).unwrap();
+    ///         builder.build()
+    ///     },
+    ///     // specify theme
+    ///     theme: String::from("Solarized (dark)"),
+    ///     inner: DefaultHtmlHandler,
+    ///     ..Default::default()
+    /// };
+    ///
+    /// // Make sure to check if theme presents or it will painc at runtime
+    /// if handler.theme_set.themes.contains_key("dont-exists") {
+    ///
+    /// }
+    /// ```
     pub struct SyntectHtmlHandler<E: From<Error>, H: HtmlHandler<E>> {
+        /// syntax set, default is `SyntaxSet::load_defaults_newlines()`
         pub syntax_set: SyntaxSet,
+        /// theme set, default is `ThemeSet::load_defaults()`
         pub theme_set: ThemeSet,
+        /// theme used for highlighting, default is `"InspiredGitHub"`
+        pub theme: String,
+        /// inner html handler
         pub inner: H,
-        error_type: PhantomData<E>,
-    }
-
-    impl Default for SyntectHtmlHandler<Error, DefaultHtmlHandler> {
-        fn default() -> Self {
-            SyntectHtmlHandler {
-                syntax_set: SyntaxSet::load_defaults_newlines(),
-                theme_set: ThemeSet::load_defaults(),
-                inner: DefaultHtmlHandler,
-                error_type: PhantomData,
-            }
-        }
+        /// background color, default is `IncludeBackground::No`
+        pub background: IncludeBackground,
+        /// handler error type
+        pub error_type: PhantomData<E>,
     }
 
     impl<E: From<Error>, H: HtmlHandler<E>> SyntectHtmlHandler<E, H> {
         pub fn new(inner: H) -> Self {
             SyntectHtmlHandler {
-                syntax_set: SyntaxSet::load_defaults_newlines(),
-                theme_set: ThemeSet::load_defaults(),
                 inner,
-                error_type: PhantomData,
+                ..Default::default()
             }
         }
 
@@ -249,10 +287,23 @@ pub mod syntect_feature {
                 language
                     .and_then(|lang| self.syntax_set.find_syntax_by_token(lang))
                     .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text()),
-                &self.theme_set.themes["InspiredGitHub"],
+                &self.theme_set.themes[&self.theme],
             );
             let regions = highlighter.highlight(content, &self.syntax_set);
-            styled_line_to_highlighted_html(&regions[..], IncludeBackground::No)
+            styled_line_to_highlighted_html(&regions[..], self.background)
+        }
+    }
+
+    impl<E: From<Error>, H: HtmlHandler<E>> Default for SyntectHtmlHandler<E, H> {
+        fn default() -> Self {
+            SyntectHtmlHandler {
+                syntax_set: SyntaxSet::load_defaults_newlines(),
+                theme_set: ThemeSet::load_defaults(),
+                theme: String::from("InspiredGitHub"),
+                inner: H::default(),
+                background: IncludeBackground::No,
+                error_type: PhantomData,
+            }
         }
     }
 
@@ -294,4 +345,4 @@ pub mod syntect_feature {
 }
 
 #[cfg(feature = "syntect")]
-pub use syntect_feature::*;
+pub use syntect_handler::SyntectHtmlHandler;

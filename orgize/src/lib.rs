@@ -231,6 +231,8 @@ mod error;
 
 // Re-export of the indextree crate.
 pub use indextree;
+#[cfg(feature = "syntect")]
+pub use syntect;
 
 pub use config::ParseConfig;
 pub use elements::Element;
