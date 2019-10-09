@@ -7,10 +7,9 @@ publish = false
 [package.metadata]
 cargo-fuzz = true
 
-[dependencies.orgize]
-path = ".."
-[dependencies.libfuzzer-sys]
-git = "https://github.com/rust-fuzz/libfuzzer-sys.git"
+[dependencies]
+libfuzzer-sys = { git = "https://github.com/rust-fuzz/libfuzzer-sys.git" }
+orgize = { path = ".." }
 
 # Prevent this from interfering with workspaces
 [workspace]
