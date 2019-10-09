@@ -36,7 +36,7 @@ impl<S: AsRef<str>> fmt::Display for Escape<S> {
     }
 }
 
-pub trait HtmlHandler<E: From<Error>> {
+pub trait HtmlHandler<E: From<Error>>: Default {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
         use Element::*;
 
@@ -199,6 +199,7 @@ pub trait HtmlHandler<E: From<Error>> {
     }
 }
 
+#[derive(Default)]
 pub struct DefaultHtmlHandler;
 
 impl HtmlHandler<Error> for DefaultHtmlHandler {}

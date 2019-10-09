@@ -79,7 +79,7 @@ use std::convert::From;
 use std::io::{Error as IOError, Write};
 use std::string::FromUtf8Error;
 
-use orgize::export::{html::Escape, DefaultHtmlHandler, HtmlHandler};
+use orgize::export::{DefaultHtmlHandler, HtmlHandler};
 use orgize::{Element, Org};
 use slugify::slugify;
 
@@ -103,6 +103,7 @@ impl From<FromUtf8Error> for MyError {
     }
 }
 
+#[derive(Default)]
 struct MyHtmlHandler(DefaultHtmlHandler);
 
 impl HtmlHandler<MyError> for MyHtmlHandler {
@@ -115,7 +116,7 @@ impl HtmlHandler<MyError> for MyHtmlHandler {
                     w,
                     "<h{0}><a id=\"{1}\" href=\"#{1}\">",
                     title.level,
-                    slugify!(title.raw),
+                    slugify!(&title.raw),
                 )?;
             }
         } else {
@@ -137,8 +138,7 @@ impl HtmlHandler<MyError> for MyHtmlHandler {
 
 fn main() -> Result<(), MyError> {
     let mut writer = Vec::new();
-
-    let mut handler = MyHtmlHandler(DefaultHtmlHandler);
+    let mut handler = MyHtmlHandler::default();
     Org::parse("* title\n*section*").html_with_handler(&mut writer, &mut handler)?;
 
     assert_eq!(

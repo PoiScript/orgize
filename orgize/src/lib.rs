@@ -114,6 +114,7 @@
 //!     }
 //! }
 //!
+//! #[derive(Default)]
 //! struct MyHtmlHandler(DefaultHtmlHandler);
 //!
 //! impl HtmlHandler<MyError> for MyHtmlHandler {
@@ -148,7 +149,7 @@
 //!
 //! fn main() -> Result<(), MyError> {
 //!     let mut writer = Vec::new();
-//!     let mut handler = MyHtmlHandler(DefaultHtmlHandler);
+//!     let mut handler = MyHtmlHandler::default();
 //!     Org::parse("* title\n*section*").html_with_handler(&mut writer, &mut handler)?;
 //!
 //!     assert_eq!(

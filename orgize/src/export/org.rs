@@ -3,7 +3,7 @@ use std::io::{Error, Write};
 use crate::elements::{Element, Timestamp};
 use crate::export::write_datetime;
 
-pub trait OrgHandler<E: From<Error>> {
+pub trait OrgHandler<E: From<Error>>: Default {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
         use Element::*;
 
@@ -233,6 +233,7 @@ fn write_timestamp<W: Write>(mut w: W, timestamp: &Timestamp) -> std::io::Result
     Ok(())
 }
 
+#[derive(Default)]
 pub struct DefaultOrgHandler;
 
 impl OrgHandler<Error> for DefaultOrgHandler {}

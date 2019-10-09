@@ -29,6 +29,7 @@ impl From<FromUtf8Error> for MyError {
     }
 }
 
+#[derive(Default)]
 struct MyHtmlHandler(DefaultHtmlHandler);
 
 impl HtmlHandler<MyError> for MyHtmlHandler {
@@ -70,7 +71,7 @@ fn main() -> Result<(), MyError> {
         let contents = String::from_utf8(fs::read(&args[1])?)?;
 
         let mut writer = Vec::new();
-        let mut handler = MyHtmlHandler(DefaultHtmlHandler);
+        let mut handler = MyHtmlHandler::default();
         Org::parse(&contents).html_with_handler(&mut writer, &mut handler)?;
 
         println!("{}", String::from_utf8(writer)?);
