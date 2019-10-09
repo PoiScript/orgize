@@ -342,7 +342,7 @@ mod syntect_handler {
             Ok(())
         }
 
-        fn end<W: Write>(&mut self, mut w: W, element: &Element<'_>) -> Result<(), E> {
+        fn end<W: Write>(&mut self, w: W, element: &Element<'_>) -> Result<(), E> {
             self.inner.end(w, element)
         }
     }
