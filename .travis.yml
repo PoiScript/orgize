@@ -1,4 +1,5 @@
 language: rust
+
 rust:
   - stable
   - nightly
@@ -15,13 +16,6 @@ before_script:
 script:
   - cargo fmt --all -- --check
   - cargo test --all-features
-
-deploy:
-  provider: heroku
-  api_key: $HEROKU_API_KEY
-  app: orgize
-  on:
-    condition: "$TRAVIS_RUST_VERSION == stable"
 
 notifications:
   email:
