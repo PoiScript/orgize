@@ -14,11 +14,7 @@ before_script:
 
 script:
   - cargo fmt --all -- --check
-  - if [ $TRAVIS_RUST_VERSION == "stable" ]; then
-        cargo test -p orgize-demos -p orgize --all-features;
-    else
-        cargo test -p orgize-sync --all-features;
-    fi
+  - cargo test --all-features
 
 deploy:
   provider: heroku

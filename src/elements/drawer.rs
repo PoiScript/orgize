@@ -62,5 +62,17 @@ fn parse() {
                 "  :CUSTOM_ID: id\n"
             )
         ))
-    )
+    );
+    assert_eq!(
+        parse_drawer::<VerboseError<&str>>(":PROPERTIES:\n  :END:"),
+        Ok((
+            "",
+            (
+                Drawer {
+                    name: "PROPERTIES".into()
+                },
+                ""
+            )
+        ))
+    );
 }

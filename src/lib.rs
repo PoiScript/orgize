@@ -221,13 +221,12 @@
 #![allow(clippy::range_plus_one)]
 
 mod config;
+mod error;
 pub mod elements;
 pub mod export;
 mod node;
 mod org;
 mod parsers;
-
-mod error;
 
 // Re-export of the indextree crate.
 pub use indextree;

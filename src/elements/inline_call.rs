@@ -11,7 +11,7 @@ use nom::{
 /// Inline Babel Call Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InlineCall<'a> {
     /// Called code block name
     pub name: Cow<'a, str>,

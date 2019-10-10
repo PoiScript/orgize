@@ -1,2 +1,1 @@
-VERSION="nightly"
-RUST_CARGO_BUILD_FLAGS="--release -p orgize-demos"
+RUST_CARGO_BUILD_FLAGS="--release --manifest-path demos/Cargo.toml"
