@@ -1,1 +1,1 @@
-web: ./demos/target/release/orgize-demos
+web: ./target/release/orgize-demos
