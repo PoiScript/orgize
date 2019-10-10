@@ -221,8 +221,8 @@
 #![allow(clippy::range_plus_one)]
 
 mod config;
-mod error;
 pub mod elements;
+mod error;
 pub mod export;
 mod node;
 mod org;
