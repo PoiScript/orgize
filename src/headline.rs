@@ -11,6 +11,9 @@ use crate::{
     Org,
 };
 
+/// Represents the document in `Org` struct.
+///
+/// Each `Org` struct only has one `Document`.
 #[derive(Copy, Clone, Debug)]
 pub struct Document(Headline);
 
@@ -31,10 +34,34 @@ impl Document {
         })
     }
 
+    /// Retuen the ID of the section element of this document, or `None` if it has no section.
     pub fn section_node(self) -> Option<NodeId> {
         self.0.sec_n
     }
 
+    /// Returns an iterator of this document's children.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"** h1
+    /// ** h2
+    /// *** h2_1
+    /// *** h2_2
+    /// ** h3
+    /// "#,
+    ///     );
+    ///
+    /// let d = org.document();
+    ///
+    /// let mut iter = d.children(&org);
+    ///
+    /// assert_eq!(iter.next().unwrap().title(&org).raw, "h1");
+    /// assert_eq!(iter.next().unwrap().title(&org).raw, "h2");
+    /// assert_eq!(iter.next().unwrap().title(&org).raw, "h3");
+    /// assert!(iter.next().is_none());
+    /// ```
     pub fn children<'a>(self, org: &'a Org) -> impl Iterator<Item = Headline> + 'a {
         self.0
             .hdl_n
@@ -47,6 +74,30 @@ impl Document {
             })
     }
 
+    /// Returns the first child of this document, or None if it has no child.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"** h1
+    /// ** h2
+    /// *** h2_1
+    /// *** h2_2
+    /// ** h3
+    /// "#,
+    ///     );
+    ///
+    /// let d = org.document();
+    ///
+    /// assert_eq!(d.first_child(&org).unwrap().title(&org).raw, "h1");
+    /// ```
+    ///
+    /// ```rust
+    /// let org = Org::new();
+    ///
+    /// assert!(org.document().first_child(&org).is_none());
+    /// ```
     pub fn first_child(self, org: &Org) -> Option<Headline> {
         self.0
             .hdl_n
@@ -59,10 +110,59 @@ impl Document {
             })
     }
 
+    /// Returns the last child of this document, or None if it has no child.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"** h1_1
+    /// ** h1_2
+    /// *** h1_2_1
+    /// *** h1_2_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// let d = org.document();
+    ///
+    /// assert_eq!(d.last_child(&org).unwrap().title(&org).raw, "h1_3");
+    /// ```
+    ///
+    /// ```rust
+    /// let org = Org::new();
+    ///
+    /// assert!(org.document().last_child(&org).is_none());
+    /// ```
     pub fn last_child(self, org: &Org) -> Option<Headline> {
         self.0.last_child(org)
     }
 
+    /// Changes the section content of this document.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"** h1_1
+    /// ** h1_2
+    /// "#,
+    /// );
+    ///
+    /// let mut d = org.document();
+    ///
+    /// d.set_section_content("s", &mut org);
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"s
+    /// ** h1_1
+    /// ** h1_2
+    /// "#,
+    /// );
+    /// ```
     pub fn set_section_content<'a, S>(&mut self, content: S, org: &mut Org<'a>)
     where
         S: Into<Cow<'a, str>>,
@@ -102,14 +202,100 @@ impl Document {
         org.debug_validate();
     }
 
+    /// Appends a new child to this document.
+    ///
+    /// Returns an error if the given new child was already attached,
+    /// or the given new child didn't meet the requirements of headline levels.
+    ///
+    /// ```rust
+    /// # use orgize::{elements::Title, Headline, Org};
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"***** h1
+    /// **** h2
+    /// *** h3
+    /// "#,
+    /// );
+    ///
+    /// let d = org.document();
+    ///
+    /// let mut h4 = Headline::new(
+    ///     Title {
+    ///         raw: "h4".into(),
+    ///         ..Default::default()
+    ///     },
+    ///     &mut org,
+    /// );
+    ///
+    /// // level must be smaller than or equal to 3
+    /// h4.set_level(4, &mut org).unwrap();
+    /// assert!(d.append(h4, &mut org).is_err());
+    ///
+    /// h4.set_level(2, &mut org).unwrap();
+    /// assert!(d.append(h4, &mut org).is_ok());
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"***** h1
+    /// **** h2
+    /// *** h3
+    /// ** h4
+    /// "#,
+    /// );
+    ///
+    /// // cannot append an attached headline
+    /// assert!(d.append(h4, &mut org).is_err());
+    /// ```
     pub fn append(self, hdl: Headline, org: &mut Org) -> ValidationResult<()> {
         self.0.append(hdl, org)
     }
 
-    pub fn append_title<'a>(self, ttl: Title<'a>, org: &mut Org<'a>) -> ValidationResult<()> {
-        self.0.append(Headline::new(ttl, org), org)
-    }
-
+    /// Prepends a new child to this document.
+    ///
+    /// Returns an error if the given new child was already attached,
+    /// or the given new child didn't meet the requirements of headline levels.
+    ///
+    /// ```rust
+    /// # use orgize::{elements::Title, Headline, Org};
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"** h2
+    /// ** h3
+    /// "#,
+    /// );
+    ///
+    /// let d = org.document();
+    ///
+    /// let mut h1 = Headline::new(
+    ///     Title {
+    ///         raw: "h1".into(),
+    ///         ..Default::default()
+    ///     },
+    ///     &mut org,
+    /// );
+    ///
+    /// // level must be greater than 2
+    /// h1.set_level(1, &mut org).unwrap();
+    /// assert!(d.prepend(h1, &mut org).is_err());
+    ///
+    /// h1.set_level(4, &mut org).unwrap();
+    /// assert!(d.prepend(h1, &mut org).is_ok());
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"**** h1
+    /// ** h2
+    /// ** h3
+    /// "#,
+    /// );
+    ///
+    /// // cannot prepend an attached headline
+    /// assert!(d.prepend(h1, &mut org).is_err());
+    /// ```
     pub fn prepend(self, hdl: Headline, org: &mut Org) -> ValidationResult<()> {
         hdl.check_detached(org)?;
 
@@ -129,12 +315,11 @@ impl Document {
 
         Ok(())
     }
-
-    pub fn prepend_title<'a>(self, ttl: Title<'a>, org: &mut Org<'a>) -> ValidationResult<()> {
-        self.prepend(Headline::new(ttl, org), org)
-    }
 }
 
+/// Represents a headline in `Org` struct.
+///
+/// Each `Org` has zero or more `Headline`s.
 #[derive(Copy, Clone, Debug)]
 pub struct Headline {
     lvl: usize,
@@ -144,6 +329,7 @@ pub struct Headline {
 }
 
 impl Headline {
+    /// Creates a new detaced Headline.
     pub fn new<'a>(ttl: Title<'a>, org: &mut Org<'a>) -> Headline {
         let lvl = ttl.level;
         let hdl_n = org.arena.new_node(Element::Headline { level: ttl.level });
@@ -196,22 +382,27 @@ impl Headline {
         }
     }
 
+    /// Returns the level of this headline.
     pub fn level(self) -> usize {
         self.lvl
     }
 
+    /// Retuen the ID of the headline element of this headline.
     pub fn headline_node(self) -> NodeId {
         self.hdl_n
     }
 
+    /// Retuen the ID of the title element of this headline.
     pub fn title_node(self) -> NodeId {
         self.ttl_n
     }
 
+    /// Retuen the ID of the section element of this headline, or `None` if it has no section..
     pub fn section_node(self) -> Option<NodeId> {
         self.sec_n
     }
 
+    /// Returns a reference to the title element of this headline.
     pub fn title<'a: 'b, 'b>(self, org: &'b Org<'a>) -> &'b Title<'a> {
         match org.arena[self.ttl_n].get() {
             Element::Title(title) => title,
@@ -219,6 +410,32 @@ impl Headline {
         }
     }
 
+    /// Returns a mutual reference to the title element of this headline.
+    ///
+    /// Don't change the level and content of the `&mut Titile` directly.
+    /// Alternatively, uses [`Headline::set_level`] and [`Headline::set_title_content`].
+    ///
+    /// [`Headline::set_level`]: #method.set_level
+    /// [`Headline::set_title_content`]: #method.set_title_content
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse("* h1");
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    ///
+    /// h1.title_mut(&mut org).priority = Some('A');
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     "* [#A] h1\n",
+    /// );
+    /// ```
     pub fn title_mut<'a: 'b, 'b>(self, org: &'b mut Org<'a>) -> &'b mut Title<'a> {
         match org.arena[self.ttl_n].get_mut() {
             Element::Title(title) => title,
@@ -226,6 +443,78 @@ impl Headline {
         }
     }
 
+    /// Changes the level of this headline.
+    ///
+    /// ```rust
+    /// # use orgize::{elements::Title, Headline, Org};
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_2 = headlines[2];
+    /// # let h1_3 = headlines[3];
+    ///
+    ///
+    /// // detached headline's levels can be changed freely
+    /// let mut new_headline = Headline::new(
+    ///     Title {
+    ///         raw: "new".into(),
+    ///         ..Default::default()
+    ///     },
+    ///     &mut org,
+    /// );
+    /// new_headline.set_level(42, &mut org).unwrap();
+    /// ```
+    pub fn set_level(&mut self, lvl: usize, org: &mut Org) -> ValidationResult<()> {
+        if !self.is_detached(org) {
+            unimplemented!();
+        }
+        self.lvl = lvl;
+        self.title_mut(org).level = lvl;
+        if let Element::Headline { level } = org.arena[self.hdl_n].get_mut() {
+            *level = lvl;
+        }
+        Ok(())
+    }
+
+    /// Changes the title content of this headline.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    ///
+    /// h1.set_title_content("H1", &mut org);
+    /// h1_1.set_title_content(String::from("*H1_1*"), &mut org);
+    ///
+    /// assert!(h1.parent(&org).is_none());
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"* H1
+    /// ** *H1_1*
+    /// "#,
+    /// );
+    /// ```
     pub fn set_title_content<'a, S>(self, content: S, org: &mut Org<'a>)
     where
         S: Into<Cow<'a, str>>,
@@ -261,6 +550,38 @@ impl Headline {
         org.debug_validate();
     }
 
+    /// Changes the section content of this headline.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// s1_1
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let mut h1 = headlines[0];
+    /// # let mut h1_1 = headlines[1];
+    ///
+    /// h1.set_section_content("s1", &mut org);
+    /// h1_1.set_section_content(String::from("*s1_1*"), &mut org);
+    ///
+    /// assert!(h1.parent(&org).is_none());
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"* h1
+    /// s1
+    /// ** h1_1
+    /// *s1_1*
+    /// "#,
+    /// );
+    /// ```
     pub fn set_section_content<'a, S>(&mut self, content: S, org: &mut Org<'a>)
     where
         S: Into<Cow<'a, str>>,
@@ -300,6 +621,35 @@ impl Headline {
         org.debug_validate();
     }
 
+    /// Returns the parent of this headline, or `None` if it is detached or attached to the document.
+    ///
+    /// ```rust
+    /// # use orgize::{elements::Title, Headline, Org};
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_2
+    /// *** h1_2_1
+    /// *** h1_2_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_2_1 = headlines[3];
+    ///
+    /// assert_eq!(h1_1.parent(&org).unwrap().title(&org).raw, "h1");
+    /// assert_eq!(h1_2_1.parent(&org).unwrap().title(&org).raw, "h1_2");
+    ///
+    /// assert!(h1.parent(&org).is_none());
+    ///
+    /// // detached headline have no parent
+    /// assert!(Headline::new(Title::default(), &mut org).parent(&org).is_none());
+    /// ```
     pub fn parent(self, org: &Org) -> Option<Headline> {
         org.arena[self.hdl_n]
             .parent()
@@ -310,6 +660,32 @@ impl Headline {
             })
     }
 
+    /// Returns an iterator of this headline's children.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_2
+    /// *** h1_2_1
+    /// *** h1_2_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    ///
+    /// let mut iter = h1.children(&org);
+    ///
+    /// assert_eq!(iter.next().unwrap().title(&org).raw, "h1_1");
+    /// assert_eq!(iter.next().unwrap().title(&org).raw, "h1_2");
+    /// assert_eq!(iter.next().unwrap().title(&org).raw, "h1_3");
+    /// assert!(iter.next().is_none());
+    /// ```
     pub fn children<'a>(self, org: &'a Org) -> impl Iterator<Item = Headline> + 'a {
         self.hdl_n
             .children(&org.arena)
@@ -320,6 +696,35 @@ impl Headline {
             })
     }
 
+    /// Returns the first child of this headline, or `None` if it has no child.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_2
+    /// *** h1_2_1
+    /// *** h1_2_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_2 = headlines[2];
+    /// # let h1_2_1 = headlines[3];
+    /// # let h1_2_2 = headlines[4];
+    /// # let h1_3 = headlines[5];
+    ///
+    /// assert_eq!(h1_2.first_child(&org).unwrap().title(&org).raw, "h1_2_1");
+    ///
+    /// assert!(h1_1.first_child(&org).is_none());
+    /// assert!(h1_3.first_child(&org).is_none());
+    /// ```
     pub fn first_child(self, org: &Org) -> Option<Headline> {
         self.hdl_n
             .children(&org.arena)
@@ -330,6 +735,35 @@ impl Headline {
             })
     }
 
+    /// Returns the last child of this headline, or `None` if it has no child.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_2
+    /// *** h1_2_1
+    /// *** h1_2_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_2 = headlines[2];
+    /// # let h1_2_1 = headlines[3];
+    /// # let h1_2_2 = headlines[4];
+    /// # let h1_3 = headlines[5];
+    ///
+    /// assert_eq!(h1_2.last_child(&org).unwrap().title(&org).raw, "h1_2_2");
+    ///
+    /// assert!(h1_1.last_child(&org).is_none());
+    /// assert!(h1_3.last_child(&org).is_none());
+    /// ```
     pub fn last_child(self, org: &Org) -> Option<Headline> {
         org.arena[self.hdl_n]
             .last_child()
@@ -340,15 +774,74 @@ impl Headline {
             })
     }
 
+    /// Returns the previous sibling of this headline, or `None` if it is a first child.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_2
+    /// *** h1_2_1
+    /// *** h1_2_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_2 = headlines[2];
+    /// # let h1_2_1 = headlines[3];
+    /// # let h1_2_2 = headlines[4];
+    /// # let h1_3 = headlines[5];
+    ///
+    /// assert_eq!(h1_2.previous(&org).unwrap().title(&org).raw, "h1_1");
+    ///
+    /// assert!(h1_1.previous(&org).is_none());
+    /// assert!(h1_2_1.previous(&org).is_none());
+    /// ```
     pub fn previous(self, org: &Org) -> Option<Headline> {
         org.arena[self.hdl_n]
             .previous_sibling()
-            .map(|n| match *org.arena[n].get() {
-                Element::Headline { level } => Headline::from_node(n, level, org),
+            .and_then(|n| match *org.arena[n].get() {
+                Element::Headline { level } => Some(Headline::from_node(n, level, org)),
+                Element::Title(_) | Element::Section => None,
                 _ => unreachable!(),
             })
     }
 
+    /// Returns the next sibling of this headline, or `None` if it is a last child.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_2
+    /// *** h1_2_1
+    /// *** h1_2_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_2 = headlines[2];
+    /// # let h1_2_1 = headlines[3];
+    /// # let h1_2_2 = headlines[4];
+    /// # let h1_3 = headlines[5];
+    ///
+    /// assert_eq!(h1_2.next(&org).unwrap().title(&org).raw, "h1_3");
+    ///
+    /// assert!(h1_3.next(&org).is_none());
+    /// assert!(h1_2_2.next(&org).is_none());
+    /// ```
     pub fn next(self, org: &Org) -> Option<Headline> {
         org.arena[self.hdl_n]
             .next_sibling()
@@ -358,14 +851,99 @@ impl Headline {
             })
     }
 
+    /// Detaches this headline from arena.
+    ///
+    /// ```rust
+    /// # use orgize::Org;
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_2
+    /// *** h1_2_1
+    /// *** h1_2_2
+    /// ** h1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_2 = headlines[2];
+    ///
+    /// h1_2.detach(&mut org);
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"* h1
+    /// ** h1_1
+    /// ** h1_3
+    /// "#,
+    /// );
+    /// ```
     pub fn detach(self, org: &mut Org) {
         self.hdl_n.detach(&mut org.arena);
     }
 
+    /// Returns `true` if this headline is detached.
     pub fn is_detached(self, org: &Org) -> bool {
-        self.parent(&org).is_none()
+        org.arena[self.hdl_n].parent().is_none()
     }
 
+    /// Appends a new child to this headline.
+    ///
+    /// Returns an error if the given new child was already attached, or
+    /// the given new child didn't meet the requirements of headline levels.
+    ///
+    /// ```rust
+    /// # use orgize::{elements::Title, Headline, Org};
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ***** h1_1_1
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    ///
+    /// let mut h1_1_2 = Headline::new(
+    ///     Title {
+    ///         raw: "h1_1_2".into(),
+    ///         ..Default::default()
+    ///     },
+    ///     &mut org,
+    /// );
+    ///
+    /// // level must be greater than 2, and smaller than or equal to 5
+    /// h1_1_2.set_level(2, &mut org).unwrap();
+    /// assert!(h1_1.append(h1_1_2, &mut org).is_err());
+    /// h1_1_2.set_level(6, &mut org).unwrap();
+    /// assert!(h1_1.append(h1_1_2, &mut org).is_err());
+    ///
+    /// h1_1_2.set_level(4, &mut org).unwrap();
+    /// assert!(h1_1.append(h1_1_2, &mut org).is_ok());
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"* h1
+    /// ** h1_1
+    /// ***** h1_1_1
+    /// **** h1_1_2
+    /// "#,
+    /// );
+    ///
+    /// // cannot append an attached headline
+    /// assert!(h1_1.append(h1_1_2, &mut org).is_err());
+    /// ```
     pub fn append(self, hdl: Headline, org: &mut Org) -> ValidationResult<()> {
         hdl.check_detached(org)?;
 
@@ -382,10 +960,44 @@ impl Headline {
         Ok(())
     }
 
-    pub fn append_title<'a>(self, ttl: Title<'a>, org: &mut Org<'a>) -> ValidationResult<()> {
-        self.append(Headline::new(ttl, org), org)
-    }
-
+    /// Prepends a new child to this headline.
+    ///
+    /// Returns an error if the given new child was already attached, or
+    /// the given new child didn't meet the requirements of headline levels.
+    ///
+    /// ```rust
+    /// # use orgize::{elements::Title, Headline, Org};
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// ***** h1_1_1
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    ///
+    /// let mut h1_1_2 = Headline::new(
+    ///     Title {
+    ///         raw: "h1_1_2".into(),
+    ///         ..Default::default()
+    ///     },
+    ///     &mut org,
+    /// );
+    ///
+    /// // level must be greater than or equal to 5
+    /// h1_1_2.set_level(2, &mut org).unwrap();
+    /// assert!(h1_1.prepend(h1_1_2, &mut org).is_err());
+    ///
+    /// h1_1_2.set_level(5, &mut org).unwrap();
+    /// assert!(h1_1.prepend(h1_1_2, &mut org).is_ok());
+    ///
+    /// // cannot prepend an attached headline
+    /// assert!(h1_1.prepend(h1_1_2, &mut org).is_err());
+    /// ```
     pub fn prepend(self, hdl: Headline, org: &mut Org) -> ValidationResult<()> {
         hdl.check_detached(org)?;
 
@@ -404,10 +1016,61 @@ impl Headline {
         Ok(())
     }
 
-    pub fn prepend_title<'a>(self, ttl: Title<'a>, org: &mut Org<'a>) -> ValidationResult<()> {
-        self.prepend(Headline::new(ttl, org), org)
-    }
-
+    /// Inserts a new sibling before this headline.
+    ///
+    /// Returns an error if the given new child was already attached, or
+    /// the given new child didn't meet the requirements of headline levels.
+    ///
+    /// ```rust
+    /// # use orgize::{elements::Title, Headline, Org};
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// **** h1_1_1
+    /// *** h1_1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_1_1 = headlines[2];
+    /// # let h1_1_3 = headlines[3];
+    ///
+    /// let mut h1_1_2 = Headline::new(
+    ///     Title {
+    ///         raw: "h1_1_2".into(),
+    ///         ..Default::default()
+    ///     },
+    ///     &mut org,
+    /// );
+    ///
+    /// // level must be greater than or equal to 3, but smaller than or equal to 4
+    /// h1_1_2.set_level(2, &mut org).unwrap();
+    /// assert!(h1_1_3.insert_before(h1_1_2, &mut org).is_err());
+    /// h1_1_2.set_level(5, &mut org).unwrap();
+    /// assert!(h1_1_3.insert_before(h1_1_2, &mut org).is_err());
+    ///
+    /// h1_1_2.set_level(4, &mut org).unwrap();
+    /// assert!(h1_1_3.insert_before(h1_1_2, &mut org).is_ok());
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"* h1
+    /// ** h1_1
+    /// **** h1_1_1
+    /// **** h1_1_2
+    /// *** h1_1_3
+    /// "#,
+    /// );
+    ///
+    /// // cannot insert an attached headline
+    /// assert!(h1_1_3.insert_before(h1_1_2, &mut org).is_err());
+    /// ```
     pub fn insert_before(self, hdl: Headline, org: &mut Org) -> ValidationResult<()> {
         hdl.check_detached(org)?;
 
@@ -424,14 +1087,61 @@ impl Headline {
         Ok(())
     }
 
-    pub fn insert_title_before<'a>(
-        self,
-        ttl: Title<'a>,
-        org: &mut Org<'a>,
-    ) -> ValidationResult<()> {
-        self.insert_before(Headline::new(ttl, org), org)
-    }
-
+    /// Inserts a new sibling after this headline.
+    ///
+    /// Returns an error if the given new child was already attached, or
+    /// the given new child didn't meet the requirements of headline levels.
+    ///
+    /// ```rust
+    /// # use orgize::{elements::Title, Headline, Org};
+    /// #
+    /// let mut org = Org::parse(
+    ///     r#"* h1
+    /// ** h1_1
+    /// **** h1_1_1
+    /// *** h1_1_3
+    /// "#,
+    ///     );
+    ///
+    /// // ..
+    /// # let headlines = org.headlines().collect::<Vec<_>>();
+    /// # let h1 = headlines[0];
+    /// # let h1_1 = headlines[1];
+    /// # let h1_1_1 = headlines[2];
+    /// # let h1_1_3 = headlines[3];
+    ///
+    /// let mut h1_1_2 = Headline::new(
+    ///     Title {
+    ///         raw: "h1_1_2".into(),
+    ///         ..Default::default()
+    ///     },
+    ///     &mut org,
+    /// );
+    ///
+    /// // level must be greater than or equal to 3, but smaller than or equal to 4
+    /// h1_1_2.set_level(2, &mut org).unwrap();
+    /// assert!(h1_1_1.insert_after(h1_1_2, &mut org).is_err());
+    /// h1_1_2.set_level(5, &mut org).unwrap();
+    /// assert!(h1_1_1.insert_after(h1_1_2, &mut org).is_err());
+    ///
+    /// h1_1_2.set_level(4, &mut org).unwrap();
+    /// assert!(h1_1_1.insert_after(h1_1_2, &mut org).is_ok());
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"* h1
+    /// ** h1_1
+    /// **** h1_1_1
+    /// **** h1_1_2
+    /// *** h1_1_3
+    /// "#,
+    /// );
+    ///
+    /// // cannot insert an attached headline
+    /// assert!(h1_1_1.insert_after(h1_1_2, &mut org).is_err());
+    /// ```
     pub fn insert_after(self, hdl: Headline, org: &mut Org) -> ValidationResult<()> {
         hdl.check_detached(org)?;
 
@@ -448,10 +1158,6 @@ impl Headline {
         org.debug_validate();
 
         Ok(())
-    }
-
-    pub fn insert_title_after<'a>(self, ttl: Title<'a>, org: &mut Org<'a>) -> ValidationResult<()> {
-        self.insert_after(Headline::new(ttl, org), org)
     }
 
     fn check_detached(self, org: &Org) -> ValidationResult<()> {
@@ -475,12 +1181,12 @@ impl Headline {
 }
 
 impl Org<'_> {
-    /// Return a `Document`
+    /// Returns the `Document`.
     pub fn document(&self) -> Document {
         Document::from_org(self)
     }
 
-    /// Return an iterator of `Headline`
+    /// Returns an iterator of `Headline`s.
     pub fn headlines(&self) -> impl Iterator<Item = Headline> + '_ {
         self.root
             .descendants(&self.arena)
