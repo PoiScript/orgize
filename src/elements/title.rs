@@ -14,9 +14,11 @@ use nom::{
     Err, IResult,
 };
 
-use crate::config::ParseConfig;
-use crate::elements::{drawer::parse_drawer, Planning, Timestamp};
-use crate::parsers::{line, skip_empty_lines, take_one_word};
+use crate::{
+    config::ParseConfig,
+    elements::{drawer::parse_drawer, Planning, Timestamp},
+    parsers::{line, skip_empty_lines, take_one_word},
+};
 
 /// Title Elemenet
 #[cfg_attr(test, derive(PartialEq))]
@@ -28,10 +30,10 @@ pub struct Title<'a> {
     /// Headline priority cookie
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub priority: Option<char>,
-    /// Headline title tags, including the sparated colons
+    /// Headline title tags
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Vec::is_empty"))]
     pub tags: Vec<Cow<'a, str>>,
-    /// Headline title keyword
+    /// Headline todo keyword
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub keyword: Option<Cow<'a, str>>,
     /// Raw headline's text, without the stars and the tags
@@ -130,8 +132,8 @@ fn parse_title<'a, E: ParseError<&'a str>>(
     let (input, keyword) = opt(preceded(
         space1,
         verify(take_one_word, |s: &str| {
-            config.todo_keywords.iter().any(|x| x == s)
-                || config.done_keywords.iter().any(|x| x == s)
+            config.todo_keywords.0.iter().any(|x| x == s)
+                || config.todo_keywords.1.iter().any(|x| x == s)
         }),
     ))(input)?;
 
@@ -353,7 +355,7 @@ fn parse_title_() {
         parse_title::<VerboseError<&str>>(
             "**** DONE Title",
             &ParseConfig {
-                done_keywords: vec![],
+                todo_keywords: (vec![], vec![]),
                 ..Default::default()
             }
         ),
@@ -377,7 +379,7 @@ fn parse_title_() {
         parse_title::<VerboseError<&str>>(
             "**** TASK [#A] Title",
             &ParseConfig {
-                todo_keywords: vec!["TASK".to_string()],
+                todo_keywords: (vec!["TASK".to_string()], vec![]),
                 ..Default::default()
             }
         ),

@@ -1,7 +1,7 @@
 use indextree::NodeId;
 use std::ops::RangeInclusive;
 
-use crate::elements::{Element, Table, TableRow, Title};
+use crate::elements::{Element, Table, TableRow};
 use crate::Org;
 
 /// Validation Error
@@ -104,8 +104,8 @@ impl Org<'_> {
                         errors.push(ValidationError::ExpectedChildren { at: node_id });
                     }
                 }
-                Element::Title(Title { raw, .. }) => {
-                    if !raw.is_empty() && node.first_child().is_none() {
+                Element::Title(title) => {
+                    if !title.raw.is_empty() && node.first_child().is_none() {
                         errors.push(ValidationError::ExpectedChildren { at: node_id });
                     }
                 }

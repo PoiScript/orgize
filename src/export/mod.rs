@@ -3,8 +3,8 @@
 pub mod html;
 pub mod org;
 
-pub use html::*;
-pub use org::*;
+pub use html::{DefaultHtmlHandler, Escape as HtmlEscape, HtmlHandler};
+pub use org::{DefaultOrgHandler, OrgHandler};
 
 use std::io::{Error, Write};
 

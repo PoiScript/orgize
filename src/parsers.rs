@@ -362,22 +362,22 @@ pub fn match_block<'a, T: ElementArena<'a>>(
     parent: NodeId,
     containers: &mut Vec<Container<'a>>,
     name: Cow<'a, str>,
-    args: Option<Cow<'a, str>>,
+    parameters: Option<Cow<'a, str>>,
     content: &'a str,
 ) {
     match &*name.to_uppercase() {
         "CENTER" => {
-            let node = arena.append_element(CenterBlock { parameters: args }, parent);
+            let node = arena.append_element(CenterBlock { parameters }, parent);
             containers.push(Container::Block { content, node });
         }
         "QUOTE" => {
-            let node = arena.append_element(QuoteBlock { parameters: args }, parent);
+            let node = arena.append_element(QuoteBlock { parameters }, parent);
             containers.push(Container::Block { content, node });
         }
         "COMMENT" => {
             arena.append_element(
                 CommentBlock {
-                    data: args,
+                    data: parameters,
                     contents: content.into(),
                 },
                 parent,
@@ -386,7 +386,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
         "EXAMPLE" => {
             arena.append_element(
                 ExampleBlock {
-                    data: args,
+                    data: parameters,
                     contents: content.into(),
                 },
                 parent,
@@ -395,14 +395,14 @@ pub fn match_block<'a, T: ElementArena<'a>>(
         "EXPORT" => {
             arena.append_element(
                 ExportBlock {
-                    data: args.unwrap_or_default(),
+                    data: parameters.unwrap_or_default(),
                     contents: content.into(),
                 },
                 parent,
             );
         }
         "SRC" => {
-            let (language, arguments) = match &args {
+            let (language, arguments) = match &parameters {
                 Some(Cow::Borrowed(args)) => {
                     let (language, arguments) =
                         args.split_at(args.find(' ').unwrap_or_else(|| args.len()));
@@ -421,17 +421,11 @@ pub fn match_block<'a, T: ElementArena<'a>>(
             );
         }
         "VERSE" => {
-            let node = arena.append_element(VerseBlock { parameters: args }, parent);
+            let node = arena.append_element(VerseBlock { parameters }, parent);
             containers.push(Container::Block { content, node });
         }
         _ => {
-            let node = arena.append_element(
-                SpecialBlock {
-                    parameters: args,
-                    name,
-                },
-                parent,
-            );
+            let node = arena.append_element(SpecialBlock { parameters, name }, parent);
             containers.push(Container::Block { content, node });
         }
     }
@@ -439,7 +433,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
 
 struct InlinePositions<'a> {
     bytes: &'a [u8],
-    position: usize,
+    pos: usize,
     next: Option<usize>,
 }
 
@@ -447,7 +441,7 @@ impl InlinePositions<'_> {
     fn new(bytes: &[u8]) -> InlinePositions {
         InlinePositions {
             bytes,
-            position: 0,
+            pos: 0,
             next: Some(0),
         }
     }
@@ -463,16 +457,16 @@ impl Iterator for InlinePositions<'_> {
         }
 
         self.next.take().or_else(|| {
-            PRE_BYTES.find(&self.bytes[self.position..]).map(|i| {
-                self.position += i + 1;
+            PRE_BYTES.find(&self.bytes[self.pos..]).map(|i| {
+                self.pos += i + 1;
 
-                match self.bytes[self.position - 1] {
+                match self.bytes[self.pos - 1] {
                     b'{' => {
-                        self.next = Some(self.position);
-                        self.position - 1
+                        self.next = Some(self.pos);
+                        self.pos - 1
                     }
-                    b' ' | b'(' | b'\'' | b'"' | b'\n' => self.position,
-                    _ => self.position - 1,
+                    b' ' | b'(' | b'\'' | b'"' | b'\n' => self.pos,
+                    _ => self.pos - 1,
                 }
             })
         })
@@ -683,7 +677,9 @@ pub fn line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E
 }
 
 pub fn eol<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
-    verify(line, |s: &str| s.trim().is_empty())(input)
+    verify(line, |s: &str| {
+        s.as_bytes().iter().all(|c| c.is_ascii_whitespace())
+    })(input)
 }
 
 pub fn take_lines_while(predicate: impl Fn(&str) -> bool) -> impl Fn(&str) -> (&str, &str) {
@@ -708,7 +704,7 @@ pub fn take_lines_while(predicate: impl Fn(&str) -> bool) -> impl Fn(&str) -> (&
 }
 
 pub fn skip_empty_lines(input: &str) -> &str {
-    take_lines_while(|line| line.trim().is_empty())(input).0
+    take_lines_while(|line| line.as_bytes().iter().all(|c| c.is_ascii_whitespace()))(input).0
 }
 
 pub fn parse_headline(input: &str) -> Option<(&str, (&str, usize))> {

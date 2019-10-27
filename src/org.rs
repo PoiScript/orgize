@@ -5,7 +5,6 @@ use crate::{
     config::{ParseConfig, DEFAULT_CONFIG},
     elements::Element,
     export::{DefaultHtmlHandler, DefaultOrgHandler, HtmlHandler, OrgHandler},
-    headline::{Document, Headline},
     parsers::{parse_container, Container},
 };
 
@@ -35,13 +34,13 @@ impl<'a> Org<'a> {
     }
 
     /// Create a new Org struct from parsing `text`, using a custom ParseConfig
-    pub fn parse_with_config(content: &'a str, config: &ParseConfig) -> Org<'a> {
+    pub fn parse_with_config(text: &'a str, config: &ParseConfig) -> Org<'a> {
         let mut org = Org::new();
 
         parse_container(
             &mut org.arena,
             Container::Document {
-                content,
+                content: text,
                 node: org.root,
             },
             config,
@@ -50,22 +49,6 @@ impl<'a> Org<'a> {
         org.debug_validate();
 
         org
-    }
-
-    /// Return a `Document`
-    pub fn document(&self) -> Document {
-        Document::from_org(self)
-    }
-
-    /// Return an iterator of `Headline`
-    pub fn headlines<'b>(&'b self) -> impl Iterator<Item = Headline> + 'b {
-        self.root
-            .descendants(&self.arena)
-            .skip(1)
-            .filter_map(move |node| match &self.arena[node].get() {
-                Element::Headline { level } => Some(Headline::from_node(node, *level, self)),
-                _ => None,
-            })
     }
 
     /// Return a refrence to underlay arena
@@ -86,8 +69,11 @@ impl<'a> Org<'a> {
         })
     }
 
-    pub fn html<W: Write>(&self, wrtier: W) -> Result<(), Error> {
-        self.html_with_handler(wrtier, &mut DefaultHtmlHandler)
+    pub fn html<W>(&self, writer: W) -> Result<(), Error>
+    where
+        W: Write,
+    {
+        self.html_with_handler(writer, &mut DefaultHtmlHandler)
     }
 
     pub fn html_with_handler<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
@@ -106,8 +92,11 @@ impl<'a> Org<'a> {
         Ok(())
     }
 
-    pub fn org<W: Write>(&self, wrtier: W) -> Result<(), Error> {
-        self.org_with_handler(wrtier, &mut DefaultOrgHandler)
+    pub fn org<W>(&self, writer: W) -> Result<(), Error>
+    where
+        W: Write,
+    {
+        self.org_with_handler(writer, &mut DefaultOrgHandler)
     }
 
     pub fn org_with_handler<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>

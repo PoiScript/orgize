@@ -9,7 +9,7 @@ use nom::{
     IResult,
 };
 
-/// Orgize Datetime Struct
+/// Datetime Struct
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug, Clone)]

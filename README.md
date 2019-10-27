@@ -6,7 +6,7 @@
 
 A Rust library for parsing orgmode files.
 
-Live demo: https://orgize.herokuapp.com/
+[Live demo](https://orgize.herokuapp.com/)
 
 ## Parse
 
@@ -27,7 +27,7 @@ Org::parse_with_config(
     "* TASK Title 1",
     &ParseConfig {
         // custom todo keywords
-        todo_keywords: vec!["TASK".to_string()],
+        todo_keywords: (vec!["TASK".to_string()], vec![]),
         ..Default::default()
     },
 );
@@ -157,7 +157,7 @@ And handler will silently ignores all end events from non-container elements.
 So if you want to change how a non-container element renders, just redefine the `start`
 function and leave the `end` function unchanged.
 
-# Serde
+## Serde
 
 `Org` struct have already implemented serde's `Serialize` trait. It means you can
 serialize it into any format supported by serde, such as json:
@@ -195,7 +195,7 @@ println!("{}", to_string(&org).unwrap());
 
 ## Features
 
-By now, orgize provides two features:
+By now, orgize provides three features:
 
 + `ser`: adds the ability to serialize `Org` and other elements using `serde`, enabled by default.
 

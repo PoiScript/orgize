@@ -63,11 +63,10 @@ impl Document {
         self.0.last_child(org)
     }
 
-    pub fn set_section_content<'a, S: Into<Cow<'a, str>>>(
-        &mut self,
-        content: S,
-        org: &mut Org<'a>,
-    ) {
+    pub fn set_section_content<'a, S>(&mut self, content: S, org: &mut Org<'a>)
+    where
+        S: Into<Cow<'a, str>>,
+    {
         let sec_n = if let Some(sec_n) = self.0.sec_n {
             let children: Vec<_> = sec_n.children(&org.arena).collect();
             for child in children {
@@ -188,6 +187,7 @@ impl Headline {
                 Element::Section => Some(n),
                 _ => None,
             });
+
         Headline {
             lvl,
             hdl_n,
@@ -226,7 +226,10 @@ impl Headline {
         }
     }
 
-    pub fn set_title_content<'a, S: Into<Cow<'a, str>>>(self, content: S, org: &mut Org<'a>) {
+    pub fn set_title_content<'a, S>(self, content: S, org: &mut Org<'a>)
+    where
+        S: Into<Cow<'a, str>>,
+    {
         let content = content.into();
 
         let children: Vec<_> = self.ttl_n.children(&org.arena).collect();
@@ -258,11 +261,10 @@ impl Headline {
         org.debug_validate();
     }
 
-    pub fn set_section_content<'a, S: Into<Cow<'a, str>>>(
-        &mut self,
-        content: S,
-        org: &mut Org<'a>,
-    ) {
+    pub fn set_section_content<'a, S>(&mut self, content: S, org: &mut Org<'a>)
+    where
+        S: Into<Cow<'a, str>>,
+    {
         let sec_n = if let Some(sec_n) = self.sec_n {
             let children: Vec<_> = sec_n.children(&org.arena).collect();
             for child in children {
@@ -469,5 +471,23 @@ impl Headline {
         } else {
             Ok(())
         }
+    }
+}
+
+impl Org<'_> {
+    /// Return a `Document`
+    pub fn document(&self) -> Document {
+        Document::from_org(self)
+    }
+
+    /// Return an iterator of `Headline`
+    pub fn headlines(&self) -> impl Iterator<Item = Headline> + '_ {
+        self.root
+            .descendants(&self.arena)
+            .skip(1)
+            .filter_map(move |node| match &self.arena[node].get() {
+                Element::Headline { level } => Some(Headline::from_node(node, *level, self)),
+                _ => None,
+            })
     }
 }

@@ -50,7 +50,7 @@ pub use self::{
 
 use std::borrow::Cow;
 
-/// Orgize Element Enum
+/// Element Enum
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]

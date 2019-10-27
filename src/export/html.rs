@@ -6,19 +6,32 @@ use jetscii::{bytes, BytesConst};
 use crate::elements::Element;
 use crate::export::write_datetime;
 
+/// A wrapper for escaping sensitive characters in html.
+///
+/// ```rust
+/// use orgize::export::html::Escape;
+///
+/// assert_eq!(format!("{}", Escape("< < <")), "&lt; &lt; &lt;");
+/// assert_eq!(
+///     format!("{}", Escape("<script>alert('Hello XSS')</script>")),
+///     "&lt;script&gt;alert(&apos;Hello XSS&apos;)&lt;/script&gt;"
+/// );
+/// ```
 pub struct Escape<S: AsRef<str>>(pub S);
 
 impl<S: AsRef<str>> fmt::Display for Escape<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut pos = 0;
-        let bytes = self.0.as_ref().as_bytes();
+
+        let content = self.0.as_ref();
+        let bytes = content.as_bytes();
 
         lazy_static::lazy_static! {
             static ref ESCAPE_BYTES: BytesConst = bytes!(b'<', b'>', b'&', b'\'', b'"');
         }
 
         while let Some(off) = ESCAPE_BYTES.find(&bytes[pos..]) {
-            write!(f, "{}", &self.0.as_ref()[pos..pos + off])?;
+            write!(f, "{}", &content[pos..pos + off])?;
 
             pos += off + 1;
 
@@ -26,13 +39,13 @@ impl<S: AsRef<str>> fmt::Display for Escape<S> {
                 b'<' => write!(f, "&lt;")?,
                 b'>' => write!(f, "&gt;")?,
                 b'&' => write!(f, "&amp;")?,
-                b'\'' => write!(f, "&#39;")?,
+                b'\'' => write!(f, "&apos;")?,
                 b'"' => write!(f, "&quot;")?,
                 _ => unreachable!(),
             }
         }
 
-        write!(f, "{}", &self.0.as_ref()[pos..])
+        write!(f, "{}", &content[pos..])
     }
 }
 
