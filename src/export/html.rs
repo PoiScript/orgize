@@ -9,7 +9,7 @@ use crate::export::write_datetime;
 /// A wrapper for escaping sensitive characters in html.
 ///
 /// ```rust
-/// use orgize::export::html::Escape;
+/// use orgize::export::HtmlEscape as Escape;
 ///
 /// assert_eq!(format!("{}", Escape("< < <")), "&lt; &lt; &lt;");
 /// assert_eq!(

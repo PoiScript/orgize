@@ -1,9 +1,11 @@
 //! Export `Org` struct to various formats.
 
-pub mod html;
-pub mod org;
+mod html;
+mod org;
 
 pub use html::{DefaultHtmlHandler, Escape as HtmlEscape, HtmlHandler};
+#[cfg(feature = "syntect")]
+pub use html::SyntectHtmlHandler;
 pub use org::{DefaultOrgHandler, OrgHandler};
 
 use std::io::{Error, Write};

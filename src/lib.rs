@@ -6,7 +6,7 @@
 //!
 //! To parse a orgmode string, simply invoking the [`Org::parse`] function:
 //!
-//! [`Org::parse`]: org/struct.Org.html#method.parse
+//! [`Org::parse`]: struct.Org.html#method.parse
 //!
 //! ```rust
 //! use orgize::Org;
@@ -16,7 +16,7 @@
 //!
 //! or [`Org::parse_with_config`]:
 //!
-//! [`Org::parse_with_config`]: org/struct.Org.html#method.parse_with_config
+//! [`Org::parse_with_config`]: struct.Org.html#method.parse_with_config
 //!
 //! ```rust
 //! use orgize::{Org, ParseConfig};
@@ -36,8 +36,8 @@
 //! [`Org::iter`] function will returns an iteractor of [`Event`]s, which is
 //! a simple wrapper of [`Element`].
 //!
-//! [`Org::iter`]: org/struct.Org.html#method.iter
-//! [`Event`]: iter/enum.Event.html
+//! [`Org::iter`]: struct.Org.html#method.iter
+//! [`Event`]: enum.Event.html
 //! [`Element`]: elements/enum.Element.html
 //!
 //! ```rust
@@ -51,16 +51,16 @@
 //! **Note**: whether an element is container or not, it will appears twice in one loop.
 //! One as [`Event::Start(element)`], one as [`Event::End(element)`].
 //!
-//! [`Event::Start(element)`]: iter/enum.Event.html#variant.Start
-//! [`Event::End(element)`]: iter/enum.Event.html#variant.End
+//! [`Event::Start(element)`]: enum.Event.html#variant.Start
+//! [`Event::End(element)`]: enum.Event.html#variant.End
 //!
 //! # Render html
 //!
 //! You can call the [`Org::html`] function to generate html directly, which
 //! uses the [`DefaultHtmlHandler`] internally:
 //!
-//! [`Org::html`]: org/struct.Org.html#method.html
-//! [`DefaultHtmlHandler`]: export/html/struct.DefaultHtmlHandler.html
+//! [`Org::html`]: struct.Org.html#method.html
+//! [`DefaultHtmlHandler`]: export/struct.DefaultHtmlHandler.html
 //!
 //! ```rust
 //! use orgize::Org;
@@ -79,8 +79,8 @@
 //! To customize html rendering, simply implementing [`HtmlHandler`] trait and passing
 //! it to the [`Org::html_with_handler`] function.
 //!
-//! [`HtmlHandler`]: export/html/trait.HtmlHandler.html
-//! [`Org::html_with_handler`]: org/struct.Org.html#method.html_with_handler
+//! [`HtmlHandler`]: export/trait.HtmlHandler.html
+//! [`Org::html_with_handler`]: struct.Org.html#method.html_with_handler
 //!
 //! The following code demonstrates how to add a id for every headline and return
 //! own error type while rendering.
@@ -212,7 +212,9 @@
 //!
 //! + `chrono`: adds the ability to convert `Datetime` into `chrono` structs, disabled by default.
 //!
-//! + `syntect`: provides `SyntectHtmlHandler` for highlighting code block, disabled by default.
+//! + `syntect`: provides [`SyntectHtmlHandler`] for highlighting code block, disabled by default.
+//!
+//! [`SyntectHtmlHandler`]: export/struct.SyntectHtmlHandler.html
 //!
 //! # License
 //!
