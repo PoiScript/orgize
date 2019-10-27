@@ -3,9 +3,9 @@
 mod html;
 mod org;
 
-pub use html::{DefaultHtmlHandler, Escape as HtmlEscape, HtmlHandler};
 #[cfg(feature = "syntect")]
 pub use html::SyntectHtmlHandler;
+pub use html::{DefaultHtmlHandler, HtmlEscape, HtmlHandler};
 pub use org::{DefaultOrgHandler, OrgHandler};
 
 use std::io::{Error, Write};

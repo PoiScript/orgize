@@ -17,9 +17,9 @@ use crate::export::write_datetime;
 ///     "&lt;script&gt;alert(&apos;Hello XSS&apos;)&lt;/script&gt;"
 /// );
 /// ```
-pub struct Escape<S: AsRef<str>>(pub S);
+pub struct HtmlEscape<S: AsRef<str>>(pub S);
 
-impl<S: AsRef<str>> fmt::Display for Escape<S> {
+impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut pos = 0;
 
@@ -81,7 +81,7 @@ pub trait HtmlHandler<E: From<Error>>: Default {
             ExampleBlock(block) => write!(
                 w,
                 "<pre class=\"example\">{}</pre>",
-                Escape(&block.contents)
+                HtmlEscape(&block.contents)
             )?,
             ExportBlock(block) => {
                 if block.data.eq_ignore_ascii_case("HTML") {
@@ -93,14 +93,14 @@ pub trait HtmlHandler<E: From<Error>>: Default {
                     write!(
                         w,
                         "<pre class=\"example\">{}</pre>",
-                        Escape(&block.contents)
+                        HtmlEscape(&block.contents)
                     )?;
                 } else {
                     write!(
                         w,
                         "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
                         block.language,
-                        Escape(&block.contents)
+                        HtmlEscape(&block.contents)
                     )?;
                 }
             }
@@ -109,16 +109,16 @@ pub trait HtmlHandler<E: From<Error>>: Default {
                 w,
                 "<code class=\"src src-{}\">{}</code>",
                 inline_src.lang,
-                Escape(&inline_src.body)
+                HtmlEscape(&inline_src.body)
             )?,
-            Code { value } => write!(w, "<code>{}</code>", Escape(value))?,
+            Code { value } => write!(w, "<code>{}</code>", HtmlEscape(value))?,
             FnRef(_fn_ref) => (),
             InlineCall(_) => (),
             Link(link) => write!(
                 w,
                 "<a href=\"{}\">{}</a>",
-                Escape(&link.path),
-                Escape(link.desc.as_ref().unwrap_or(&link.path)),
+                HtmlEscape(&link.path),
+                HtmlEscape(link.desc.as_ref().unwrap_or(&link.path)),
             )?,
             Macros(_macros) => (),
             RadioTarget => (),
@@ -128,7 +128,7 @@ pub trait HtmlHandler<E: From<Error>>: Default {
                 }
             }
             Target(_target) => (),
-            Text { value } => write!(w, "{}", Escape(value))?,
+            Text { value } => write!(w, "{}", HtmlEscape(value))?,
             Timestamp(timestamp) => {
                 use crate::elements::Timestamp;
 
@@ -152,16 +152,20 @@ pub trait HtmlHandler<E: From<Error>>: Default {
                         write_datetime(&mut w, "[", start, "]&#x2013;")?;
                         write_datetime(&mut w, "[", end, "]")?;
                     }
-                    Timestamp::Diary { value } => write!(&mut w, "&lt;%%({})&gt;", Escape(value))?,
+                    Timestamp::Diary { value } => {
+                        write!(&mut w, "&lt;%%({})&gt;", HtmlEscape(value))?
+                    }
                 }
 
                 write!(&mut w, "</span></span>")?;
             }
-            Verbatim { value } => write!(&mut w, "<code>{}</code>", Escape(value))?,
+            Verbatim { value } => write!(&mut w, "<code>{}</code>", HtmlEscape(value))?,
             FnDef(_fn_def) => (),
             Clock(_clock) => (),
             Comment { .. } => (),
-            FixedWidth { value } => write!(w, "<pre class=\"example\">{}</pre>", Escape(value))?,
+            FixedWidth { value } => {
+                write!(w, "<pre class=\"example\">{}</pre>", HtmlEscape(value))?
+            }
             Keyword(_keyword) => (),
             Drawer(_drawer) => (),
             Rule => write!(w, "<hr>")?,
