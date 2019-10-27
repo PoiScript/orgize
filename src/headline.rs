@@ -21,7 +21,7 @@ impl Document {
     pub(crate) fn from_org(org: &Org) -> Document {
         let sec_n = org.arena[org.root]
             .first_child()
-            .and_then(|n| match org.arena[n].get() {
+            .and_then(|n| match org[n] {
                 Element::Section => Some(n),
                 _ => None,
             });
@@ -68,7 +68,7 @@ impl Document {
             .children(&org.arena)
             // skip sec_n if exists
             .skip(if self.0.sec_n.is_some() { 1 } else { 0 })
-            .map(move |n| match *org.arena[n].get() {
+            .map(move |n| match org[n] {
                 Element::Headline { level } => Headline::from_node(n, level, org),
                 _ => unreachable!(),
             })
@@ -94,6 +94,8 @@ impl Document {
     /// ```
     ///
     /// ```rust
+    /// # use orgize::Org;
+    /// #
     /// let org = Org::new();
     ///
     /// assert!(org.document().first_child(&org).is_none());
@@ -104,7 +106,7 @@ impl Document {
             .children(&org.arena)
             // skip sec_n if exists
             .nth(if self.0.sec_n.is_some() { 1 } else { 0 })
-            .map(move |n| match *org.arena[n].get() {
+            .map(move |n| match org[n] {
                 Element::Headline { level } => Headline::from_node(n, level, org),
                 _ => unreachable!(),
             })
@@ -130,6 +132,8 @@ impl Document {
     /// ```
     ///
     /// ```rust
+    /// # use orgize::Org;
+    /// #
     /// let org = Org::new();
     ///
     /// assert!(org.document().last_child(&org).is_none());
@@ -205,7 +209,7 @@ impl Document {
     /// Appends a new child to this document.
     ///
     /// Returns an error if the given new child was already attached,
-    /// or the given new child didn't meet the requirements of headline levels.
+    /// or the given new child didn't meet the requirements.
     ///
     /// ```rust
     /// # use orgize::{elements::Title, Headline, Org};
@@ -255,7 +259,7 @@ impl Document {
     /// Prepends a new child to this document.
     ///
     /// Returns an error if the given new child was already attached,
-    /// or the given new child didn't meet the requirements of headline levels.
+    /// or the given new child didn't meet the requirements.
     ///
     /// ```rust
     /// # use orgize::{elements::Title, Headline, Org};
@@ -367,12 +371,10 @@ impl Headline {
 
     pub(crate) fn from_node(hdl_n: NodeId, lvl: usize, org: &Org) -> Headline {
         let ttl_n = org.arena[hdl_n].first_child().unwrap();
-        let sec_n = org.arena[ttl_n]
-            .next_sibling()
-            .and_then(|n| match org.arena[n].get() {
-                Element::Section => Some(n),
-                _ => None,
-            });
+        let sec_n = org.arena[ttl_n].next_sibling().and_then(|n| match org[n] {
+            Element::Section => Some(n),
+            _ => None,
+        });
 
         Headline {
             lvl,
@@ -404,7 +406,7 @@ impl Headline {
 
     /// Returns a reference to the title element of this headline.
     pub fn title<'a: 'b, 'b>(self, org: &'b Org<'a>) -> &'b Title<'a> {
-        match org.arena[self.ttl_n].get() {
+        match &org[self.ttl_n] {
             Element::Title(title) => title,
             _ => unreachable!(),
         }
@@ -437,7 +439,7 @@ impl Headline {
     /// );
     /// ```
     pub fn title_mut<'a: 'b, 'b>(self, org: &'b mut Org<'a>) -> &'b mut Title<'a> {
-        match org.arena[self.ttl_n].get_mut() {
+        match &mut org[self.ttl_n] {
             Element::Title(title) => title,
             _ => unreachable!(),
         }
@@ -445,13 +447,16 @@ impl Headline {
 
     /// Changes the level of this headline.
     ///
+    /// Returns an error if this headline is attached and the given new level
+    /// dones't meet the requirements.
+    ///
     /// ```rust
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
     ///     r#"* h1
-    /// ** h1_1
-    /// ** h1_2
+    /// ****** h1_1
+    /// *** h1_2
     /// ** h1_3
     /// "#,
     ///     );
@@ -460,9 +465,24 @@ impl Headline {
     /// # let headlines = org.headlines().collect::<Vec<_>>();
     /// # let h1 = headlines[0];
     /// # let h1_1 = headlines[1];
-    /// # let h1_2 = headlines[2];
+    /// # let mut h1_2 = headlines[2];
     /// # let h1_3 = headlines[3];
     ///
+    /// // level must be greater than or equal to 2, and smaller than or equal to 6
+    /// assert!(h1_2.set_level(42, &mut org).is_err());
+    ///
+    /// assert!(h1_2.set_level(5, &mut org).is_ok());
+    ///
+    /// let mut writer = Vec::new();
+    /// org.org(&mut writer).unwrap();
+    /// assert_eq!(
+    ///     String::from_utf8(writer).unwrap(),
+    ///     r#"* h1
+    /// ****** h1_1
+    /// ***** h1_2
+    /// ** h1_3
+    /// "#,
+    /// );
     ///
     /// // detached headline's levels can be changed freely
     /// let mut new_headline = Headline::new(
@@ -476,7 +496,21 @@ impl Headline {
     /// ```
     pub fn set_level(&mut self, lvl: usize, org: &mut Org) -> ValidationResult<()> {
         if !self.is_detached(org) {
-            unimplemented!();
+            let min = self
+                .next(&org)
+                .or_else(|| self.parent(&org))
+                .map(|hdl| hdl.lvl)
+                .unwrap_or(1);
+            let max = self
+                .previous(&org)
+                .map(|hdl| hdl.lvl)
+                .unwrap_or(usize::max_value());
+            if !(min..=max).contains(&lvl) {
+                return Err(ValidationError::HeadlineLevelMismatch {
+                    range: min..=max,
+                    at: self.hdl_n,
+                });
+            }
         }
         self.lvl = lvl;
         self.title_mut(org).level = lvl;
@@ -505,7 +539,6 @@ impl Headline {
     /// h1.set_title_content("H1", &mut org);
     /// h1_1.set_title_content(String::from("*H1_1*"), &mut org);
     ///
-    /// assert!(h1.parent(&org).is_none());
     /// let mut writer = Vec::new();
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
@@ -570,7 +603,6 @@ impl Headline {
     /// h1.set_section_content("s1", &mut org);
     /// h1_1.set_section_content(String::from("*s1_1*"), &mut org);
     ///
-    /// assert!(h1.parent(&org).is_none());
     /// let mut writer = Vec::new();
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
@@ -651,13 +683,11 @@ impl Headline {
     /// assert!(Headline::new(Title::default(), &mut org).parent(&org).is_none());
     /// ```
     pub fn parent(self, org: &Org) -> Option<Headline> {
-        org.arena[self.hdl_n]
-            .parent()
-            .and_then(|n| match *org.arena[n].get() {
-                Element::Headline { level } => Some(Headline::from_node(n, level, org)),
-                Element::Document => None,
-                _ => unreachable!(),
-            })
+        org.arena[self.hdl_n].parent().and_then(|n| match org[n] {
+            Element::Headline { level } => Some(Headline::from_node(n, level, org)),
+            Element::Document => None,
+            _ => unreachable!(),
+        })
     }
 
     /// Returns an iterator of this headline's children.
@@ -690,7 +720,7 @@ impl Headline {
         self.hdl_n
             .children(&org.arena)
             .skip(if self.sec_n.is_some() { 2 } else { 1 })
-            .filter_map(move |n| match *org.arena[n].get() {
+            .filter_map(move |n| match org[n] {
                 Element::Headline { level } => Some(Headline::from_node(n, level, org)),
                 _ => unreachable!(),
             })
@@ -729,7 +759,7 @@ impl Headline {
         self.hdl_n
             .children(&org.arena)
             .nth(if self.sec_n.is_some() { 2 } else { 1 })
-            .map(|n| match *org.arena[n].get() {
+            .map(|n| match org[n] {
                 Element::Headline { level } => Headline::from_node(n, level, org),
                 _ => unreachable!(),
             })
@@ -767,7 +797,7 @@ impl Headline {
     pub fn last_child(self, org: &Org) -> Option<Headline> {
         org.arena[self.hdl_n]
             .last_child()
-            .and_then(|n| match *org.arena[n].get() {
+            .and_then(|n| match org[n] {
                 Element::Headline { level } => Some(Headline::from_node(n, level, org)),
                 Element::Section | Element::Title(_) => None,
                 _ => unreachable!(),
@@ -806,7 +836,7 @@ impl Headline {
     pub fn previous(self, org: &Org) -> Option<Headline> {
         org.arena[self.hdl_n]
             .previous_sibling()
-            .and_then(|n| match *org.arena[n].get() {
+            .and_then(|n| match org[n] {
                 Element::Headline { level } => Some(Headline::from_node(n, level, org)),
                 Element::Title(_) | Element::Section => None,
                 _ => unreachable!(),
@@ -843,12 +873,10 @@ impl Headline {
     /// assert!(h1_2_2.next(&org).is_none());
     /// ```
     pub fn next(self, org: &Org) -> Option<Headline> {
-        org.arena[self.hdl_n]
-            .next_sibling()
-            .map(|n| match *org.arena[n].get() {
-                Element::Headline { level } => Headline::from_node(n, level, org),
-                _ => unreachable!(),
-            })
+        org.arena[self.hdl_n].next_sibling().map(|n| match org[n] {
+            Element::Headline { level } => Headline::from_node(n, level, org),
+            _ => unreachable!(),
+        })
     }
 
     /// Detaches this headline from arena.
@@ -896,7 +924,7 @@ impl Headline {
     /// Appends a new child to this headline.
     ///
     /// Returns an error if the given new child was already attached, or
-    /// the given new child didn't meet the requirements of headline levels.
+    /// the given new child didn't meet the requirements.
     ///
     /// ```rust
     /// # use orgize::{elements::Title, Headline, Org};
@@ -963,7 +991,7 @@ impl Headline {
     /// Prepends a new child to this headline.
     ///
     /// Returns an error if the given new child was already attached, or
-    /// the given new child didn't meet the requirements of headline levels.
+    /// the given new child didn't meet the requirements.
     ///
     /// ```rust
     /// # use orgize::{elements::Title, Headline, Org};
@@ -1019,7 +1047,7 @@ impl Headline {
     /// Inserts a new sibling before this headline.
     ///
     /// Returns an error if the given new child was already attached, or
-    /// the given new child didn't meet the requirements of headline levels.
+    /// the given new child didn't meet the requirements.
     ///
     /// ```rust
     /// # use orgize::{elements::Title, Headline, Org};
@@ -1090,7 +1118,7 @@ impl Headline {
     /// Inserts a new sibling after this headline.
     ///
     /// Returns an error if the given new child was already attached, or
-    /// the given new child didn't meet the requirements of headline levels.
+    /// the given new child didn't meet the requirements.
     ///
     /// ```rust
     /// # use orgize::{elements::Title, Headline, Org};
@@ -1191,8 +1219,8 @@ impl Org<'_> {
         self.root
             .descendants(&self.arena)
             .skip(1)
-            .filter_map(move |node| match &self.arena[node].get() {
-                Element::Headline { level } => Some(Headline::from_node(node, *level, self)),
+            .filter_map(move |node| match self[node] {
+                Element::Headline { level } => Some(Headline::from_node(node, level, self)),
                 _ => None,
             })
     }

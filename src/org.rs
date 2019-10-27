@@ -1,5 +1,6 @@
 use indextree::{Arena, NodeEdge, NodeId};
 use std::io::{Error, Write};
+use std::ops::{Index, IndexMut};
 
 use crate::{
     config::{ParseConfig, DEFAULT_CONFIG},
@@ -64,8 +65,8 @@ impl<'a> Org<'a> {
     /// Return an iterator of Event
     pub fn iter<'b>(&'b self) -> impl Iterator<Item = Event<'a, 'b>> + 'b {
         self.root.traverse(&self.arena).map(move |edge| match edge {
-            NodeEdge::Start(node) => Event::Start(self.arena[node].get()),
-            NodeEdge::End(node) => Event::End(self.arena[node].get()),
+            NodeEdge::Start(node) => Event::Start(&self[node]),
+            NodeEdge::End(node) => Event::End(&self[node]),
         })
     }
 
@@ -119,6 +120,20 @@ impl<'a> Org<'a> {
 impl Default for Org<'static> {
     fn default() -> Self {
         Org::new()
+    }
+}
+
+impl<'a> Index<NodeId> for Org<'a> {
+    type Output = Element<'a>;
+
+    fn index(&self, node_id: NodeId) -> &Self::Output {
+        self.arena[node_id].get()
+    }
+}
+
+impl<'a> IndexMut<NodeId> for Org<'a> {
+    fn index_mut(&mut self, node_id: NodeId) -> &mut Self::Output {
+        self.arena[node_id].get_mut()
     }
 }
 

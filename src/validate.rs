@@ -19,10 +19,11 @@ pub enum ValidationError {
         expected: &'static str,
         at: NodeId,
     },
-    /// Expect a detached element
+    /// Expected a detached element
     ExpectedDetached {
         at: NodeId,
     },
+    /// Expected headline level in sepcify range
     HeadlineLevelMismatch {
         range: RangeInclusive<usize>,
         at: NodeId,
@@ -31,12 +32,12 @@ pub enum ValidationError {
 
 impl ValidationError {
     pub fn element<'a, 'b>(&self, org: &'a Org<'b>) -> &'a Element<'b> {
-        match &self {
+        match self {
             ValidationError::ExpectedChildren { at }
             | ValidationError::UnexpectedChildren { at }
             | ValidationError::UnexpectedElement { at, .. }
             | ValidationError::ExpectedDetached { at }
-            | ValidationError::HeadlineLevelMismatch { at, .. } => org.arena[*at].get(),
+            | ValidationError::HeadlineLevelMismatch { at, .. } => &org[*at],
         }
     }
 }
@@ -50,7 +51,7 @@ impl Org<'_> {
 
         macro_rules! expect {
             ($node:ident, $expect:expr, $($pattern:pat)|+) => {
-                match self.arena[$node].get() {
+                match self[$node] {
                     $($pattern)|+ => (),
                     _ => errors.push(ValidationError::UnexpectedElement {
                         expected: $expect,
@@ -152,7 +153,7 @@ impl Org<'_> {
                 | Element::QuoteBlock(_)
                 | Element::CenterBlock(_)
                 | Element::VerseBlock(_)
-                | Element::Paragraph
+                | Element::Paragraph { .. }
                 | Element::Section
                 | Element::Table(Table::Org { .. })
                 | Element::TableRow(TableRow::Standard)
