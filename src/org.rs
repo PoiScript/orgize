@@ -1,11 +1,13 @@
 use indextree::{Arena, NodeEdge, NodeId};
 use std::io::{Error, Write};
 
-use crate::config::{ParseConfig, DEFAULT_CONFIG};
-use crate::elements::{Element, Title};
-use crate::export::*;
-use crate::node::{DocumentNode, HeadlineNode};
-use crate::parsers::{parse_container, Container};
+use crate::{
+    config::{ParseConfig, DEFAULT_CONFIG},
+    elements::Element,
+    export::{DefaultHtmlHandler, DefaultOrgHandler, HtmlHandler, OrgHandler},
+    headline::{Document, Headline},
+    parsers::{parse_container, Container},
+};
 
 pub struct Org<'a> {
     pub(crate) arena: Arena<Element<'a>>,
@@ -19,7 +21,7 @@ pub enum Event<'a, 'b> {
 }
 
 impl<'a> Org<'a> {
-    /// Create a new empty Org struct
+    /// Create a new empty `Org` struct
     pub fn new() -> Org<'static> {
         let mut arena = Arena::new();
         let root = arena.new_node(Element::Document);
@@ -27,7 +29,7 @@ impl<'a> Org<'a> {
         Org { arena, root }
     }
 
-    /// Create a new Org struct from parsing `text`, using the default ParseConfig
+    /// Create a new `Org` struct from parsing `text`, using the default ParseConfig
     pub fn parse(text: &'a str) -> Org<'a> {
         Org::parse_with_config(text, &DEFAULT_CONFIG)
     }
@@ -50,18 +52,18 @@ impl<'a> Org<'a> {
         org
     }
 
-    /// Return a DocumentNode
-    pub fn document(&self) -> DocumentNode {
-        DocumentNode::new(self)
+    /// Return a `Document`
+    pub fn document(&self) -> Document {
+        Document::from_org(self)
     }
 
-    /// Return an iterator of HeadlineNode
-    pub fn headlines<'b>(&'b self) -> impl Iterator<Item = HeadlineNode> + 'b {
+    /// Return an iterator of `Headline`
+    pub fn headlines<'b>(&'b self) -> impl Iterator<Item = Headline> + 'b {
         self.root
             .descendants(&self.arena)
             .skip(1)
             .filter_map(move |node| match &self.arena[node].get() {
-                Element::Headline { level } => Some(HeadlineNode::new(node, *level, self)),
+                Element::Headline { level } => Some(Headline::from_node(node, *level, self)),
                 _ => None,
             })
     }
@@ -74,23 +76,6 @@ impl<'a> Org<'a> {
     /// Return a mutual reference to underlay arena
     pub fn arena_mut(&mut self) -> &mut Arena<Element<'a>> {
         &mut self.arena
-    }
-
-    /// Create a new headline and return it's HeadlineNode
-    pub fn new_headline(&mut self, title: Title<'a>) -> HeadlineNode {
-        let level = title.level;
-        let title_raw = title.raw.clone();
-        let headline_node = self.arena.new_node(Element::Headline { level });
-        let title_node = self.arena.new_node(Element::Title(title));
-        headline_node.append(title_node, &mut self.arena);
-        let headline_node = HeadlineNode {
-            node: headline_node,
-            level,
-            title_node,
-            section_node: None,
-        };
-        headline_node.set_title_content(title_raw, self);
-        headline_node
     }
 
     /// Return an iterator of Event

@@ -218,15 +218,13 @@
 //!
 //! MIT
 
-#![allow(clippy::range_plus_one)]
-
 mod config;
 pub mod elements;
-mod error;
 pub mod export;
-mod node;
+mod headline;
 mod org;
 mod parsers;
+mod validate;
 
 // Re-export of the indextree crate.
 pub use indextree;
@@ -235,6 +233,6 @@ pub use syntect;
 
 pub use config::ParseConfig;
 pub use elements::Element;
-pub use error::OrgizeError;
-pub use node::{DocumentNode, HeadlineNode};
+pub use headline::{Document, Headline};
 pub use org::{Event, Org};
+pub use validate::ValidationError;
