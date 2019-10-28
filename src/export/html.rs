@@ -242,7 +242,7 @@ mod syntect_handler {
     ///
     /// ```rust
     /// use orgize::Org;
-    /// use orgize::export::html::{DefaultHtmlHandler, SyntectHtmlHandler};
+    /// use orgize::export::{DefaultHtmlHandler, SyntectHtmlHandler};
     ///
     /// let mut handler = SyntectHtmlHandler::new(DefaultHtmlHandler);
     /// let org = Org::parse("src_rust{println!(\"Hello\")}");
@@ -257,7 +257,7 @@ mod syntect_handler {
     /// ```rust,no_run
     /// // orgize has re-exported the whole syntect crate
     /// use orgize::syntect::parsing::SyntaxSet;
-    /// use orgize::export::html::{DefaultHtmlHandler, SyntectHtmlHandler};
+    /// use orgize::export::{DefaultHtmlHandler, SyntectHtmlHandler};
     ///
     /// let mut handler = SyntectHtmlHandler {
     ///     syntax_set: {
