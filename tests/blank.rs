@@ -58,7 +58,7 @@ fn blank() {
     let org = Org::parse(ORG_STR);
 
     let mut writer = Vec::new();
-    org.org(&mut writer).unwrap();
+    org.write_org(&mut writer).unwrap();
 
     // eprintln!("{}", serde_json::to_string_pretty(&org).unwrap());
 

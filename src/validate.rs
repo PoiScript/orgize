@@ -45,7 +45,7 @@ impl ValidationError {
 pub type ValidationResult<T> = Result<T, ValidationError>;
 
 impl Org<'_> {
-    /// Validate an `Org` struct.
+    /// Validates an `Org` struct.
     pub fn validate(&self) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
@@ -176,7 +176,7 @@ impl Org<'_> {
     }
 
     #[deprecated(since = "0.3.1", note = "rename to validate")]
-    /// Validate an `Org` struct.
+    /// Validates an `Org` struct.
     pub fn check(&self) -> Vec<ValidationError> {
         self.validate()
     }

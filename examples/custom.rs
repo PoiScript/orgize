@@ -72,7 +72,7 @@ fn main() -> Result<(), MyError> {
 
         let mut writer = Vec::new();
         let mut handler = MyHtmlHandler::default();
-        Org::parse(&contents).html_with_handler(&mut writer, &mut handler)?;
+        Org::parse(&contents).write_html_custom(&mut writer, &mut handler)?;
 
         println!("{}", String::from_utf8(writer)?);
     }

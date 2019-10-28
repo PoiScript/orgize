@@ -7,7 +7,7 @@ macro_rules! test_suite {
         fn $name() {
             let mut writer = Vec::new();
             let org = Org::parse($content);
-            org.html(&mut writer).unwrap();
+            org.write_html(&mut writer).unwrap();
             let string = String::from_utf8(writer).unwrap();
             assert_eq!(string, $expected);
         }
@@ -29,14 +29,16 @@ test_suite!(
 
 test_suite!(
     section_and_headline,
-    r#"* title 1
+    r#"
+* title 1
 section 1
 ** title 2
 section 2
 * title 3
 section 3
 * title 4
-section 4"#,
+section 4
+"#,
     "<main><h1>title 1</h1><section><p>section 1</p></section>\
      <h2>title 2</h2><section><p>section 2</p></section>\
      <h1>title 3</h1><section><p>section 3</p></section>\
@@ -45,7 +47,8 @@ section 4"#,
 
 test_suite!(
     list,
-    r#"+ 1
+    r#"
++ 1
 
 + 2
 
@@ -53,7 +56,8 @@ test_suite!(
 
   - 4
 
-+ 5"#,
++ 5
+"#,
     "<main><section><ul>\
      <li><p>1</p></li>\
      <li><p>2</p><ul><li><p>3</p></li><li><p>4</p></li></ul></li>\
@@ -69,7 +73,8 @@ test_suite!(
 
 test_suite!(
     paragraphs,
-    r#"* title
+    r#"
+* title
 
 paragraph 1
 
@@ -77,7 +82,8 @@ paragraph 2
 
 paragraph 3
 
-paragraph 4"#,
+paragraph 4
+"#,
     "<main><h1>title</h1><section>\
      <p>paragraph 1</p><p>paragraph 2</p>\
      <p>paragraph 3</p><p>paragraph 4</p>\

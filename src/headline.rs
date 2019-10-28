@@ -34,7 +34,8 @@ impl Document {
         })
     }
 
-    /// Retuen the ID of the section element of this document, or `None` if it has no section.
+    /// Returns the ID of the section element of this document,
+    /// or `None` if it has no section.
     pub fn section_node(self) -> Option<NodeId> {
         self.0.sec_n
     }
@@ -45,7 +46,8 @@ impl Document {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"** h1
+    ///     r#"
+    /// ** h1
     /// ** h2
     /// *** h2_1
     /// *** h2_2
@@ -74,13 +76,14 @@ impl Document {
             })
     }
 
-    /// Returns the first child of this document, or None if it has no child.
+    /// Returns the first child of this document, or `None` if it has no child.
     ///
     /// ```rust
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"** h1
+    ///     r#"
+    /// ** h1
     /// ** h2
     /// *** h2_1
     /// *** h2_2
@@ -112,13 +115,14 @@ impl Document {
             })
     }
 
-    /// Returns the last child of this document, or None if it has no child.
+    /// Returns the last child of this document, or `None` if it has no child.
     ///
     /// ```rust
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"** h1_1
+    ///     r#"
+    /// ** h1_1
     /// ** h1_2
     /// *** h1_2_1
     /// *** h1_2_2
@@ -148,7 +152,8 @@ impl Document {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"** h1_1
+    ///     r#"
+    /// ** h1_1
     /// ** h1_2
     /// "#,
     /// );
@@ -161,7 +166,8 @@ impl Document {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"s
+    ///     r#"
+    /// s
     /// ** h1_1
     /// ** h1_2
     /// "#,
@@ -215,7 +221,8 @@ impl Document {
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
-    ///     r#"***** h1
+    ///     r#"
+    /// ***** h1
     /// **** h2
     /// *** h3
     /// "#,
@@ -242,7 +249,8 @@ impl Document {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"***** h1
+    ///     r#"
+    /// ***** h1
     /// **** h2
     /// *** h3
     /// ** h4
@@ -265,7 +273,8 @@ impl Document {
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
-    ///     r#"** h2
+    ///     r#"
+    /// ** h2
     /// ** h3
     /// "#,
     /// );
@@ -291,7 +300,8 @@ impl Document {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"**** h1
+    ///     r#"
+    /// **** h1
     /// ** h2
     /// ** h3
     /// "#,
@@ -389,17 +399,17 @@ impl Headline {
         self.lvl
     }
 
-    /// Retuen the ID of the headline element of this headline.
+    /// Returns the ID of the headline element of this headline.
     pub fn headline_node(self) -> NodeId {
         self.hdl_n
     }
 
-    /// Retuen the ID of the title element of this headline.
+    /// Returns the ID of the title element of this headline.
     pub fn title_node(self) -> NodeId {
         self.ttl_n
     }
 
-    /// Retuen the ID of the section element of this headline, or `None` if it has no section..
+    /// Returns the ID of the section element of this headline, or `None` if it has no section.
     pub fn section_node(self) -> Option<NodeId> {
         self.sec_n
     }
@@ -425,9 +435,7 @@ impl Headline {
     /// #
     /// let mut org = Org::parse("* h1");
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
+    /// let h1 = org.headlines().nth(0).unwrap();
     ///
     /// h1.title_mut(&mut org).priority = Some('A');
     ///
@@ -454,19 +462,15 @@ impl Headline {
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ****** h1_1
     /// *** h1_2
     /// ** h1_3
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let mut h1_2 = headlines[2];
-    /// # let h1_3 = headlines[3];
+    /// let mut h1_2 = org.headlines().nth(2).unwrap();
     ///
     /// // level must be greater than or equal to 2, and smaller than or equal to 6
     /// assert!(h1_2.set_level(42, &mut org).is_err());
@@ -477,7 +481,8 @@ impl Headline {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ****** h1_1
     /// ***** h1_2
     /// ** h1_3
@@ -526,15 +531,14 @@ impl Headline {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
+    /// let h1 = org.headlines().nth(0).unwrap();
+    /// let h1_1 = org.headlines().nth(1).unwrap();
     ///
     /// h1.set_title_content("H1", &mut org);
     /// h1_1.set_title_content(String::from("*H1_1*"), &mut org);
@@ -543,7 +547,8 @@ impl Headline {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"* H1
+    ///     r#"
+    /// * H1
     /// ** *H1_1*
     /// "#,
     /// );
@@ -589,16 +594,15 @@ impl Headline {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// s1_1
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let mut h1 = headlines[0];
-    /// # let mut h1_1 = headlines[1];
+    /// let mut h1 = org.headlines().nth(0).unwrap();
+    /// let mut h1_1 = org.headlines().nth(1).unwrap();
     ///
     /// h1.set_section_content("s1", &mut org);
     /// h1_1.set_section_content(String::from("*s1_1*"), &mut org);
@@ -607,7 +611,8 @@ impl Headline {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// s1
     /// ** h1_1
     /// *s1_1*
@@ -659,7 +664,8 @@ impl Headline {
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ** h1_2
     /// *** h1_2_1
@@ -668,11 +674,9 @@ impl Headline {
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let h1_2_1 = headlines[3];
+    /// let h1 = org.headlines().nth(0).unwrap();
+    /// let h1_1 = org.headlines().nth(1).unwrap();
+    /// let h1_2_1 = org.headlines().nth(3).unwrap();
     ///
     /// assert_eq!(h1_1.parent(&org).unwrap().title(&org).raw, "h1");
     /// assert_eq!(h1_2_1.parent(&org).unwrap().title(&org).raw, "h1_2");
@@ -696,7 +700,8 @@ impl Headline {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ** h1_2
     /// *** h1_2_1
@@ -705,9 +710,7 @@ impl Headline {
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
+    /// let h1 = org.headlines().nth(0).unwrap();
     ///
     /// let mut iter = h1.children(&org);
     ///
@@ -732,7 +735,8 @@ impl Headline {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ** h1_2
     /// *** h1_2_1
@@ -741,14 +745,9 @@ impl Headline {
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let h1_2 = headlines[2];
-    /// # let h1_2_1 = headlines[3];
-    /// # let h1_2_2 = headlines[4];
-    /// # let h1_3 = headlines[5];
+    /// let h1_1 = org.headlines().nth(1).unwrap();
+    /// let h1_2 = org.headlines().nth(2).unwrap();
+    /// let h1_3 = org.headlines().nth(5).unwrap();
     ///
     /// assert_eq!(h1_2.first_child(&org).unwrap().title(&org).raw, "h1_2_1");
     ///
@@ -771,7 +770,8 @@ impl Headline {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ** h1_2
     /// *** h1_2_1
@@ -780,14 +780,9 @@ impl Headline {
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let h1_2 = headlines[2];
-    /// # let h1_2_1 = headlines[3];
-    /// # let h1_2_2 = headlines[4];
-    /// # let h1_3 = headlines[5];
+    /// let h1_1 = org.headlines().nth(1).unwrap();
+    /// let h1_2 = org.headlines().nth(2).unwrap();
+    /// let h1_3 = org.headlines().nth(5).unwrap();
     ///
     /// assert_eq!(h1_2.last_child(&org).unwrap().title(&org).raw, "h1_2_2");
     ///
@@ -810,7 +805,8 @@ impl Headline {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ** h1_2
     /// *** h1_2_1
@@ -819,14 +815,9 @@ impl Headline {
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let h1_2 = headlines[2];
-    /// # let h1_2_1 = headlines[3];
-    /// # let h1_2_2 = headlines[4];
-    /// # let h1_3 = headlines[5];
+    /// let h1_1 = org.headlines().nth(1).unwrap();
+    /// let h1_2 = org.headlines().nth(2).unwrap();
+    /// let h1_2_1 = org.headlines().nth(3).unwrap();
     ///
     /// assert_eq!(h1_2.previous(&org).unwrap().title(&org).raw, "h1_1");
     ///
@@ -849,7 +840,8 @@ impl Headline {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ** h1_2
     /// *** h1_2_1
@@ -858,14 +850,9 @@ impl Headline {
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let h1_2 = headlines[2];
-    /// # let h1_2_1 = headlines[3];
-    /// # let h1_2_2 = headlines[4];
-    /// # let h1_3 = headlines[5];
+    /// let h1_2 = org.headlines().nth(2).unwrap();
+    /// let h1_2_2 = org.headlines().nth(4).unwrap();
+    /// let h1_3 = org.headlines().nth(5).unwrap();
     ///
     /// assert_eq!(h1_2.next(&org).unwrap().title(&org).raw, "h1_3");
     ///
@@ -885,7 +872,8 @@ impl Headline {
     /// # use orgize::Org;
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ** h1_2
     /// *** h1_2_1
@@ -894,11 +882,7 @@ impl Headline {
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let h1_2 = headlines[2];
+    /// let h1_2 = org.headlines().nth(2).unwrap();
     ///
     /// h1_2.detach(&mut org);
     ///
@@ -906,7 +890,8 @@ impl Headline {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ** h1_3
     /// "#,
@@ -930,16 +915,14 @@ impl Headline {
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ***** h1_1_1
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
+    /// let h1_1 = org.headlines().nth(1).unwrap();
     ///
     /// let mut h1_1_2 = Headline::new(
     ///     Title {
@@ -962,7 +945,8 @@ impl Headline {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ***** h1_1_1
     /// **** h1_1_2
@@ -997,16 +981,14 @@ impl Headline {
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// ***** h1_1_1
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
+    /// let h1_1 = org.headlines().nth(1).unwrap();
     ///
     /// let mut h1_1_2 = Headline::new(
     ///     Title {
@@ -1053,19 +1035,15 @@ impl Headline {
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// **** h1_1_1
     /// *** h1_1_3
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let h1_1_1 = headlines[2];
-    /// # let h1_1_3 = headlines[3];
+    /// let h1_1_3 = org.headlines().nth(3).unwrap();
     ///
     /// let mut h1_1_2 = Headline::new(
     ///     Title {
@@ -1088,7 +1066,8 @@ impl Headline {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// **** h1_1_1
     /// **** h1_1_2
@@ -1124,19 +1103,15 @@ impl Headline {
     /// # use orgize::{elements::Title, Headline, Org};
     /// #
     /// let mut org = Org::parse(
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// **** h1_1_1
     /// *** h1_1_3
     /// "#,
     ///     );
     ///
-    /// // ..
-    /// # let headlines = org.headlines().collect::<Vec<_>>();
-    /// # let h1 = headlines[0];
-    /// # let h1_1 = headlines[1];
-    /// # let h1_1_1 = headlines[2];
-    /// # let h1_1_3 = headlines[3];
+    /// let h1_1_1 = org.headlines().nth(2).unwrap();
     ///
     /// let mut h1_1_2 = Headline::new(
     ///     Title {
@@ -1159,7 +1134,8 @@ impl Headline {
     /// org.org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
-    ///     r#"* h1
+    ///     r#"
+    /// * h1
     /// ** h1_1
     /// **** h1_1_1
     /// **** h1_1_2

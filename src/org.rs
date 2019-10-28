@@ -21,23 +21,23 @@ pub enum Event<'a, 'b> {
 }
 
 impl<'a> Org<'a> {
-    /// Create a new empty `Org` struct
+    /// Creates a new empty `Org` struct.
     pub fn new() -> Org<'static> {
         let mut arena = Arena::new();
         let root = arena.new_node(Element::Document { pre_blank: 0 });
         Org { arena, root }
     }
 
-    /// Create a new `Org` struct from parsing `text`, using the default ParseConfig
+    /// Parses string `text` into `Org` struct.
     pub fn parse(text: &'a str) -> Org<'a> {
-        Org::parse_with_config(text, &DEFAULT_CONFIG)
+        Org::parse_custom(text, &DEFAULT_CONFIG)
     }
 
-    /// Create a new Org struct from parsing `text`, using a custom ParseConfig
-    pub fn parse_with_config(text: &'a str, config: &ParseConfig) -> Org<'a> {
+    /// Parses string `text` into `Org` struct with custom `ParseConfig`.
+    pub fn parse_custom(text: &'a str, config: &ParseConfig) -> Org<'a> {
         let mut arena = Arena::new();
-        let (text, blank) = blank_lines(text);
-        let root = arena.new_node(Element::Document { pre_blank: blank });
+        let (text, pre_blank) = blank_lines(text);
+        let root = arena.new_node(Element::Document { pre_blank });
         let mut org = Org { arena, root };
 
         parse_container(
@@ -54,17 +54,23 @@ impl<'a> Org<'a> {
         org
     }
 
-    /// Return a refrence to underlay arena
+    /// Parses string `text` into `Org` struct with custom `ParseConfig`.
+    #[deprecated(since = "0.6.0", note = "rename to parse_custom")]
+    pub fn parse_with_config(text: &'a str, config: &ParseConfig) -> Org<'a> {
+        Org::parse_custom(text, config)
+    }
+
+    /// Returns a refrence to the underlay arena.
     pub fn arena(&self) -> &Arena<Element<'a>> {
         &self.arena
     }
 
-    /// Return a mutual reference to underlay arena
+    /// Returns a mutual reference to the underlay arena.
     pub fn arena_mut(&mut self) -> &mut Arena<Element<'a>> {
         &mut self.arena
     }
 
-    /// Return an iterator of Event
+    /// Returns an iterator of `Event`s.
     pub fn iter<'b>(&'b self) -> impl Iterator<Item = Event<'a, 'b>> + 'b {
         self.root.traverse(&self.arena).map(move |edge| match edge {
             NodeEdge::Start(node) => Event::Start(&self[node]),
@@ -72,14 +78,16 @@ impl<'a> Org<'a> {
         })
     }
 
-    pub fn html<W>(&self, writer: W) -> Result<(), Error>
+    /// Writes an `Org` struct as html format.
+    pub fn write_html<W>(&self, writer: W) -> Result<(), Error>
     where
         W: Write,
     {
-        self.html_with_handler(writer, &mut DefaultHtmlHandler)
+        self.write_html_custom(writer, &mut DefaultHtmlHandler)
     }
 
-    pub fn html_with_handler<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
+    /// Writes an `Org` struct as html format with custom `HtmlHandler`.
+    pub fn write_html_custom<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
     where
         W: Write,
         E: From<Error>,
@@ -95,14 +103,36 @@ impl<'a> Org<'a> {
         Ok(())
     }
 
-    pub fn org<W>(&self, writer: W) -> Result<(), Error>
+    /// Writes an `Org` struct as html format.
+    #[deprecated(since = "0.6.0", note = "rename to write_html")]
+    pub fn html<W>(&self, writer: W) -> Result<(), Error>
     where
         W: Write,
     {
-        self.org_with_handler(writer, &mut DefaultOrgHandler)
+        self.write_html_custom(writer, &mut DefaultHtmlHandler)
     }
 
-    pub fn org_with_handler<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
+    /// Writes an `Org` struct as html format with custom `HtmlHandler`.
+    #[deprecated(since = "0.6.0", note = "rename to write_html_custom")]
+    pub fn html_with_handler<W, H, E>(&self, writer: W, handler: &mut H) -> Result<(), E>
+    where
+        W: Write,
+        E: From<Error>,
+        H: HtmlHandler<E>,
+    {
+        self.write_html_custom(writer, handler)
+    }
+
+    /// Writes an `Org` struct as org format.
+    pub fn write_org<W>(&self, writer: W) -> Result<(), Error>
+    where
+        W: Write,
+    {
+        self.write_org_custom(writer, &mut DefaultOrgHandler)
+    }
+
+    /// Writes an `Org` struct as org format with custom `OrgHandler`.
+    pub fn write_org_custom<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
     where
         W: Write,
         E: From<Error>,
@@ -116,6 +146,26 @@ impl<'a> Org<'a> {
         }
 
         Ok(())
+    }
+
+    /// Writes an `Org` struct as org format.
+    #[deprecated(since = "0.6.0", note = "rename to write_org")]
+    pub fn org<W>(&self, writer: W) -> Result<(), Error>
+    where
+        W: Write,
+    {
+        self.write_org_custom(writer, &mut DefaultOrgHandler)
+    }
+
+    /// Writes an `Org` struct as org format with custom `OrgHandler`.
+    #[deprecated(since = "0.6.0", note = "rename to write_org_custom")]
+    pub fn org_with_handler<W, H, E>(&self, writer: W, handler: &mut H) -> Result<(), E>
+    where
+        W: Write,
+        E: From<Error>,
+        H: OrgHandler<E>,
+    {
+        self.write_org_custom(writer, handler)
     }
 }
 
