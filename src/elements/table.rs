@@ -58,7 +58,7 @@ impl TableRow {
     }
 }
 
-pub(crate) fn parse_table_el(input: &str) -> Option<(&str, &str)> {
+pub fn parse_table_el(input: &str) -> Option<(&str, &str)> {
     parse_table_el_internal::<()>(input).ok()
 }
 

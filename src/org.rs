@@ -6,7 +6,7 @@ use crate::{
     config::{ParseConfig, DEFAULT_CONFIG},
     elements::Element,
     export::{DefaultHtmlHandler, DefaultOrgHandler, HtmlHandler, OrgHandler},
-    parsers::{parse_container, Container},
+    parsers::{blank_lines, parse_container, Container},
 };
 
 pub struct Org<'a> {
@@ -24,8 +24,7 @@ impl<'a> Org<'a> {
     /// Create a new empty `Org` struct
     pub fn new() -> Org<'static> {
         let mut arena = Arena::new();
-        let root = arena.new_node(Element::Document);
-
+        let root = arena.new_node(Element::Document { pre_blank: 0 });
         Org { arena, root }
     }
 
@@ -36,7 +35,10 @@ impl<'a> Org<'a> {
 
     /// Create a new Org struct from parsing `text`, using a custom ParseConfig
     pub fn parse_with_config(text: &'a str, config: &ParseConfig) -> Org<'a> {
-        let mut org = Org::new();
+        let mut arena = Arena::new();
+        let (text, blank) = blank_lines(text);
+        let root = arena.new_node(Element::Document { pre_blank: blank });
+        let mut org = Org { arena, root };
 
         parse_container(
             &mut org.arena,

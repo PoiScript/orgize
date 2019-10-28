@@ -9,46 +9,74 @@ pub trait OrgHandler<E: From<Error>>: Default {
 
         match element {
             // container elements
-            SpecialBlock(block) => writeln!(w, "#+BEGIN_{}", block.name)?,
-            QuoteBlock(_) => write!(w, "#+BEGIN_QUOTE")?,
-            CenterBlock(_) => write!(w, "#+BEGIN_CENTER")?,
-            VerseBlock(_) => write!(w, "#+BEGIN_VERSE")?,
+            SpecialBlock(block) => {
+                writeln!(w, "#+BEGIN_{}", block.name)?;
+                write_blank_lines(&mut w, block.pre_blank)?;
+            }
+            QuoteBlock(block) => {
+                writeln!(&mut w, "#+BEGIN_QUOTE")?;
+                write_blank_lines(&mut w, block.pre_blank)?;
+            }
+            CenterBlock(block) => {
+                writeln!(&mut w, "#+BEGIN_CENTER")?;
+                write_blank_lines(&mut w, block.pre_blank)?;
+            }
+            VerseBlock(block) => {
+                writeln!(&mut w, "#+BEGIN_VERSE")?;
+                write_blank_lines(&mut w, block.pre_blank)?;
+            }
             Bold => write!(w, "*")?,
-            Document => (),
+            Document { pre_blank } => {
+                write_blank_lines(w, *pre_blank)?;
+            }
             DynBlock(dyn_block) => {
                 write!(&mut w, "#+BEGIN: {}", dyn_block.block_name)?;
                 if let Some(parameters) = &dyn_block.arguments {
                     write!(&mut w, " {}", parameters)?;
                 }
-                writeln!(&mut w)?;
+                write_blank_lines(&mut w, dyn_block.pre_blank + 1)?;
             }
             Headline { .. } => (),
             List(_list) => (),
             Italic => write!(w, "/")?,
             ListItem(list_item) => write!(w, "{}", list_item.bullet)?,
-            Paragraph => (),
+            Paragraph { .. } => (),
             Section => (),
             Strike => write!(w, "+")?,
             Underline => write!(w, "_")?,
-            Drawer(drawer) => writeln!(w, ":{}:", drawer.name)?,
+            Drawer(drawer) => {
+                writeln!(&mut w, ":{}:", drawer.name)?;
+                write_blank_lines(&mut w, drawer.pre_blank)?;
+            }
             // non-container elements
             CommentBlock(block) => {
-                writeln!(w, "#+BEGIN_COMMENT\n{}\n#+END_COMMENT", block.contents)?
+                writeln!(&mut w, "#+BEGIN_COMMENT")?;
+                write!(&mut w, "{}", block.contents)?;
+                writeln!(&mut w, "#+END_COMMENT")?;
+                write_blank_lines(&mut w, block.post_blank)?;
             }
             ExampleBlock(block) => {
-                writeln!(w, "#+BEGIN_EXAMPLE\n{}\n#+END_EXAMPLE", block.contents)?
+                writeln!(&mut w, "#+BEGIN_EXAMPLE")?;
+                write!(&mut w, "{}", block.contents)?;
+                writeln!(&mut w, "#+END_EXAMPLE")?;
+                write_blank_lines(&mut w, block.post_blank)?;
             }
-            ExportBlock(block) => writeln!(
-                w,
-                "#+BEGIN_EXPORT {}\n{}\n#+END_EXPORT",
-                block.data, block.contents
-            )?,
-            SourceBlock(block) => writeln!(
-                w,
-                "#+BEGIN_SRC {}\n{}\n#+END_SRC",
-                block.language, block.contents
-            )?,
-            BabelCall(_babel_call) => (),
+            ExportBlock(block) => {
+                writeln!(&mut w, "#+BEGIN_EXPORT {}", block.data)?;
+                write!(&mut w, "{}", block.contents)?;
+                writeln!(&mut w, "#+END_EXPORT")?;
+                write_blank_lines(&mut w, block.post_blank)?;
+            }
+            SourceBlock(block) => {
+                writeln!(&mut w, "#+BEGIN_SRC {}", block.language)?;
+                write!(&mut w, "{}", block.contents)?;
+                writeln!(&mut w, "#+END_SRC")?;
+                write_blank_lines(&mut w, block.post_blank)?;
+            }
+            BabelCall(call) => {
+                writeln!(&mut w, "#+CALL: {}", call.value)?;
+                write_blank_lines(w, call.post_blank)?;
+            }
             InlineSrc(inline_src) => {
                 write!(&mut w, "src_{}", inline_src.lang)?;
                 if let Some(options) = &inline_src.options {
@@ -90,7 +118,9 @@ pub trait OrgHandler<E: From<Error>>: Default {
                 write_timestamp(&mut w, &timestamp)?;
             }
             Verbatim { value } => write!(w, "={}=", value)?,
-            FnDef(_fn_def) => (),
+            FnDef(fn_def) => {
+                write_blank_lines(w, fn_def.post_blank)?;
+            }
             Clock(clock) => {
                 use crate::elements::Clock;
 
@@ -101,27 +131,42 @@ pub trait OrgHandler<E: From<Error>>: Default {
                         start,
                         end,
                         duration,
+                        post_blank,
                         ..
                     } => {
-                        write_datetime(&mut w, "[", start, "]--")?;
-                        write_datetime(&mut w, "[", end, "]")?;
-                        writeln!(w, " => {}", duration)?;
+                        write_datetime(&mut w, "[", &start, "]--")?;
+                        write_datetime(&mut w, "[", &end, "]")?;
+                        writeln!(&mut w, " => {}", duration)?;
+                        write_blank_lines(&mut w, *post_blank)?;
                     }
-                    Clock::Running { start, .. } => {
-                        write_datetime(&mut w, "[", start, "]\n")?;
+                    Clock::Running {
+                        start, post_blank, ..
+                    } => {
+                        write_datetime(&mut w, "[", &start, "]\n")?;
+                        write_blank_lines(&mut w, *post_blank)?;
                     }
                 }
             }
-            Comment { value } => write!(w, "{}", value)?,
-            FixedWidth { value } => write!(w, "{}", value)?,
+            Comment(comment) => {
+                write!(w, "{}", comment.value)?;
+                write_blank_lines(&mut w, comment.post_blank)?;
+            }
+            FixedWidth(fixed_width) => {
+                write!(&mut w, "{}", fixed_width.value)?;
+                write_blank_lines(&mut w, fixed_width.post_blank)?;
+            }
             Keyword(keyword) => {
                 write!(&mut w, "#+{}", keyword.key)?;
                 if let Some(optional) = &keyword.optional {
                     write!(&mut w, "[{}]", optional)?;
                 }
                 writeln!(&mut w, ": {}", keyword.value)?;
+                write_blank_lines(&mut w, keyword.post_blank)?;
             }
-            Rule => writeln!(w, "-----")?,
+            Rule(rule) => {
+                writeln!(w, "-----")?;
+                write_blank_lines(&mut w, rule.post_blank)?;
+            }
             Cookie(_cookie) => (),
             Title(title) => {
                 for _ in 0..title.level {
@@ -148,28 +193,48 @@ pub trait OrgHandler<E: From<Error>>: Default {
 
         match element {
             // container elements
-            SpecialBlock(block) => writeln!(w, "#+END_{}", block.name)?,
-            QuoteBlock(_) => writeln!(w, "#+END_QUOTE")?,
-            CenterBlock(_) => writeln!(w, "#+END_CENTER")?,
-            VerseBlock(_) => writeln!(w, "#+END_VERSE")?,
+            SpecialBlock(block) => {
+                writeln!(&mut w, "#+END_{}", block.name)?;
+                write_blank_lines(&mut w, block.post_blank)?;
+            }
+            QuoteBlock(block) => {
+                writeln!(&mut w, "#+END_QUOTE")?;
+                write_blank_lines(&mut w, block.post_blank)?;
+            }
+            CenterBlock(block) => {
+                writeln!(&mut w, "#+END_CENTER")?;
+                write_blank_lines(&mut w, block.post_blank)?;
+            }
+            VerseBlock(block) => {
+                writeln!(&mut w, "#+END_VERSE")?;
+                write_blank_lines(&mut w, block.post_blank)?;
+            }
             Bold => write!(w, "*")?,
-            Document => (),
-            DynBlock(_dyn_block) => writeln!(w, "#+END:")?,
+            Document { .. } => (),
+            DynBlock(dyn_block) => {
+                writeln!(w, "#+END:")?;
+                write_blank_lines(w, dyn_block.post_blank)?;
+            }
             Headline { .. } => (),
             List(_list) => (),
             Italic => write!(w, "/")?,
             ListItem(_) => (),
-            Paragraph => write!(w, "\n\n")?,
+            Paragraph { post_blank } => {
+                write_blank_lines(w, post_blank + 1)?;
+            }
             Section => (),
             Strike => write!(w, "+")?,
             Underline => write!(w, "_")?,
-            Drawer(_) => writeln!(w, ":END:")?,
+            Drawer(drawer) => {
+                writeln!(&mut w, ":END:")?;
+                write_blank_lines(&mut w, drawer.post_blank)?;
+            }
             Title(title) => {
                 if !title.tags.is_empty() {
                     write!(&mut w, " :")?;
-                }
-                for tag in &title.tags {
-                    write!(&mut w, "{}:", tag)?;
+                    for tag in &title.tags {
+                        write!(&mut w, "{}:", tag)?;
+                    }
                 }
                 writeln!(&mut w)?;
                 if let Some(planning) = &title.planning {
@@ -200,6 +265,7 @@ pub trait OrgHandler<E: From<Error>>: Default {
                     }
                     writeln!(&mut w, ":END:")?;
                 }
+                write_blank_lines(&mut w, title.post_blank)?;
             }
             Table(_) => (),
             TableRow(_) => (),
@@ -212,7 +278,14 @@ pub trait OrgHandler<E: From<Error>>: Default {
     }
 }
 
-fn write_timestamp<W: Write>(mut w: W, timestamp: &Timestamp) -> std::io::Result<()> {
+fn write_blank_lines<W: Write>(mut w: W, count: usize) -> Result<(), Error> {
+    for _ in 0..count {
+        writeln!(w)?;
+    }
+    Ok(())
+}
+
+fn write_timestamp<W: Write>(mut w: W, timestamp: &Timestamp) -> Result<(), Error> {
     match timestamp {
         Timestamp::Active { start, .. } => {
             write_datetime(w, "<", start, ">")?;

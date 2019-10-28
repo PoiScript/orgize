@@ -7,15 +7,17 @@ use nom::{
     IResult,
 };
 
-use crate::parsers::line;
+use crate::parsers::{blank_lines, line};
 
 /// Footnote Definition Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FnDef<'a> {
     /// Footnote label, used for refrence
     pub label: Cow<'a, str>,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl FnDef<'_> {
@@ -26,6 +28,7 @@ impl FnDef<'_> {
     pub fn into_owned(self) -> FnDef<'static> {
         FnDef {
             label: self.label.into_owned().into(),
+            post_blank: self.post_blank,
         }
     }
 }
@@ -38,12 +41,14 @@ fn parse_fn_def<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, (Fn
         tag("]"),
     )(input)?;
     let (input, content) = line(input)?;
+    let (input, blank) = blank_lines(input);
 
     Ok((
         input,
         (
             FnDef {
                 label: label.into(),
+                post_blank: blank,
             },
             content,
         ),
@@ -56,7 +61,16 @@ fn parse() {
 
     assert_eq!(
         parse_fn_def::<VerboseError<&str>>("[fn:1] https://orgmode.org"),
-        Ok(("", (FnDef { label: "1".into() }, " https://orgmode.org")))
+        Ok((
+            "",
+            (
+                FnDef {
+                    label: "1".into(),
+                    post_blank: 0
+                },
+                " https://orgmode.org"
+            )
+        ))
     );
     assert_eq!(
         parse_fn_def::<VerboseError<&str>>("[fn:word_1] https://orgmode.org"),
@@ -64,7 +78,8 @@ fn parse() {
             "",
             (
                 FnDef {
-                    label: "word_1".into()
+                    label: "word_1".into(),
+                    post_blank: 0,
                 },
                 " https://orgmode.org"
             )
@@ -76,7 +91,8 @@ fn parse() {
             "",
             (
                 FnDef {
-                    label: "WORD-1".into()
+                    label: "WORD-1".into(),
+                    post_blank: 0,
                 },
                 " https://orgmode.org"
             )
@@ -88,7 +104,8 @@ fn parse() {
             "",
             (
                 FnDef {
-                    label: "WORD".into()
+                    label: "WORD".into(),
+                    post_blank: 0,
                 },
                 ""
             )

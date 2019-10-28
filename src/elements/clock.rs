@@ -11,7 +11,7 @@ use nom::{
 
 use crate::elements::timestamp::{parse_inactive, Datetime, Timestamp};
 
-use crate::parsers::eol;
+use crate::parsers::{blank_lines, eol};
 
 /// Clock Element
 #[cfg_attr(test, derive(PartialEq))]
@@ -31,6 +31,8 @@ pub enum Clock<'a> {
         delay: Option<Cow<'a, str>>,
         /// Clock duration
         duration: Cow<'a, str>,
+        /// Numbers of blank lines
+        post_blank: usize,
     },
     /// Running Clock
     Running {
@@ -40,6 +42,8 @@ pub enum Clock<'a> {
         repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<Cow<'a, str>>,
+        /// Numbers of blank lines
+        post_blank: usize,
     },
 }
 
@@ -56,21 +60,25 @@ impl Clock<'_> {
                 repeater,
                 delay,
                 duration,
+                post_blank,
             } => Clock::Closed {
                 start: start.into_owned(),
                 end: end.into_owned(),
                 repeater: repeater.map(Into::into).map(Cow::Owned),
                 delay: delay.map(Into::into).map(Cow::Owned),
                 duration: duration.into_owned().into(),
+                post_blank,
             },
             Clock::Running {
                 start,
                 repeater,
                 delay,
+                post_blank,
             } => Clock::Running {
                 start: start.into_owned(),
                 repeater: repeater.map(Into::into).map(Cow::Owned),
                 delay: delay.map(Into::into).map(Cow::Owned),
+                post_blank,
             },
         }
     }
@@ -118,6 +126,7 @@ impl Clock<'_> {
                 start,
                 repeater,
                 delay,
+                ..
             } => Timestamp::Inactive {
                 start: start.clone(),
                 repeater: repeater.clone(),
@@ -144,6 +153,7 @@ fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Cloc
             let (input, _) = space0(input)?;
             let (input, duration) = recognize(separated_pair(digit1, char(':'), digit1))(input)?;
             let (input, _) = eol(input)?;
+            let (input, blank) = blank_lines(input);
             Ok((
                 input,
                 Clock::Closed {
@@ -152,6 +162,7 @@ fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Cloc
                     repeater,
                     delay,
                     duration: duration.into(),
+                    post_blank: blank,
                 },
             ))
         }
@@ -161,12 +172,14 @@ fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Cloc
             delay,
         } => {
             let (input, _) = eol(input)?;
+            let (input, blank) = blank_lines(input);
             Ok((
                 input,
                 Clock::Running {
                     start,
                     repeater,
                     delay,
+                    post_blank: blank,
                 },
             ))
         }
@@ -195,12 +208,13 @@ fn parse() {
                 },
                 repeater: None,
                 delay: None,
+                post_blank: 0,
             }
         ))
     );
     assert_eq!(
         parse_clock::<VerboseError<&str>>(
-            "CLOCK: [2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39] =>  1:00"
+            "CLOCK: [2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39] =>  1:00\n\n"
         ),
         Ok((
             "",
@@ -224,6 +238,7 @@ fn parse() {
                 repeater: None,
                 delay: None,
                 duration: "1:00".into(),
+                post_blank: 1,
             }
         ))
     );

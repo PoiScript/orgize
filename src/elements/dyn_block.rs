@@ -7,18 +7,22 @@ use nom::{
     IResult,
 };
 
-use crate::parsers::{line, take_lines_while};
+use crate::parsers::{blank_lines, line, take_lines_while};
 
 /// Dynamic Block Element
+#[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
 pub struct DynBlock<'a> {
     /// Block name
     pub block_name: Cow<'a, str>,
     /// Block argument
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub arguments: Option<Cow<'a, str>>,
+    /// Numbers of blank lines
+    pub pre_blank: usize,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl DynBlock<'_> {
@@ -30,6 +34,8 @@ impl DynBlock<'_> {
         DynBlock {
             block_name: self.block_name.into_owned().into(),
             arguments: self.arguments.map(Into::into).map(Cow::Owned),
+            pre_blank: self.pre_blank,
+            post_blank: self.post_blank,
         }
     }
 }
@@ -44,7 +50,9 @@ fn parse_dyn_block<'a, E: ParseError<&'a str>>(
     let (input, args) = line(input)?;
     let (input, contents) =
         take_lines_while(|line| !line.trim().eq_ignore_ascii_case("#+END:"))(input);
+    let (contents, pre_blank) = blank_lines(contents);
     let (input, _) = line(input)?;
+    let (input, post_blank) = blank_lines(input);
 
     Ok((
         input,
@@ -56,6 +64,8 @@ fn parse_dyn_block<'a, E: ParseError<&'a str>>(
                 } else {
                     Some(args.trim().into())
                 },
+                pre_blank,
+                post_blank,
             },
             contents,
         ),
@@ -70,8 +80,11 @@ fn parse() {
     assert_eq!(
         parse_dyn_block::<VerboseError<&str>>(
             r#"#+BEGIN: clocktable :scope file
+
+
 CONTENTS
 #+END:
+
 "#
         ),
         Ok((
@@ -80,6 +93,8 @@ CONTENTS
                 DynBlock {
                     block_name: "clocktable".into(),
                     arguments: Some(":scope file".into()),
+                    pre_blank: 2,
+                    post_blank: 1,
                 },
                 "CONTENTS\n"
             )

@@ -16,8 +16,8 @@ use nom::{
 
 use crate::{
     config::ParseConfig,
-    elements::{drawer::parse_drawer, Planning, Timestamp},
-    parsers::{line, skip_empty_lines, take_one_word},
+    elements::{drawer::parse_drawer_without_blank, Planning, Timestamp},
+    parsers::{blank_lines, line, skip_empty_lines, take_one_word},
 };
 
 /// Title Elemenet
@@ -44,6 +44,8 @@ pub struct Title<'a> {
     /// Property drawer associated to this headline
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "HashMap::is_empty"))]
     pub properties: HashMap<Cow<'a, str>, Cow<'a, str>>,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl Title<'_> {
@@ -102,6 +104,7 @@ impl Title<'_> {
                 .into_iter()
                 .map(|(k, v)| (k.into_owned().into(), v.into_owned().into()))
                 .collect(),
+            post_blank: self.post_blank,
         }
     }
 }
@@ -116,6 +119,7 @@ impl Default for Title<'_> {
             raw: Cow::Borrowed(""),
             planning: None,
             properties: HashMap::new(),
+            post_blank: 0,
         }
     }
 }
@@ -166,6 +170,7 @@ fn parse_title<'a, E: ParseError<&'a str>>(
         .unwrap_or((input, None));
 
     let (input, properties) = opt(parse_properties_drawer)(input)?;
+    let (input, blank) = blank_lines(input);
 
     Ok((
         input,
@@ -178,6 +183,7 @@ fn parse_title<'a, E: ParseError<&'a str>>(
                 tags,
                 raw: raw.into(),
                 planning,
+                post_blank: blank,
             },
             raw,
         ),
@@ -188,7 +194,7 @@ fn parse_title<'a, E: ParseError<&'a str>>(
 fn parse_properties_drawer<'a, E: ParseError<&'a str>>(
     input: &'a str,
 ) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>, E> {
-    let (input, (drawer, content)) = parse_drawer(input.trim_start())?;
+    let (input, (drawer, content)) = parse_drawer_without_blank(input.trim_start())?;
     if drawer.name != "PROPERTIES" {
         return Err(Err::Error(E::from_error_kind(input, ErrorKind::Tag)));
     }
@@ -236,7 +242,8 @@ fn parse_title_() {
                     raw: "COMMENT Title".into(),
                     tags: vec!["tag".into(), "a2%".into()],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "COMMENT Title"
             )
@@ -254,7 +261,8 @@ fn parse_title_() {
                     raw: "ToDO [#A] COMMENT Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "ToDO [#A] COMMENT Title"
             )
@@ -272,7 +280,8 @@ fn parse_title_() {
                     raw: "T0DO [#A] COMMENT Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "T0DO [#A] COMMENT Title"
             )
@@ -290,7 +299,8 @@ fn parse_title_() {
                     raw: "[#1] COMMENT Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "[#1] COMMENT Title"
             )
@@ -308,7 +318,8 @@ fn parse_title_() {
                     raw: "[#a] COMMENT Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "[#a] COMMENT Title"
             )
@@ -326,7 +337,8 @@ fn parse_title_() {
                     raw: "Title :tag:a2%".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "Title :tag:a2%"
             )
@@ -344,7 +356,8 @@ fn parse_title_() {
                     raw: "Title tag:a2%:".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "Title tag:a2%:"
             )
@@ -369,7 +382,8 @@ fn parse_title_() {
                     raw: "DONE Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "DONE Title"
             )
@@ -393,7 +407,8 @@ fn parse_title_() {
                     raw: "Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new()
+                    properties: HashMap::new(),
+                    post_blank: 0,
                 },
                 "Title"
             )

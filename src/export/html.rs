@@ -60,7 +60,7 @@ pub trait HtmlHandler<E: From<Error>>: Default {
             CenterBlock(_) => write!(w, "<div class=\"center\">")?,
             VerseBlock(_) => write!(w, "<p class=\"verse\">")?,
             Bold => write!(w, "<b>")?,
-            Document => write!(w, "<main>")?,
+            Document { .. } => write!(w, "<main>")?,
             DynBlock(_dyn_block) => (),
             Headline { .. } => (),
             List(list) => {
@@ -72,7 +72,7 @@ pub trait HtmlHandler<E: From<Error>>: Default {
             }
             Italic => write!(w, "<i>")?,
             ListItem(_) => write!(w, "<li>")?,
-            Paragraph => write!(w, "<p>")?,
+            Paragraph { .. } => write!(w, "<p>")?,
             Section => write!(w, "<section>")?,
             Strike => write!(w, "<s>")?,
             Underline => write!(w, "<u>")?,
@@ -162,13 +162,15 @@ pub trait HtmlHandler<E: From<Error>>: Default {
             Verbatim { value } => write!(&mut w, "<code>{}</code>", HtmlEscape(value))?,
             FnDef(_fn_def) => (),
             Clock(_clock) => (),
-            Comment { .. } => (),
-            FixedWidth { value } => {
-                write!(w, "<pre class=\"example\">{}</pre>", HtmlEscape(value))?
-            }
+            Comment(_) => (),
+            FixedWidth(fixed_width) => write!(
+                w,
+                "<pre class=\"example\">{}</pre>",
+                HtmlEscape(&fixed_width.value)
+            )?,
             Keyword(_keyword) => (),
             Drawer(_drawer) => (),
-            Rule => write!(w, "<hr>")?,
+            Rule(_) => write!(w, "<hr>")?,
             Cookie(cookie) => write!(w, "<code>{}</code>", cookie.value)?,
             Title(title) => write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?,
             Table(_) => (),
@@ -188,7 +190,7 @@ pub trait HtmlHandler<E: From<Error>>: Default {
             CenterBlock(_) => write!(w, "</div>")?,
             VerseBlock(_) => write!(w, "</p>")?,
             Bold => write!(w, "</b>")?,
-            Document => write!(w, "</main>")?,
+            Document { .. } => write!(w, "</main>")?,
             DynBlock(_dyn_block) => (),
             Headline { .. } => (),
             List(list) => {
@@ -200,7 +202,7 @@ pub trait HtmlHandler<E: From<Error>>: Default {
             }
             Italic => write!(w, "</i>")?,
             ListItem(_) => write!(w, "</li>")?,
-            Paragraph => write!(w, "</p>")?,
+            Paragraph { .. } => write!(w, "</p>")?,
             Section => write!(w, "</section>")?,
             Strike => write!(w, "</s>")?,
             Underline => write!(w, "</u>")?,
@@ -337,17 +339,17 @@ mod syntect_handler {
                         write!(w, "<pre class=\"example\">{}</pre>", block.contents)?;
                     } else {
                         write!(
-                        w,
-                        "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
-                        block.language,
-                        self.highlight(Some(&block.language), &block.contents)
-                    )?
+                            w,
+                            "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
+                            block.language,
+                            self.highlight(Some(&block.language), &block.contents)
+                        )?;
                     }
                 }
-                Element::FixedWidth { value } => write!(
+                Element::FixedWidth(fixed_width) => write!(
                     w,
                     "<pre class=\"example\">{}</pre>",
-                    self.highlight(None, value)
+                    self.highlight(None, fixed_width.value)
                 )?,
                 Element::ExampleBlock(block) => write!(
                     w,

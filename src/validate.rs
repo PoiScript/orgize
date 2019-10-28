@@ -64,7 +64,7 @@ impl Org<'_> {
         for node_id in self.root.descendants(&self.arena) {
             let node = &self.arena[node_id];
             match node.get() {
-                Element::Document => {
+                Element::Document { .. } => {
                     let mut children = node_id.children(&self.arena);
                     if let Some(node) = children.next() {
                         expect!(
@@ -132,7 +132,7 @@ impl Org<'_> {
                 | Element::Comment { .. }
                 | Element::FixedWidth { .. }
                 | Element::Keyword(_)
-                | Element::Rule
+                | Element::Rule(_)
                 | Element::Cookie(_)
                 | Element::Table(Table::TableEl { .. })
                 | Element::TableRow(TableRow::Rule) => {

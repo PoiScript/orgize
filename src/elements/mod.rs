@@ -2,10 +2,12 @@
 
 pub(crate) mod block;
 pub(crate) mod clock;
+pub(crate) mod comment;
 pub(crate) mod cookie;
 pub(crate) mod drawer;
 pub(crate) mod dyn_block;
 pub(crate) mod emphasis;
+pub(crate) mod fixed_width;
 pub(crate) mod fn_def;
 pub(crate) mod fn_ref;
 pub(crate) mod inline_call;
@@ -29,9 +31,11 @@ pub use self::{
         SpecialBlock, VerseBlock,
     },
     clock::Clock,
+    comment::Comment,
     cookie::Cookie,
     drawer::Drawer,
     dyn_block::DynBlock,
+    fixed_width::FixedWidth,
     fn_def::FnDef,
     fn_ref::FnRef,
     inline_call::InlineCall,
@@ -41,6 +45,7 @@ pub use self::{
     list::{List, ListItem},
     macros::Macros,
     planning::Planning,
+    rule::Rule,
     snippet::Snippet,
     table::{Table, TableRow},
     target::Target,
@@ -52,7 +57,6 @@ use std::borrow::Cow;
 
 /// Element Enum
 #[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(tag = "type", rename_all = "kebab-case"))]
 pub enum Element<'a> {
@@ -70,7 +74,7 @@ pub enum Element<'a> {
     Cookie(Cookie<'a>),
     RadioTarget,
     Drawer(Drawer<'a>),
-    Document,
+    Document { pre_blank: usize },
     DynBlock(DynBlock<'a>),
     FnDef(FnDef<'a>),
     FnRef(FnRef<'a>),
@@ -84,8 +88,8 @@ pub enum Element<'a> {
     Macros(Macros<'a>),
     Snippet(Snippet<'a>),
     Text { value: Cow<'a, str> },
-    Paragraph,
-    Rule,
+    Paragraph { post_blank: usize },
+    Rule(Rule),
     Timestamp(Timestamp<'a>),
     Target(Target<'a>),
     Bold,
@@ -94,8 +98,8 @@ pub enum Element<'a> {
     Underline,
     Verbatim { value: Cow<'a, str> },
     Code { value: Cow<'a, str> },
-    Comment { value: Cow<'a, str> },
-    FixedWidth { value: Cow<'a, str> },
+    Comment(Comment<'a>),
+    FixedWidth(FixedWidth<'a>),
     Title(Title<'a>),
     Table(Table<'a>),
     TableRow(TableRow),
@@ -112,13 +116,13 @@ impl Element<'_> {
             | CenterBlock(_)
             | VerseBlock(_)
             | Bold
-            | Document
+            | Document { .. }
             | DynBlock(_)
             | Headline { .. }
             | Italic
             | List(_)
             | ListItem(_)
-            | Paragraph
+            | Paragraph { .. }
             | Section
             | Strike
             | Underline
@@ -148,7 +152,7 @@ impl Element<'_> {
             Cookie(e) => Cookie(e.into_owned()),
             RadioTarget => RadioTarget,
             Drawer(e) => Drawer(e.into_owned()),
-            Document => Document,
+            Document { pre_blank } => Document { pre_blank },
             DynBlock(e) => DynBlock(e.into_owned()),
             FnDef(e) => FnDef(e.into_owned()),
             FnRef(e) => FnRef(e.into_owned()),
@@ -164,8 +168,8 @@ impl Element<'_> {
             Text { value } => Text {
                 value: value.into_owned().into(),
             },
-            Paragraph => Paragraph,
-            Rule => Rule,
+            Paragraph { post_blank } => Paragraph { post_blank },
+            Rule(e) => Rule(e),
             Timestamp(e) => Timestamp(e.into_owned()),
             Target(e) => Target(e.into_owned()),
             Bold => Bold,
@@ -178,12 +182,8 @@ impl Element<'_> {
             Code { value } => Code {
                 value: value.into_owned().into(),
             },
-            Comment { value } => Comment {
-                value: value.into_owned().into(),
-            },
-            FixedWidth { value } => FixedWidth {
-                value: value.into_owned().into(),
-            },
+            Comment(e) => Comment(e.into_owned()),
+            FixedWidth(e) => FixedWidth(e.into_owned()),
             Title(e) => Title(e.into_owned()),
             Table(e) => Table(e.into_owned()),
             TableRow(e) => TableRow(e),
@@ -215,12 +215,14 @@ impl_from!(
     BabelCall,
     CenterBlock,
     Clock,
+    Comment,
     CommentBlock,
     Cookie,
     Drawer,
     DynBlock,
     ExampleBlock,
     ExportBlock,
+    FixedWidth,
     FnDef,
     FnRef,
     InlineCall,
@@ -233,11 +235,12 @@ impl_from!(
     Snippet,
     SourceBlock,
     SpecialBlock,
+    Table,
     Target,
     Timestamp,
-    Table,
     Title,
     VerseBlock;
     List,
+    Rule,
     TableRow
 );

@@ -5,7 +5,7 @@ use nom::{
     sequence::preceded, IResult,
 };
 
-use crate::parsers::{line, take_lines_while};
+use crate::parsers::{blank_lines, line, take_lines_while};
 
 /// Special Block Element
 #[derive(Debug)]
@@ -13,9 +13,14 @@ use crate::parsers::{line, take_lines_while};
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SpecialBlock<'a> {
     /// Optional block parameters
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub parameters: Option<Cow<'a, str>>,
     /// Block name
     pub name: Cow<'a, str>,
+    /// Numbers of blank lines
+    pub pre_blank: usize,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl SpecialBlock<'_> {
@@ -23,6 +28,8 @@ impl SpecialBlock<'_> {
         SpecialBlock {
             name: self.name.into_owned().into(),
             parameters: self.parameters.map(Into::into).map(Cow::Owned),
+            pre_blank: self.pre_blank,
+            post_blank: self.post_blank,
         }
     }
 }
@@ -33,13 +40,20 @@ impl SpecialBlock<'_> {
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct QuoteBlock<'a> {
     /// Optional block parameters
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub parameters: Option<Cow<'a, str>>,
+    /// Numbers of blank lines
+    pub pre_blank: usize,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl QuoteBlock<'_> {
     pub fn into_owned(self) -> QuoteBlock<'static> {
         QuoteBlock {
             parameters: self.parameters.map(Into::into).map(Cow::Owned),
+            pre_blank: self.pre_blank,
+            post_blank: self.post_blank,
         }
     }
 }
@@ -50,13 +64,20 @@ impl QuoteBlock<'_> {
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CenterBlock<'a> {
     /// Optional block parameters
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub parameters: Option<Cow<'a, str>>,
+    /// Numbers of blank lines
+    pub pre_blank: usize,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl CenterBlock<'_> {
     pub fn into_owned(self) -> CenterBlock<'static> {
         CenterBlock {
             parameters: self.parameters.map(Into::into).map(Cow::Owned),
+            pre_blank: self.pre_blank,
+            post_blank: self.post_blank,
         }
     }
 }
@@ -67,13 +88,20 @@ impl CenterBlock<'_> {
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct VerseBlock<'a> {
     /// Optional block parameters
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub parameters: Option<Cow<'a, str>>,
+    /// Numbers of blank lines
+    pub pre_blank: usize,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl VerseBlock<'_> {
     pub fn into_owned(self) -> VerseBlock<'static> {
         VerseBlock {
             parameters: self.parameters.map(Into::into).map(Cow::Owned),
+            pre_blank: self.pre_blank,
+            post_blank: self.post_blank,
         }
     }
 }
@@ -83,9 +111,12 @@ impl VerseBlock<'_> {
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CommentBlock<'a> {
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub data: Option<Cow<'a, str>>,
     /// Comment, without block's boundaries
     pub contents: Cow<'a, str>,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl CommentBlock<'_> {
@@ -93,6 +124,7 @@ impl CommentBlock<'_> {
         CommentBlock {
             data: self.data.map(Into::into).map(Cow::Owned),
             contents: self.contents.into_owned().into(),
+            post_blank: self.post_blank,
         }
     }
 }
@@ -102,9 +134,12 @@ impl CommentBlock<'_> {
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExampleBlock<'a> {
+    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub data: Option<Cow<'a, str>>,
     ///  Block contents
     pub contents: Cow<'a, str>,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl ExampleBlock<'_> {
@@ -112,6 +147,7 @@ impl ExampleBlock<'_> {
         ExampleBlock {
             data: self.data.map(Into::into).map(Cow::Owned),
             contents: self.contents.into_owned().into(),
+            post_blank: self.post_blank,
         }
     }
 }
@@ -124,6 +160,8 @@ pub struct ExportBlock<'a> {
     pub data: Cow<'a, str>,
     ///  Block contents
     pub contents: Cow<'a, str>,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl ExportBlock<'_> {
@@ -131,12 +169,13 @@ impl ExportBlock<'_> {
         ExportBlock {
             data: self.data.into_owned().into(),
             contents: self.contents.into_owned().into(),
+            post_blank: self.post_blank,
         }
     }
 }
 
 /// Src Block Element
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SourceBlock<'a> {
@@ -145,6 +184,8 @@ pub struct SourceBlock<'a> {
     /// Language of the code in the block
     pub language: Cow<'a, str>,
     pub arguments: Cow<'a, str>,
+    /// Numbers of blank lines
+    pub post_blank: usize,
 }
 
 impl SourceBlock<'_> {
@@ -153,6 +194,7 @@ impl SourceBlock<'_> {
             language: self.language.into_owned().into(),
             arguments: self.arguments.into_owned().into(),
             contents: self.contents.into_owned().into(),
+            post_blank: self.post_blank,
         }
     }
 
@@ -164,20 +206,21 @@ impl SourceBlock<'_> {
 }
 
 #[inline]
-pub fn parse_block_element(input: &str) -> Option<(&str, (&str, Option<&str>, &str))> {
+pub fn parse_block_element(input: &str) -> Option<(&str, (&str, Option<&str>, &str, usize))> {
     parse_block_element_internal::<()>(input).ok()
 }
 
 #[inline]
 fn parse_block_element_internal<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&str, (&str, Option<&str>, &str), E> {
+) -> IResult<&str, (&str, Option<&str>, &str, usize), E> {
     let (input, name) = preceded(tag_no_case("#+BEGIN_"), alpha1)(input)?;
     let (input, args) = line(input)?;
     let end_line = format!("#+END_{}", name);
     let (input, contents) =
         take_lines_while(|line| !line.trim().eq_ignore_ascii_case(&end_line))(input);
     let (input, _) = line(input)?;
+    let (input, blank) = blank_lines(input);
 
     Ok((
         input,
@@ -189,6 +232,7 @@ fn parse_block_element_internal<'a, E: ParseError<&'a str>>(
                 Some(args.trim())
             },
             contents,
+            blank,
         ),
     ))
 }
@@ -202,20 +246,21 @@ fn parse() {
             r#"#+BEGIN_SRC
 #+END_SRC"#
         ),
-        Ok(("", ("SRC".into(), None, "")))
+        Ok(("", ("SRC".into(), None, "", 0)))
     );
     assert_eq!(
         parse_block_element_internal::<VerboseError<&str>>(
             r#"#+begin_src
    #+end_src"#
         ),
-        Ok(("", ("src".into(), None, "")))
+        Ok(("", ("src".into(), None, "", 0)))
     );
     assert_eq!(
         parse_block_element_internal::<VerboseError<&str>>(
             r#"#+BEGIN_SRC javascript
 console.log('Hello World!');
 #+END_SRC
+
 "#
         ),
         Ok((
@@ -223,7 +268,8 @@ console.log('Hello World!');
             (
                 "SRC".into(),
                 Some("javascript".into()),
-                "console.log('Hello World!');\n"
+                "console.log('Hello World!');\n",
+                1
             )
         ))
     );
