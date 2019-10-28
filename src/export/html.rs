@@ -349,7 +349,7 @@ mod syntect_handler {
                 Element::FixedWidth(fixed_width) => write!(
                     w,
                     "<pre class=\"example\">{}</pre>",
-                    self.highlight(None, fixed_width.value)
+                    self.highlight(None, &fixed_width.value)
                 )?,
                 Element::ExampleBlock(block) => write!(
                     w,
