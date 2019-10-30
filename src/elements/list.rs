@@ -1,67 +1,29 @@
 use std::borrow::Cow;
 use std::iter::once;
 
-use memchr::memchr_iter;
+use memchr::{memchr, memchr_iter};
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{digit1, space0},
+    combinator::{map, recognize},
+    error::ParseError,
+    sequence::terminated,
+    IResult,
+};
 
 /// Plain List Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct List {
+    /// List indent, number of whitespaces
     pub indent: usize,
+    /// List's type, determined by the first item of this list
     pub ordered: bool,
-}
-
-impl List {
-    #[inline]
-    pub(crate) fn parse(text: &str) -> Option<(&str, List, &str)> {
-        let (indent, tail) = text
-            .find(|c| c != ' ')
-            .map(|off| (off, &text[off..]))
-            .unwrap_or((0, text));
-
-        let ordered = is_item(tail)?;
-
-        let mut last_end = 0;
-        let mut start = 0;
-
-        for i in memchr_iter(b'\n', text.as_bytes())
-            .map(|i| i + 1)
-            .chain(once(text.len()))
-        {
-            let line = &text[start..i];
-            if let Some(line_indent) = line.find(|c: char| !c.is_whitespace()) {
-                if line_indent < indent
-                    || (line_indent == indent && is_item(&line[line_indent..]).is_none())
-                {
-                    return Some((
-                        &text[start..],
-                        List { indent, ordered },
-                        &text[0..start - 1],
-                    ));
-                } else {
-                    last_end = 0;
-                    start = i;
-                    continue;
-                }
-            } else {
-                // this line is empty
-                if last_end != 0 {
-                    return Some((&text[i..], List { indent, ordered }, &text[0..last_end]));
-                } else {
-                    last_end = start;
-                    start = i;
-                    continue;
-                }
-            }
-        }
-
-        if last_end != 0 {
-            Some(("", List { indent, ordered }, &text[0..last_end]))
-        } else {
-            Some(("", List { indent, ordered }, text))
-        }
-    }
+    /// Numbers of blank lines between last list's line and next non-blank line
+    /// or buffer's end
+    pub post_blank: usize,
 }
 
 /// List Item Elemenet
@@ -71,185 +33,287 @@ impl List {
 pub struct ListItem<'a> {
     /// List item bullet
     pub bullet: Cow<'a, str>,
+    /// List item indent, number of whitespaces
+    pub indent: usize,
+    /// List item type
+    pub ordered: bool,
+    // TODO checkbox
+    // TODO counter
+    // TODO tag
 }
 
 impl ListItem<'_> {
     #[inline]
-    pub(crate) fn parse(text: &str, indent: usize) -> (&str, ListItem, &str) {
-        debug_assert!(&text[0..indent].trim().is_empty());
-        let off = &text[indent..].find(' ').unwrap() + 1 + indent;
-
-        let bytes = text.as_bytes();
-        let mut lines = memchr_iter(b'\n', bytes)
-            .map(|i| i + 1)
-            .chain(once(text.len()));
-        let mut pos = lines.next().unwrap();
-
-        for i in lines {
-            let line = &text[pos..i];
-            if let Some(line_indent) = line.find(|c: char| !c.is_whitespace()) {
-                if line_indent == indent {
-                    return (
-                        &text[pos..],
-                        ListItem {
-                            bullet: text[indent..off].into(),
-                        },
-                        &text[off..pos],
-                    );
-                }
-            }
-            pos = i;
-        }
-
-        (
-            "",
-            ListItem {
-                bullet: text[indent..off].into(),
-            },
-            &text[off..],
-        )
+    pub(crate) fn parse(input: &str) -> Option<(&str, (ListItem, &str))> {
+        list_item::<()>(input).ok()
     }
 
     pub fn into_owned(self) -> ListItem<'static> {
         ListItem {
             bullet: self.bullet.into_owned().into(),
+            indent: self.indent,
+            ordered: self.ordered,
         }
     }
 }
 
-#[inline]
-pub fn is_item(text: &str) -> Option<bool> {
-    let bytes = text.as_bytes();
-    match bytes.get(0)? {
-        b'*' | b'-' | b'+' => {
-            if text.len() > 1 && (bytes[1] == b' ' || bytes[1] == b'\n') {
-                Some(false)
-            } else {
-                None
+fn list_item<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, (ListItem, &str), E> {
+    let (input, indent) = map(space0, |s: &str| s.len())(input)?;
+    let (input, bullet) = recognize(alt((
+        tag("+ "),
+        tag("* "),
+        tag("- "),
+        terminated(digit1, tag(". ")),
+    )))(input)?;
+    let (input, contents) = list_item_contents(input, indent);
+    Ok((
+        input,
+        (
+            ListItem {
+                bullet: bullet.into(),
+                indent,
+                ordered: bullet.starts_with(|c: char| c.is_ascii_digit()),
+            },
+            contents,
+        ),
+    ))
+}
+
+fn list_item_contents(input: &str, indent: usize) -> (&str, &str) {
+    let mut last_end = memchr(b'\n', input.as_bytes())
+        .map(|i| i + 1)
+        .unwrap_or_else(|| input.len());
+
+    for i in memchr_iter(b'\n', input.as_bytes())
+        .map(|i| i + 1)
+        .chain(once(input.len()))
+        .skip(1)
+    {
+        if input[last_end..i]
+            .as_bytes()
+            .iter()
+            .all(u8::is_ascii_whitespace)
+        {
+            let x = memchr(b'\n', &input[i..].as_bytes())
+                .map(|ii| i + ii + 1)
+                .unwrap_or_else(|| input.len());
+
+            // two consecutive empty lines
+            if input[i..x].as_bytes().iter().all(u8::is_ascii_whitespace) {
+                return (&input[x..], &input[0..x]);
             }
         }
-        b'0'..=b'9' => {
-            let i = bytes
-                .iter()
-                .position(|&c| !c.is_ascii_digit())
-                .unwrap_or_else(|| text.len() - 1);
-            if (bytes[i] == b'.' || bytes[i] == b')')
-                && text.len() > i + 1
-                && (bytes[i + 1] == b' ' || bytes[i + 1] == b'\n')
-            {
-                Some(true)
-            } else {
-                None
-            }
+
+        // line less or equally indented than the starting line
+        if input[last_end..i]
+            .as_bytes()
+            .iter()
+            .take(indent + 1)
+            .any(|c| !c.is_ascii_whitespace())
+        {
+            return (&input[last_end..], &input[0..last_end]);
         }
-        _ => None,
+
+        last_end = i;
     }
+
+    ("", input)
 }
 
 #[test]
-fn test_is_item() {
-    assert_eq!(is_item("+ item"), Some(false));
-    assert_eq!(is_item("- item"), Some(false));
-    assert_eq!(is_item("10. item"), Some(true));
-    assert_eq!(is_item("10) item"), Some(true));
-    assert_eq!(is_item("1. item"), Some(true));
-    assert_eq!(is_item("1) item"), Some(true));
-    assert_eq!(is_item("10. "), Some(true));
-    assert_eq!(is_item("10.\n"), Some(true));
-    assert_eq!(is_item("10."), None);
-    assert_eq!(is_item("+"), None);
-    assert_eq!(is_item("-item"), None);
-    assert_eq!(is_item("+item"), None);
-}
+fn parse() {
+    use nom::error::VerboseError;
 
-#[test]
-fn list_parse() {
     assert_eq!(
-        List::parse("+ item1\n+ item2"),
-        Some((
-            "",
-            List {
-                indent: 0,
-                ordered: false,
-            },
-            "+ item1\n+ item2"
+        list_item::<VerboseError<&str>>(
+            r#"+ item1
++ item2"#
+        ),
+        Ok((
+            "+ item2",
+            (
+                ListItem {
+                    bullet: "+ ".into(),
+                    indent: 0,
+                    ordered: false,
+                },
+                r#"item1
+"#
+            )
         ))
     );
     assert_eq!(
-        List::parse("* item1\n  \n* item2"),
-        Some((
-            "",
-            List {
-                indent: 0,
-                ordered: false,
-            },
-            "* item1\n  \n* item2"
-        ))
-    );
-    assert_eq!(
-        List::parse("* item1\n  \n   \n* item2"),
-        Some((
+        list_item::<VerboseError<&str>>(
+            r#"* item1
+
+* item2"#
+        ),
+        Ok((
             "* item2",
-            List {
-                indent: 0,
-                ordered: false,
-            },
-            "* item1\n"
+            (
+                ListItem {
+                    bullet: "* ".into(),
+                    indent: 0,
+                    ordered: false,
+                },
+                r#"item1
+
+"#
+            )
         ))
     );
     assert_eq!(
-        List::parse("* item1\n  \n   "),
-        Some((
-            "",
-            List {
-                indent: 0,
-                ordered: false,
-            },
-            "* item1\n"
+        list_item::<VerboseError<&str>>(
+            r#"* item1
+
+
+* item2"#
+        ),
+        Ok((
+            "* item2",
+            (
+                ListItem {
+                    bullet: "* ".into(),
+                    indent: 0,
+                    ordered: false,
+                },
+                r#"item1
+
+
+"#
+            )
         ))
     );
     assert_eq!(
-        List::parse("+ item1\n  + item2\n   "),
-        Some((
+        list_item::<VerboseError<&str>>(
+            r#"* item1
+
+"#
+        ),
+        Ok((
             "",
-            List {
-                indent: 0,
-                ordered: false,
-            },
-            "+ item1\n  + item2\n"
+            (
+                ListItem {
+                    bullet: "* ".into(),
+                    indent: 0,
+                    ordered: false,
+                },
+                r#"item1
+
+"#
+            )
         ))
     );
     assert_eq!(
-        List::parse("+ item1\n  \n  + item2\n   \n+ item 3"),
-        Some((
+        list_item::<VerboseError<&str>>(
+            r#"+ item1
+  + item2
+"#
+        ),
+        Ok((
             "",
-            List {
-                indent: 0,
-                ordered: false,
-            },
-            "+ item1\n  \n  + item2\n   \n+ item 3"
+            (
+                ListItem {
+                    bullet: "+ ".into(),
+                    indent: 0,
+                    ordered: false,
+                },
+                r#"item1
+  + item2
+"#
+            )
         ))
     );
     assert_eq!(
-        List::parse("  + item1\n  \n  + item2"),
-        Some((
-            "",
-            List {
-                indent: 2,
-                ordered: false,
-            },
-            "  + item1\n  \n  + item2"
+        list_item::<VerboseError<&str>>(
+            r#"+ item1
+
+  + item2
+
++ item 3"#
+        ),
+        Ok((
+            "+ item 3",
+            (
+                ListItem {
+                    bullet: "+ ".into(),
+                    indent: 0,
+                    ordered: false,
+                },
+                r#"item1
+
+  + item2
+
+"#
+            )
         ))
     );
     assert_eq!(
-        List::parse("+ 1\n\n  - 2\n\n  - 3\n\n+ 4"),
-        Some((
-            "",
-            List {
-                indent: 0,
-                ordered: false,
-            },
-            "+ 1\n\n  - 2\n\n  - 3\n\n+ 4"
+        list_item::<VerboseError<&str>>(
+            r#"  + item1
+
+  + item2"#
+        ),
+        Ok((
+            "  + item2",
+            (
+                ListItem {
+                    bullet: "+ ".into(),
+                    indent: 2,
+                    ordered: false,
+                },
+                r#"item1
+
+"#
+            )
+        ))
+    );
+    assert_eq!(
+        list_item::<VerboseError<&str>>(
+            r#"  1. item1
+2. item2
+  3. item3"#
+        ),
+        Ok((
+            r#"2. item2
+  3. item3"#,
+            (
+                ListItem {
+                    bullet: "1. ".into(),
+                    indent: 2,
+                    ordered: true,
+                },
+                r#"item1
+"#
+            )
+        ))
+    );
+    assert_eq!(
+        list_item::<VerboseError<&str>>(
+            r#"+ 1
+
+  - 2
+
+  - 3
+
++ 4"#
+        ),
+        Ok((
+            "+ 4",
+            (
+                ListItem {
+                    bullet: "+ ".into(),
+                    indent: 0,
+                    ordered: false,
+                },
+                r#"1
+
+  - 2
+
+  - 3
+
+"#
+            )
         ))
     );
 }

@@ -20,33 +20,45 @@ use crate::elements::{
 };
 
 pub trait ElementArena<'a> {
-    fn append_element<T: Into<Element<'a>>>(&mut self, element: T, parent: NodeId) -> NodeId;
-    fn insert_before_last_child<T: Into<Element<'a>>>(
-        &mut self,
-        element: T,
-        parent: NodeId,
-    ) -> NodeId;
+    fn append<T>(&mut self, element: T, parent: NodeId) -> NodeId
+    where
+        T: Into<Element<'a>>;
+    fn insert_before_last_child<T>(&mut self, element: T, parent: NodeId) -> NodeId
+    where
+        T: Into<Element<'a>>;
+    fn set<T>(&mut self, node: NodeId, element: T)
+    where
+        T: Into<Element<'a>>;
 }
 
 impl<'a> ElementArena<'a> for Arena<Element<'a>> {
-    fn append_element<T: Into<Element<'a>>>(&mut self, element: T, parent: NodeId) -> NodeId {
+    fn append<T>(&mut self, element: T, parent: NodeId) -> NodeId
+    where
+        T: Into<Element<'a>>,
+    {
         let node = self.new_node(element.into());
         parent.append(node, self);
         node
     }
 
-    fn insert_before_last_child<T: Into<Element<'a>>>(
-        &mut self,
-        element: T,
-        parent: NodeId,
-    ) -> NodeId {
+    fn insert_before_last_child<T>(&mut self, element: T, parent: NodeId) -> NodeId
+    where
+        T: Into<Element<'a>>,
+    {
         if let Some(child) = self[parent].last_child() {
             let node = self.new_node(element.into());
             child.insert_before(node, self);
             node
         } else {
-            self.append_element(element, parent)
+            self.append(element, parent)
         }
+    }
+
+    fn set<T>(&mut self, node: NodeId, element: T)
+    where
+        T: Into<Element<'a>>,
+    {
+        *self[node].get_mut() = element.into();
     }
 }
 
@@ -65,50 +77,39 @@ impl<'a, 'b, 'c> OwnedArena<'a, 'b, 'c> {
 }
 
 impl<'a> ElementArena<'a> for OwnedArena<'a, '_, '_> {
-    fn append_element<T: Into<Element<'a>>>(&mut self, element: T, parent: NodeId) -> NodeId {
-        let node = self.arena.new_node(element.into().into_owned());
-        parent.append(node, self.arena);
-        node
+    fn append<T>(&mut self, element: T, parent: NodeId) -> NodeId
+    where
+        T: Into<Element<'a>>,
+    {
+        self.arena.append(element.into().into_owned(), parent)
     }
 
-    fn insert_before_last_child<T: Into<Element<'a>>>(
-        &mut self,
-        element: T,
-        parent: NodeId,
-    ) -> NodeId {
+    fn insert_before_last_child<T>(&mut self, element: T, parent: NodeId) -> NodeId
+    where
+        T: Into<Element<'a>>,
+    {
         self.arena
             .insert_before_last_child(element.into().into_owned(), parent)
+    }
+
+    fn set<T>(&mut self, node: NodeId, element: T)
+    where
+        T: Into<Element<'a>>,
+    {
+        self.arena.set(node, element.into().into_owned());
     }
 }
 
 #[derive(Debug)]
 pub enum Container<'a> {
-    // List
-    List {
-        content: &'a str,
-        node: NodeId,
-        indent: usize,
-    },
     // Block, List Item
-    Block {
-        content: &'a str,
-        node: NodeId,
-    },
+    Block { content: &'a str, node: NodeId },
     // Pargraph, Inline Markup
-    Inline {
-        content: &'a str,
-        node: NodeId,
-    },
+    Inline { content: &'a str, node: NodeId },
     // Headline
-    Headline {
-        content: &'a str,
-        node: NodeId,
-    },
+    Headline { content: &'a str, node: NodeId },
     // Document
-    Document {
-        content: &'a str,
-        node: NodeId,
-    },
+    Document { content: &'a str, node: NodeId },
 }
 
 pub fn parse_container<'a, T: ElementArena<'a>>(
@@ -132,13 +133,6 @@ pub fn parse_container<'a, T: ElementArena<'a>>(
             Container::Inline { content, node } => {
                 parse_inlines(arena, content, node, containers);
             }
-            Container::List {
-                content,
-                node,
-                indent,
-            } => {
-                parse_list_items(arena, content, indent, node, containers);
-            }
         }
     }
 }
@@ -151,7 +145,7 @@ pub fn parse_headline_content<'a, T: ElementArena<'a>>(
     config: &ParseConfig,
 ) {
     let (tail, (title, content)) = Title::parse(content, config).unwrap();
-    let node = arena.append_element(title, parent);
+    let node = arena.append(title, parent);
     containers.push(Container::Inline { content, node });
     parse_section_and_headlines(arena, tail, parent, containers);
 }
@@ -171,12 +165,12 @@ pub fn parse_section_and_headlines<'a, T: ElementArena<'a>>(
     for i in memchr_iter(b'\n', content.as_bytes()).chain(once(content.len())) {
         if let Some((mut tail, (headline_content, level))) = parse_headline(&content[last_end..]) {
             if last_end != 0 {
-                let node = arena.append_element(Element::Section, parent);
+                let node = arena.append(Element::Section, parent);
                 let content = &content[0..last_end];
                 containers.push(Container::Block { content, node });
             }
 
-            let node = arena.append_element(Element::Headline { level }, parent);
+            let node = arena.append(Element::Headline { level }, parent);
             containers.push(Container::Headline {
                 content: headline_content,
                 node,
@@ -184,7 +178,7 @@ pub fn parse_section_and_headlines<'a, T: ElementArena<'a>>(
 
             while let Some((new_tail, (content, level))) = parse_headline(tail) {
                 debug_assert_ne!(tail, new_tail);
-                let node = arena.append_element(Element::Headline { level }, parent);
+                let node = arena.append(Element::Headline { level }, parent);
                 containers.push(Container::Headline { content, node });
                 tail = new_tail;
             }
@@ -193,7 +187,7 @@ pub fn parse_section_and_headlines<'a, T: ElementArena<'a>>(
         last_end = i + 1;
     }
 
-    let node = arena.append_element(Element::Section, parent);
+    let node = arena.append(Element::Section, parent);
     containers.push(Container::Block { content, node });
 }
 
@@ -221,7 +215,7 @@ pub fn parse_blocks<'a, T: ElementArena<'a>>(
             debug_assert_ne!(tail, tail_);
             tail = tail_;
 
-            let node = arena.append_element(
+            let node = arena.append(
                 Element::Paragraph {
                     // including current line (&tail[0..i])
                     post_blank: blank + 1,
@@ -259,7 +253,7 @@ pub fn parse_blocks<'a, T: ElementArena<'a>>(
     }
 
     if !text.is_empty() {
-        let node = arena.append_element(Element::Paragraph { post_blank: 0 }, parent);
+        let node = arena.append(Element::Paragraph { post_blank: 0 }, parent);
 
         containers.push(Container::Inline {
             content: &text[0..pos].trim_end(),
@@ -276,19 +270,12 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
 ) -> Option<&'a str> {
     // footnote definitions must be start at column 0
     if let Some((tail, (fn_def, content))) = FnDef::parse(contents) {
-        let node = arena.append_element(fn_def, parent);
+        let node = arena.append(fn_def, parent);
         containers.push(Container::Block { content, node });
         return Some(tail);
     }
 
-    if let Some((tail, list, content)) = List::parse(contents) {
-        let indent = list.indent;
-        let node = arena.append_element(list, parent);
-        containers.push(Container::List {
-            content,
-            node,
-            indent,
-        });
+    if let Some(tail) = parse_list(arena, contents, parent, containers) {
         return Some(tail);
     }
 
@@ -297,7 +284,7 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
     match contents.as_bytes().get(0)? {
         b'C' => {
             let (tail, clock) = Clock::parse(contents)?;
-            arena.append_element(clock, parent);
+            arena.append(clock, parent);
             Some(tail)
         }
         b'\'' => {
@@ -306,17 +293,17 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
         }
         b'-' => {
             let (tail, rule) = Rule::parse(contents)?;
-            arena.append_element(rule, parent);
+            arena.append(rule, parent);
             Some(tail)
         }
         b':' => {
             if let Some((tail, (drawer, content))) = Drawer::parse(contents) {
-                let node = arena.append_element(drawer, parent);
+                let node = arena.append(drawer, parent);
                 containers.push(Container::Block { content, node });
                 Some(tail)
             } else {
                 let (tail, fixed_width) = FixedWidth::parse(contents)?;
-                arena.append_element(fixed_width, parent);
+                arena.append(fixed_width, parent);
                 Some(tail)
             }
         }
@@ -337,12 +324,12 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
                 );
                 Some(tail)
             } else if let Some((tail, (dyn_block, content))) = DynBlock::parse(contents) {
-                let node = arena.append_element(dyn_block, parent);
+                let node = arena.append(dyn_block, parent);
                 containers.push(Container::Block { content, node });
                 Some(tail)
             } else if let Some((tail, (key, optional, value, blank))) = parse_keyword(contents) {
                 if (&*key).eq_ignore_ascii_case("CALL") {
-                    arena.append_element(
+                    arena.append(
                         BabelCall {
                             value: value.into(),
                             post_blank: blank,
@@ -350,7 +337,7 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
                         parent,
                     );
                 } else {
-                    arena.append_element(
+                    arena.append(
                         Keyword {
                             key: key.into(),
                             optional: optional.map(Into::into),
@@ -363,7 +350,7 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
                 Some(tail)
             } else {
                 let (tail, comment) = Comment::parse(contents)?;
-                arena.append_element(comment, parent);
+                arena.append(comment, parent);
                 Some(tail)
             }
         }
@@ -383,7 +370,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
     match &*name.to_uppercase() {
         "CENTER" => {
             let (content, pre_blank) = blank_lines(content);
-            let node = arena.append_element(
+            let node = arena.append(
                 CenterBlock {
                     parameters,
                     pre_blank,
@@ -395,7 +382,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
         }
         "QUOTE" => {
             let (content, pre_blank) = blank_lines(content);
-            let node = arena.append_element(
+            let node = arena.append(
                 QuoteBlock {
                     parameters,
                     pre_blank,
@@ -407,7 +394,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
         }
         "VERSE" => {
             let (content, pre_blank) = blank_lines(content);
-            let node = arena.append_element(
+            let node = arena.append(
                 VerseBlock {
                     parameters,
                     pre_blank,
@@ -418,7 +405,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
             containers.push(Container::Block { content, node });
         }
         "COMMENT" => {
-            arena.append_element(
+            arena.append(
                 CommentBlock {
                     data: parameters,
                     contents: content.into(),
@@ -428,7 +415,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
             );
         }
         "EXAMPLE" => {
-            arena.append_element(
+            arena.append(
                 ExampleBlock {
                     data: parameters,
                     contents: content.into(),
@@ -438,7 +425,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
             );
         }
         "EXPORT" => {
-            arena.append_element(
+            arena.append(
                 ExportBlock {
                     data: parameters.unwrap_or_default(),
                     contents: content.into(),
@@ -457,7 +444,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
                 None => (Cow::Borrowed(""), Cow::Borrowed("")),
                 _ => unreachable!("`parse_block_element` returns `Some(Cow::Borrowed)` or `None`"),
             };
-            arena.append_element(
+            arena.append(
                 SourceBlock {
                     arguments,
                     language,
@@ -469,7 +456,7 @@ pub fn match_block<'a, T: ElementArena<'a>>(
         }
         _ => {
             let (content, pre_blank) = blank_lines(content);
-            let node = arena.append_element(
+            let node = arena.append(
                 SpecialBlock {
                     parameters,
                     name,
@@ -553,7 +540,7 @@ pub fn parse_inlines<'a, T: ElementArena<'a>>(
     }
 
     if !tail.is_empty() {
-        arena.append_element(Element::Text { value: tail.into() }, parent);
+        arena.append(Element::Text { value: tail.into() }, parent);
     }
 }
 
@@ -570,109 +557,134 @@ pub fn parse_inline<'a, T: ElementArena<'a>>(
     match contents.as_bytes()[0] {
         b'@' => {
             let (tail, snippet) = Snippet::parse(contents)?;
-            arena.append_element(snippet, parent);
+            arena.append(snippet, parent);
             Some(tail)
         }
         b'{' => {
             let (tail, macros) = Macros::parse(contents)?;
-            arena.append_element(macros, parent);
+            arena.append(macros, parent);
             Some(tail)
         }
         b'<' => {
             if let Some((tail, _content)) = parse_radio_target(contents) {
-                arena.append_element(Element::RadioTarget, parent);
+                arena.append(Element::RadioTarget, parent);
                 Some(tail)
             } else if let Some((tail, target)) = Target::parse(contents) {
-                arena.append_element(target, parent);
+                arena.append(target, parent);
                 Some(tail)
             } else if let Some((tail, timestamp)) = Timestamp::parse_active(contents) {
-                arena.append_element(timestamp, parent);
+                arena.append(timestamp, parent);
                 Some(tail)
             } else {
                 let (tail, timestamp) = Timestamp::parse_diary(contents)?;
-                arena.append_element(timestamp, parent);
+                arena.append(timestamp, parent);
                 Some(tail)
             }
         }
         b'[' => {
             if let Some((tail, fn_ref)) = FnRef::parse(contents) {
-                arena.append_element(fn_ref, parent);
+                arena.append(fn_ref, parent);
                 Some(tail)
             } else if let Some((tail, link)) = Link::parse(contents) {
-                arena.append_element(link, parent);
+                arena.append(link, parent);
                 Some(tail)
             } else if let Some((tail, cookie)) = Cookie::parse(contents) {
-                arena.append_element(cookie, parent);
+                arena.append(cookie, parent);
                 Some(tail)
             } else {
                 let (tail, timestamp) = Timestamp::parse_inactive(contents)?;
-                arena.append_element(timestamp, parent);
+                arena.append(timestamp, parent);
                 Some(tail)
             }
         }
         b'*' => {
             let (tail, content) = parse_emphasis(contents, b'*')?;
-            let node = arena.append_element(Element::Bold, parent);
+            let node = arena.append(Element::Bold, parent);
             containers.push(Container::Inline { content, node });
             Some(tail)
         }
         b'+' => {
             let (tail, content) = parse_emphasis(contents, b'+')?;
-            let node = arena.append_element(Element::Strike, parent);
+            let node = arena.append(Element::Strike, parent);
             containers.push(Container::Inline { content, node });
             Some(tail)
         }
         b'/' => {
             let (tail, content) = parse_emphasis(contents, b'/')?;
-            let node = arena.append_element(Element::Italic, parent);
+            let node = arena.append(Element::Italic, parent);
             containers.push(Container::Inline { content, node });
             Some(tail)
         }
         b'_' => {
             let (tail, content) = parse_emphasis(contents, b'_')?;
-            let node = arena.append_element(Element::Underline, parent);
+            let node = arena.append(Element::Underline, parent);
             containers.push(Container::Inline { content, node });
             Some(tail)
         }
         b'=' => {
             let (tail, value) = parse_emphasis(contents, b'=')?;
             let value = value.into();
-            arena.append_element(Element::Verbatim { value }, parent);
+            arena.append(Element::Verbatim { value }, parent);
             Some(tail)
         }
         b'~' => {
             let (tail, value) = parse_emphasis(contents, b'~')?;
             let value = value.into();
-            arena.append_element(Element::Code { value }, parent);
+            arena.append(Element::Code { value }, parent);
             Some(tail)
         }
         b's' => {
             let (tail, inline_src) = InlineSrc::parse(contents)?;
-            arena.append_element(inline_src, parent);
+            arena.append(inline_src, parent);
             Some(tail)
         }
         b'c' => {
             let (tail, inline_call) = InlineCall::parse(contents)?;
-            arena.append_element(inline_call, parent);
+            arena.append(inline_call, parent);
             Some(tail)
         }
         _ => None,
     }
 }
 
-pub fn parse_list_items<'a, T: ElementArena<'a>>(
+pub fn parse_list<'a, T: ElementArena<'a>>(
     arena: &mut T,
-    mut contents: &'a str,
-    indent: usize,
+    contents: &'a str,
     parent: NodeId,
     containers: &mut Vec<Container<'a>>,
-) {
-    while !contents.is_empty() {
-        let (tail, list_item, content) = ListItem::parse(contents, indent);
-        let node = arena.append_element(list_item, parent);
-        containers.push(Container::Block { content, node });
-        contents = tail;
+) -> Option<&'a str> {
+    let (mut tail, (first_item, content)) = ListItem::parse(contents)?;
+    let first_item_indent = first_item.indent;
+    let first_item_ordered = first_item.ordered;
+
+    let parent = arena.append(Element::Document { pre_blank: 0 }, parent); // placeholder
+
+    let node = arena.append(first_item, parent);
+    containers.push(Container::Block { content, node });
+
+    while let Some((tail_, (item, content))) = ListItem::parse(tail) {
+        if item.indent == first_item_indent {
+            let node = arena.append(item, parent);
+            containers.push(Container::Block { content, node });
+            debug_assert_ne!(tail, tail_);
+            tail = tail_;
+        } else {
+            break;
+        }
     }
+
+    let (tail, blank) = blank_lines(tail);
+
+    arena.set(
+        parent,
+        List {
+            indent: first_item_indent,
+            ordered: first_item_ordered,
+            post_blank: blank,
+        },
+    );
+
+    Some(tail)
 }
 
 pub fn parse_table<'a, T: ElementArena<'a>>(
@@ -682,16 +694,16 @@ pub fn parse_table<'a, T: ElementArena<'a>>(
     parent: NodeId,
 ) -> Option<&'a str> {
     if contents.trim_start().starts_with('|') {
-        let table_node = arena.append_element(Table::Org { tblfm: None }, parent);
+        let table_node = arena.append(Table::Org { tblfm: None }, parent);
 
         let mut last_end = 0;
         for start in memchr_iter(b'\n', contents.as_bytes()).chain(once(contents.len())) {
             let line = contents[last_end..start].trim();
             match TableRow::parse(line) {
                 Some(TableRow::Standard) => {
-                    let row_node = arena.append_element(TableRow::Standard, table_node);
+                    let row_node = arena.append(TableRow::Standard, table_node);
                     for cell in line[1..].split_terminator('|') {
-                        let cell_node = arena.append_element(Element::TableCell, row_node);
+                        let cell_node = arena.append(Element::TableCell, row_node);
                         containers.push(Container::Inline {
                             content: cell.trim(),
                             node: cell_node,
@@ -699,7 +711,7 @@ pub fn parse_table<'a, T: ElementArena<'a>>(
                     }
                 }
                 Some(TableRow::Rule) => {
-                    arena.append_element(TableRow::Rule, table_node);
+                    arena.append(TableRow::Rule, table_node);
                 }
                 None => return Some(&contents[last_end..]),
             }
@@ -710,7 +722,7 @@ pub fn parse_table<'a, T: ElementArena<'a>>(
     } else {
         let (tail, value) = parse_table_el(contents)?;
         let value = value.into();
-        arena.append_element(Table::TableEl { value }, parent);
+        arena.append(Table::TableEl { value }, parent);
 
         Some(tail)
     }

@@ -39,7 +39,12 @@ pub trait OrgHandler<E: From<Error>>: Default {
             Headline { .. } => (),
             List(_list) => (),
             Italic => write!(w, "/")?,
-            ListItem(list_item) => write!(w, "{}", list_item.bullet)?,
+            ListItem(list_item) => {
+                for _ in 0..list_item.indent {
+                    write!(&mut w, " ")?;
+                }
+                write!(&mut w, "{}", list_item.bullet)?;
+            }
             Paragraph { .. } => (),
             Section => (),
             Strike => write!(w, "+")?,
@@ -216,7 +221,9 @@ pub trait OrgHandler<E: From<Error>>: Default {
                 write_blank_lines(w, dyn_block.post_blank)?;
             }
             Headline { .. } => (),
-            List(_list) => (),
+            List(list) => {
+                write_blank_lines(w, list.post_blank)?;
+            }
             Italic => write!(w, "/")?,
             ListItem(_) => (),
             Paragraph { post_blank } => {
