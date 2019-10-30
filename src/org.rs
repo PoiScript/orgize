@@ -4,7 +4,7 @@ use std::ops::{Index, IndexMut};
 
 use crate::{
     config::{ParseConfig, DEFAULT_CONFIG},
-    elements::Element,
+    elements::{Element, Keyword},
     export::{DefaultHtmlHandler, DefaultOrgHandler, HtmlHandler, OrgHandler},
     parsers::{blank_lines, parse_container, Container},
 };
@@ -76,6 +76,17 @@ impl<'a> Org<'a> {
             NodeEdge::Start(node) => Event::Start(&self[node]),
             NodeEdge::End(node) => Event::End(&self[node]),
         })
+    }
+
+    /// Returns an iterator of `Keyword`s.
+    pub fn keywords(&self) -> impl Iterator<Item = &Keyword<'_>> {
+        self.root
+            .descendants(&self.arena)
+            .skip(1)
+            .filter_map(move |node| match &self[node] {
+                Element::Keyword(kw) => Some(kw),
+                _ => None,
+            })
     }
 
     /// Writes an `Org` struct as html format.
