@@ -57,35 +57,32 @@ impl Title<'_> {
         parse_title::<()>(input, config).ok()
     }
 
-    // TODO: fn is_archived(&self) -> bool { }
-    // TODO: fn is_commented(&self) -> bool { }
     // TODO: fn is_quoted(&self) -> bool { }
     // TODO: fn is_footnote_section(&self) -> bool { }
 
     /// Returns this headline's closed timestamp, or `None` if not set.
     pub fn closed(&self) -> Option<&Timestamp> {
-        self.planning
-            .as_ref()
-            .and_then(|planning| planning.closed.as_ref())
+        self.planning.and_then(|p| p.closed.as_ref())
     }
 
     /// Returns this headline's scheduled timestamp, or `None` if not set.
     pub fn scheduled(&self) -> Option<&Timestamp> {
-        self.planning
-            .as_ref()
-            .and_then(|planning| planning.scheduled.as_ref())
+        self.planning.and_then(|p| p.scheduled.as_ref())
     }
 
     /// Returns this headline's deadline timestamp, or `None` if not set.
     pub fn deadline(&self) -> Option<&Timestamp> {
-        self.planning
-            .as_ref()
-            .and_then(|planning| planning.deadline.as_ref())
+        self.planning.and_then(|p| p.deadline.as_ref())
     }
 
-    /// checks if this headline is "archived"
+    /// Returns `true` if this headline is archived
     pub fn is_archived(&self) -> bool {
         self.tags.iter().any(|tag| tag == "ARCHIVE")
+    }
+
+    /// Returns `true` if this headline is commented
+    pub fn is_commented(&self) -> bool {
+        self.raw.starts_with("COMMENT  ")
     }
 
     pub fn into_owned(self) -> Title<'static> {
@@ -433,17 +430,3 @@ fn parse_properties_drawer_() {
         ))
     )
 }
-
-// #[test]
-// fn is_commented() {
-//     assert!(parse_title::<VerboseError<&str>>("* COMMENT Title", &DEFAULT_CONFIG)
-//         .1
-//         .is_commented());
-//     assert!(!parse_title::<VerboseError<&str>>("* Title", &DEFAULT_CONFIG).1.is_commented());
-//     assert!(!parse_title::<VerboseError<&str>>("* C0MMENT Title", &DEFAULT_CONFIG)
-//         .1
-//         .is_commented());
-//     assert!(!parse_title::<VerboseError<&str>>("* comment Title", &DEFAULT_CONFIG)
-//         .1
-//         .is_commented());
-// }
