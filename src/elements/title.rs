@@ -62,17 +62,17 @@ impl Title<'_> {
 
     /// Returns this headline's closed timestamp, or `None` if not set.
     pub fn closed(&self) -> Option<&Timestamp> {
-        self.planning.and_then(|p| p.closed.as_ref())
+        self.planning.as_ref().and_then(|p| p.closed.as_ref())
     }
 
     /// Returns this headline's scheduled timestamp, or `None` if not set.
     pub fn scheduled(&self) -> Option<&Timestamp> {
-        self.planning.and_then(|p| p.scheduled.as_ref())
+        self.planning.as_ref().and_then(|p| p.scheduled.as_ref())
     }
 
     /// Returns this headline's deadline timestamp, or `None` if not set.
     pub fn deadline(&self) -> Option<&Timestamp> {
-        self.planning.and_then(|p| p.deadline.as_ref())
+        self.planning.as_ref().and_then(|p| p.deadline.as_ref())
     }
 
     /// Returns `true` if this headline is archived
