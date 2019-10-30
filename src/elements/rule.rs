@@ -1,4 +1,6 @@
-use nom::{bytes::complete::take_while_m_n, error::ParseError, IResult};
+use nom::{
+    bytes::complete::take_while_m_n, character::complete::space0, error::ParseError, IResult,
+};
 
 use crate::parsers::{blank_lines, eol};
 
@@ -18,6 +20,7 @@ impl Rule {
 }
 
 fn parse_rule<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Rule, E> {
+    let (input, _) = space0(input)?;
     let (input, _) = take_while_m_n(5, usize::max_value(), |c| c == '-')(input)?;
     let (input, _) = eol(input)?;
     let (input, blank) = blank_lines(input);

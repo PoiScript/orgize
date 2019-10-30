@@ -14,7 +14,10 @@ pub struct Comment<'a> {
 
 impl Comment<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, Comment<'_>)> {
-        let (input, value) = take_lines_while(|line| line == "#" || line.starts_with("# "))(input);
+        let (input, value) = take_lines_while(|line| {
+            let line = line.trim_start();
+            line == "#" || line.starts_with("# ")
+        })(input);
         let (input, blank) = blank_lines(input);
 
         if value.is_empty() {

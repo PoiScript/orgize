@@ -139,6 +139,7 @@ impl Clock<'_> {
 }
 
 fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Clock, E> {
+    let (input, _) = space0(input)?;
     let (input, _) = tag("CLOCK:")(input)?;
     let (input, _) = space0(input)?;
     let (input, timestamp) = parse_inactive(input)?;

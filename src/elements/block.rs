@@ -1,8 +1,11 @@
 use std::borrow::Cow;
 
 use nom::{
-    bytes::complete::tag_no_case, character::complete::alpha1, error::ParseError,
-    sequence::preceded, IResult,
+    bytes::complete::tag_no_case,
+    character::complete::{alpha1, space0},
+    error::ParseError,
+    sequence::preceded,
+    IResult,
 };
 
 use crate::parsers::{blank_lines, line, take_lines_while};
@@ -226,6 +229,7 @@ pub fn parse_block_element(input: &str) -> Option<(&str, (&str, Option<&str>, &s
 fn parse_block_element_internal<'a, E: ParseError<&'a str>>(
     input: &'a str,
 ) -> IResult<&str, (&str, Option<&str>, &str, usize), E> {
+    let (input, _) = space0(input)?;
     let (input, name) = preceded(tag_no_case("#+BEGIN_"), alpha1)(input)?;
     let (input, args) = line(input)?;
     let end_line = format!("#+END_{}", name);

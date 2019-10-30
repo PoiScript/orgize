@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use nom::{
     bytes::complete::tag_no_case,
-    character::complete::{alpha1, space1},
+    character::complete::{alpha1, space0, space1},
     error::ParseError,
     IResult,
 };
@@ -46,6 +46,7 @@ impl DynBlock<'_> {
 fn parse_dyn_block<'a, E: ParseError<&'a str>>(
     input: &'a str,
 ) -> IResult<&str, (DynBlock, &str), E> {
+    let (input, _) = space0(input)?;
     let (input, _) = tag_no_case("#+BEGIN:")(input)?;
     let (input, _) = space1(input)?;
     let (input, name) = alpha1(input)?;

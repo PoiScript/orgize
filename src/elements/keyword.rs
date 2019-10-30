@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use nom::{
     bytes::complete::{tag, take_till},
+    character::complete::space0,
     combinator::opt,
     error::ParseError,
     sequence::delimited,
@@ -67,6 +68,7 @@ pub fn parse_keyword(input: &str) -> Option<(&str, (&str, Option<&str>, &str, us
 fn parse_keyword_internal<'a, E: ParseError<&'a str>>(
     input: &'a str,
 ) -> IResult<&str, (&str, Option<&str>, &str, usize), E> {
+    let (input, _) = space0(input)?;
     let (input, _) = tag("#+")(input)?;
     let (input, key) = take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '[')(input)?;
     let (input, optional) = opt(delimited(

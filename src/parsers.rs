@@ -12,11 +12,10 @@ use nom::{bytes::complete::take_while1, combinator::verify, error::ParseError, I
 use crate::config::ParseConfig;
 use crate::elements::{
     block::parse_block_element, emphasis::parse_emphasis, keyword::parse_keyword,
-    radio_target::parse_radio_target, table::parse_table_el, BabelCall, CenterBlock, Clock,
-    Comment, CommentBlock, Cookie, Drawer, DynBlock, Element, ExampleBlock, ExportBlock,
-    FixedWidth, FnDef, FnRef, InlineCall, InlineSrc, Keyword, Link, List, ListItem, Macros,
-    QuoteBlock, Rule, Snippet, SourceBlock, SpecialBlock, Table, TableRow, Target, Timestamp,
-    Title, VerseBlock,
+    radio_target::parse_radio_target, BabelCall, CenterBlock, Clock, Comment, CommentBlock, Cookie,
+    Drawer, DynBlock, Element, ExampleBlock, ExportBlock, FixedWidth, FnDef, FnRef, InlineCall,
+    InlineSrc, Keyword, Link, List, ListItem, Macros, QuoteBlock, Rule, Snippet, SourceBlock,
+    SpecialBlock, Table, TableRow, Target, Timestamp, Title, VerseBlock,
 };
 
 pub trait ElementArena<'a> {
@@ -268,20 +267,21 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
     parent: NodeId,
     containers: &mut Vec<Container<'a>>,
 ) -> Option<&'a str> {
-    // footnote definitions must be start at column 0
-    if let Some((tail, (fn_def, content))) = FnDef::parse(contents) {
-        let node = arena.append(fn_def, parent);
-        containers.push(Container::Block { content, node });
-        return Some(tail);
-    }
-
-    if let Some(tail) = parse_list(arena, contents, parent, containers) {
-        return Some(tail);
-    }
-
-    let contents = contents.trim_start();
-
-    match contents.as_bytes().get(0)? {
+    match contents
+        .as_bytes()
+        .iter()
+        .find(|c| !c.is_ascii_whitespace())?
+    {
+        b'[' => {
+            let (tail, (fn_def, content)) = FnDef::parse(contents)?;
+            let node = arena.append(fn_def, parent);
+            containers.push(Container::Block { content, node });
+            Some(tail)
+        }
+        b'0'..=b'9' | b'*' => {
+            let tail = parse_list(arena, contents, parent, containers)?;
+            Some(tail)
+        }
         b'C' => {
             let (tail, clock) = Clock::parse(contents)?;
             arena.append(clock, parent);
@@ -292,9 +292,13 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
             None
         }
         b'-' => {
-            let (tail, rule) = Rule::parse(contents)?;
-            arena.append(rule, parent);
-            Some(tail)
+            if let Some((tail, rule)) = Rule::parse(contents) {
+                arena.append(rule, parent);
+                Some(tail)
+            } else {
+                let tail = parse_list(arena, contents, parent, containers)?;
+                Some(tail)
+            }
         }
         b':' => {
             if let Some((tail, (drawer, content))) = Drawer::parse(contents) {
@@ -308,8 +312,17 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
             }
         }
         b'|' => {
-            let tail = parse_table(arena, contents, containers, parent)?;
+            let tail = parse_org_table(arena, contents, containers, parent);
             Some(tail)
+        }
+        b'+' => {
+            if let Some((tail, table)) = Table::parse_table_el(contents) {
+                arena.append(table, parent);
+                Some(tail)
+            } else {
+                let tail = parse_list(arena, contents, parent, containers)?;
+                Some(tail)
+            }
         }
         b'#' => {
             if let Some((tail, (name, args, content, blank))) = parse_block_element(contents) {
@@ -687,45 +700,39 @@ pub fn parse_list<'a, T: ElementArena<'a>>(
     Some(tail)
 }
 
-pub fn parse_table<'a, T: ElementArena<'a>>(
+pub fn parse_org_table<'a, T: ElementArena<'a>>(
     arena: &mut T,
     contents: &'a str,
     containers: &mut Vec<Container<'a>>,
     parent: NodeId,
-) -> Option<&'a str> {
-    if contents.trim_start().starts_with('|') {
-        let table_node = arena.append(Table::Org { tblfm: None }, parent);
+) -> &'a str {
+    let (tail, contents) = take_lines_while(|line| line.trim_start().starts_with('|'))(contents);
+    let (tail, blank) = blank_lines(tail);
 
-        let mut last_end = 0;
-        for start in memchr_iter(b'\n', contents.as_bytes()).chain(once(contents.len())) {
-            let line = contents[last_end..start].trim();
-            match TableRow::parse(line) {
-                Some(TableRow::Standard) => {
-                    let row_node = arena.append(TableRow::Standard, table_node);
-                    for cell in line[1..].split_terminator('|') {
-                        let cell_node = arena.append(Element::TableCell, row_node);
-                        containers.push(Container::Inline {
-                            content: cell.trim(),
-                            node: cell_node,
-                        });
-                    }
-                }
-                Some(TableRow::Rule) => {
-                    arena.append(TableRow::Rule, table_node);
-                }
-                None => return Some(&contents[last_end..]),
+    let parent = arena.append(
+        Table::Org {
+            tblfm: None,
+            post_blank: blank,
+        },
+        parent,
+    );
+
+    let mut last_end = 0;
+    for start in memchr_iter(b'\n', contents.as_bytes()).chain(once(contents.len())) {
+        let line = contents[last_end..start].trim_start();
+        if line.starts_with("|-") {
+            arena.append(TableRow::Rule, parent);
+        } else {
+            let parent = arena.append(TableRow::Standard, parent);
+            for content in line.split_terminator('|').skip(1) {
+                let node = arena.append(Element::TableCell, parent);
+                containers.push(Container::Inline { content, node });
             }
-            last_end = start + 1;
         }
-
-        Some("")
-    } else {
-        let (tail, value) = parse_table_el(contents)?;
-        let value = value.into();
-        arena.append(Table::TableEl { value }, parent);
-
-        Some(tail)
+        last_end = start + 1;
     }
+
+    tail
 }
 
 pub fn line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {

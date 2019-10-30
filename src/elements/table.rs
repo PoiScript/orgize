@@ -1,12 +1,8 @@
 use std::borrow::Cow;
 
-use nom::{
-    combinator::{peek, verify},
-    error::ParseError,
-    IResult,
-};
+use memchr::memchr;
 
-use crate::parsers::{line, take_lines_while};
+use crate::parsers::{blank_lines, take_lines_while};
 
 /// Table Elemenet
 #[derive(Debug)]
@@ -16,20 +12,64 @@ use crate::parsers::{line, take_lines_while};
 pub enum Table<'a> {
     /// "org" type table
     #[cfg_attr(feature = "ser", serde(rename = "org"))]
-    Org { tblfm: Option<Cow<'a, str>> },
+    Org {
+        #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
+        tblfm: Option<Cow<'a, str>>,
+        /// Numbers of blank lines between last table's line and next non-blank
+        /// line or buffer's end
+        post_blank: usize,
+    },
     /// "table.el" type table
     #[cfg_attr(feature = "ser", serde(rename = "table.el"))]
-    TableEl { value: Cow<'a, str> },
+    TableEl {
+        value: Cow<'a, str>,
+        /// Numbers of blank lines between last table's line and next non-blank
+        /// line or buffer's end
+        post_blank: usize,
+    },
 }
 
 impl Table<'_> {
+    pub fn parse_table_el(input: &str) -> Option<(&str, Table<'_>)> {
+        let first_line = memchr(b'\n', input.as_bytes())
+            .map(|i| input[0..i].trim())
+            .unwrap_or_else(|| input.trim());
+
+        // first line must be the "+-" string and followed by plus or minus signs
+        if !first_line.starts_with("+-")
+            || first_line
+                .as_bytes()
+                .iter()
+                .any(|&c| c != b'+' && c != b'-')
+        {
+            return None;
+        }
+
+        let (input, content) = take_lines_while(|line| {
+            let line = line.trim_start();
+            line.starts_with('|') || line.starts_with('+')
+        })(input);
+
+        let (input, blank) = blank_lines(input);
+
+        Some((
+            input,
+            Table::TableEl {
+                value: content.into(),
+                post_blank: blank,
+            },
+        ))
+    }
+
     pub fn into_owned(self) -> Table<'static> {
         match self {
-            Table::Org { tblfm } => Table::Org {
+            Table::Org { tblfm, post_blank } => Table::Org {
                 tblfm: tblfm.map(Into::into).map(Cow::Owned),
+                post_blank: post_blank,
             },
-            Table::TableEl { value } => Table::TableEl {
+            Table::TableEl { value, post_blank } => Table::TableEl {
                 value: value.into_owned().into(),
+                post_blank: post_blank,
             },
         }
     }
@@ -46,57 +86,28 @@ pub enum TableRow {
     Rule,
 }
 
-impl TableRow {
-    pub(crate) fn parse(input: &str) -> Option<TableRow> {
-        if input.starts_with("|-") {
-            Some(TableRow::Rule)
-        } else if input.starts_with('|') {
-            Some(TableRow::Standard)
-        } else {
-            None
-        }
-    }
-}
-
-pub fn parse_table_el(input: &str) -> Option<(&str, &str)> {
-    parse_table_el_internal::<()>(input).ok()
-}
-
-fn parse_table_el_internal<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
-    let (input, _) = peek(verify(line, |s: &str| {
-        let s = s.trim();
-        s.starts_with("+-") && s.as_bytes().iter().all(|&c| c == b'+' || c == b'-')
-    }))(input)?;
-
-    let (input, content) =
-        take_lines_while(|line| line.starts_with('|') || line.starts_with('+'))(input);
-
-    Ok((input, content))
-}
-
 #[test]
 fn parse_table_el_() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_table_el_internal::<VerboseError<&str>>(
-            r#"+---+
-|   |
-+---+
+        Table::parse_table_el(
+            r#"  +---+
+  |   |
+  +---+
 
 "#
         ),
-        Ok((
-            r#"
-"#,
-            r#"+---+
-|   |
-+---+
+        Some((
+            "",
+            Table::TableEl {
+                value: r#"  +---+
+  |   |
+  +---+
 "#
+                .into(),
+                post_blank: 1
+            }
         ))
     );
-    assert!(parse_table_el_internal::<VerboseError<&str>>("").is_err());
-    assert!(parse_table_el_internal::<VerboseError<&str>>("+----|---").is_err());
+    assert!(Table::parse_table_el("").is_none());
+    assert!(Table::parse_table_el("+----|---").is_none());
 }

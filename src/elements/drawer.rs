@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use nom::{
     bytes::complete::{tag, take_while1},
+    character::complete::space0,
     error::ParseError,
     sequence::delimited,
     IResult,
@@ -56,6 +57,7 @@ pub fn parse_drawer<'a, E: ParseError<&'a str>>(
 pub fn parse_drawer_without_blank<'a, E: ParseError<&'a str>>(
     input: &'a str,
 ) -> IResult<&str, (Drawer, &str), E> {
+    let (input, _) = space0(input)?;
     let (input, name) = delimited(
         tag(":"),
         take_while1(|c: char| c.is_ascii_alphabetic() || c == '-' || c == '_'),
