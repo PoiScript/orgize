@@ -1,103 +1,101 @@
 use std::io::{Error, Write};
 
-use crate::elements::{Element, Timestamp};
+use crate::elements::{Clock, Element, Table, Timestamp};
 use crate::export::write_datetime;
 
 pub trait OrgHandler<E: From<Error>>: Default {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
-        use Element::*;
-
         match element {
             // container elements
-            SpecialBlock(block) => {
+            Element::SpecialBlock(block) => {
                 writeln!(w, "#+BEGIN_{}", block.name)?;
                 write_blank_lines(&mut w, block.pre_blank)?;
             }
-            QuoteBlock(block) => {
+            Element::QuoteBlock(block) => {
                 writeln!(&mut w, "#+BEGIN_QUOTE")?;
                 write_blank_lines(&mut w, block.pre_blank)?;
             }
-            CenterBlock(block) => {
+            Element::CenterBlock(block) => {
                 writeln!(&mut w, "#+BEGIN_CENTER")?;
                 write_blank_lines(&mut w, block.pre_blank)?;
             }
-            VerseBlock(block) => {
+            Element::VerseBlock(block) => {
                 writeln!(&mut w, "#+BEGIN_VERSE")?;
                 write_blank_lines(&mut w, block.pre_blank)?;
             }
-            Bold => write!(w, "*")?,
-            Document { pre_blank } => {
+            Element::Bold => write!(w, "*")?,
+            Element::Document { pre_blank } => {
                 write_blank_lines(w, *pre_blank)?;
             }
-            DynBlock(dyn_block) => {
+            Element::DynBlock(dyn_block) => {
                 write!(&mut w, "#+BEGIN: {}", dyn_block.block_name)?;
                 if let Some(parameters) = &dyn_block.arguments {
                     write!(&mut w, " {}", parameters)?;
                 }
                 write_blank_lines(&mut w, dyn_block.pre_blank + 1)?;
             }
-            Headline { .. } => (),
-            List(_list) => (),
-            Italic => write!(w, "/")?,
-            ListItem(list_item) => {
+            Element::Headline { .. } => (),
+            Element::List(_list) => (),
+            Element::Italic => write!(w, "/")?,
+            Element::ListItem(list_item) => {
                 for _ in 0..list_item.indent {
                     write!(&mut w, " ")?;
                 }
                 write!(&mut w, "{}", list_item.bullet)?;
             }
-            Paragraph { .. } => (),
-            Section => (),
-            Strike => write!(w, "+")?,
-            Underline => write!(w, "_")?,
-            Drawer(drawer) => {
+            Element::Paragraph { .. } => (),
+            Element::Section => (),
+            Element::Strike => write!(w, "+")?,
+            Element::Underline => write!(w, "_")?,
+            Element::Drawer(drawer) => {
                 writeln!(&mut w, ":{}:", drawer.name)?;
                 write_blank_lines(&mut w, drawer.pre_blank)?;
             }
             // non-container elements
-            CommentBlock(block) => {
+            Element::CommentBlock(block) => {
                 writeln!(&mut w, "#+BEGIN_COMMENT")?;
                 write!(&mut w, "{}", block.contents)?;
                 writeln!(&mut w, "#+END_COMMENT")?;
                 write_blank_lines(&mut w, block.post_blank)?;
             }
-            ExampleBlock(block) => {
+            Element::ExampleBlock(block) => {
                 writeln!(&mut w, "#+BEGIN_EXAMPLE")?;
                 write!(&mut w, "{}", block.contents)?;
                 writeln!(&mut w, "#+END_EXAMPLE")?;
                 write_blank_lines(&mut w, block.post_blank)?;
             }
-            ExportBlock(block) => {
+            Element::ExportBlock(block) => {
                 writeln!(&mut w, "#+BEGIN_EXPORT {}", block.data)?;
                 write!(&mut w, "{}", block.contents)?;
                 writeln!(&mut w, "#+END_EXPORT")?;
                 write_blank_lines(&mut w, block.post_blank)?;
             }
-            SourceBlock(block) => {
+            Element::SourceBlock(block) => {
                 writeln!(&mut w, "#+BEGIN_SRC {}", block.language)?;
                 write!(&mut w, "{}", block.contents)?;
                 writeln!(&mut w, "#+END_SRC")?;
                 write_blank_lines(&mut w, block.post_blank)?;
             }
-            BabelCall(call) => {
+            Element::BabelCall(call) => {
                 writeln!(&mut w, "#+CALL: {}", call.value)?;
                 write_blank_lines(w, call.post_blank)?;
             }
-            InlineSrc(inline_src) => {
+            Element::InlineSrc(inline_src) => {
                 write!(&mut w, "src_{}", inline_src.lang)?;
                 if let Some(options) = &inline_src.options {
                     write!(&mut w, "[{}]", options)?;
                 }
                 write!(&mut w, "{{{}}}", inline_src.body)?;
             }
-            Code { value } => write!(w, "~{}~", value)?,
-            FnRef(fn_ref) => {
+            Element::Code { value } => write!(w, "~{}~", value)?,
+            Element::FnRef(fn_ref) => {
                 write!(&mut w, "[fn:{}", fn_ref.label)?;
                 if let Some(definition) = &fn_ref.definition {
                     write!(&mut w, ":{}", definition)?;
                 }
                 write!(&mut w, "]")?;
             }
-            InlineCall(inline_call) => {
+            Element::InlineCall(inline_call) => {
                 write!(&mut w, "call_{}", inline_call.name)?;
                 if let Some(header) = &inline_call.inside_header {
                     write!(&mut w, "[{}]", header)?;
@@ -107,28 +105,26 @@ pub trait OrgHandler<E: From<Error>>: Default {
                     write!(&mut w, "[{}]", header)?;
                 }
             }
-            Link(link) => {
+            Element::Link(link) => {
                 write!(&mut w, "[[{}]", link.path)?;
                 if let Some(desc) = &link.desc {
                     write!(&mut w, "[{}]", desc)?;
                 }
                 write!(&mut w, "]")?;
             }
-            Macros(_macros) => (),
-            RadioTarget => (),
-            Snippet(snippet) => write!(w, "@@{}:{}@@", snippet.name, snippet.value)?,
-            Target(_target) => (),
-            Text { value } => write!(w, "{}", value)?,
-            Timestamp(timestamp) => {
+            Element::Macros(_macros) => (),
+            Element::RadioTarget => (),
+            Element::Snippet(snippet) => write!(w, "@@{}:{}@@", snippet.name, snippet.value)?,
+            Element::Target(_target) => (),
+            Element::Text { value } => write!(w, "{}", value)?,
+            Element::Timestamp(timestamp) => {
                 write_timestamp(&mut w, &timestamp)?;
             }
-            Verbatim { value } => write!(w, "={}=", value)?,
-            FnDef(fn_def) => {
+            Element::Verbatim { value } => write!(w, "={}=", value)?,
+            Element::FnDef(fn_def) => {
                 write_blank_lines(w, fn_def.post_blank)?;
             }
-            Clock(clock) => {
-                use crate::elements::Clock;
-
+            Element::Clock(clock) => {
                 write!(w, "CLOCK: ")?;
 
                 match clock {
@@ -152,15 +148,15 @@ pub trait OrgHandler<E: From<Error>>: Default {
                     }
                 }
             }
-            Comment(comment) => {
+            Element::Comment(comment) => {
                 write!(w, "{}", comment.value)?;
                 write_blank_lines(&mut w, comment.post_blank)?;
             }
-            FixedWidth(fixed_width) => {
+            Element::FixedWidth(fixed_width) => {
                 write!(&mut w, "{}", fixed_width.value)?;
                 write_blank_lines(&mut w, fixed_width.post_blank)?;
             }
-            Keyword(keyword) => {
+            Element::Keyword(keyword) => {
                 write!(&mut w, "#+{}", keyword.key)?;
                 if let Some(optional) = &keyword.optional {
                     write!(&mut w, "[{}]", optional)?;
@@ -168,12 +164,12 @@ pub trait OrgHandler<E: From<Error>>: Default {
                 writeln!(&mut w, ": {}", keyword.value)?;
                 write_blank_lines(&mut w, keyword.post_blank)?;
             }
-            Rule(rule) => {
+            Element::Rule(rule) => {
                 writeln!(w, "-----")?;
                 write_blank_lines(&mut w, rule.post_blank)?;
             }
-            Cookie(_cookie) => (),
-            Title(title) => {
+            Element::Cookie(_cookie) => (),
+            Element::Title(title) => {
                 for _ in 0..title.level {
                     write!(&mut w, "*")?;
                 }
@@ -185,58 +181,56 @@ pub trait OrgHandler<E: From<Error>>: Default {
                 }
                 write!(&mut w, " ")?;
             }
-            Table(_) => (),
-            TableRow(_) => (),
-            TableCell => (),
+            Element::Table(_) => (),
+            Element::TableRow(_) => (),
+            Element::TableCell => (),
         }
 
         Ok(())
     }
 
     fn end<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
-        use Element::*;
-
         match element {
             // container elements
-            SpecialBlock(block) => {
+            Element::SpecialBlock(block) => {
                 writeln!(&mut w, "#+END_{}", block.name)?;
                 write_blank_lines(&mut w, block.post_blank)?;
             }
-            QuoteBlock(block) => {
+            Element::QuoteBlock(block) => {
                 writeln!(&mut w, "#+END_QUOTE")?;
                 write_blank_lines(&mut w, block.post_blank)?;
             }
-            CenterBlock(block) => {
+            Element::CenterBlock(block) => {
                 writeln!(&mut w, "#+END_CENTER")?;
                 write_blank_lines(&mut w, block.post_blank)?;
             }
-            VerseBlock(block) => {
+            Element::VerseBlock(block) => {
                 writeln!(&mut w, "#+END_VERSE")?;
                 write_blank_lines(&mut w, block.post_blank)?;
             }
-            Bold => write!(w, "*")?,
-            Document { .. } => (),
-            DynBlock(dyn_block) => {
+            Element::Bold => write!(w, "*")?,
+            Element::Document { .. } => (),
+            Element::DynBlock(dyn_block) => {
                 writeln!(w, "#+END:")?;
                 write_blank_lines(w, dyn_block.post_blank)?;
             }
-            Headline { .. } => (),
-            List(list) => {
+            Element::Headline { .. } => (),
+            Element::List(list) => {
                 write_blank_lines(w, list.post_blank)?;
             }
-            Italic => write!(w, "/")?,
-            ListItem(_) => (),
-            Paragraph { post_blank } => {
+            Element::Italic => write!(w, "/")?,
+            Element::ListItem(_) => (),
+            Element::Paragraph { post_blank } => {
                 write_blank_lines(w, post_blank + 1)?;
             }
-            Section => (),
-            Strike => write!(w, "+")?,
-            Underline => write!(w, "_")?,
-            Drawer(drawer) => {
+            Element::Section => (),
+            Element::Strike => write!(w, "+")?,
+            Element::Underline => write!(w, "_")?,
+            Element::Drawer(drawer) => {
                 writeln!(&mut w, ":END:")?;
                 write_blank_lines(&mut w, drawer.post_blank)?;
             }
-            Title(title) => {
+            Element::Title(title) => {
                 if !title.tags.is_empty() {
                     write!(&mut w, " :")?;
                     for tag in &title.tags {
@@ -274,9 +268,14 @@ pub trait OrgHandler<E: From<Error>>: Default {
                 }
                 write_blank_lines(&mut w, title.post_blank)?;
             }
-            Table(_) => (),
-            TableRow(_) => (),
-            TableCell => (),
+            Element::Table(Table::Org { post_blank, .. }) => {
+                write_blank_lines(w, *post_blank)?;
+            }
+            Element::Table(Table::TableEl { post_blank, .. }) => {
+                write_blank_lines(w, *post_blank)?;
+            }
+            Element::TableRow(_) => (),
+            Element::TableCell => (),
             // non-container elements
             _ => debug_assert!(!element.is_container()),
         }

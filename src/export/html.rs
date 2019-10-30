@@ -3,7 +3,7 @@ use std::io::{Error, Write};
 
 use jetscii::{bytes, BytesConst};
 
-use crate::elements::Element;
+use crate::elements::{Element, Timestamp};
 use crate::export::write_datetime;
 
 /// A wrapper for escaping sensitive characters in html.
@@ -51,44 +51,42 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
 
 pub trait HtmlHandler<E: From<Error>>: Default {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
-        use Element::*;
-
         match element {
             // container elements
-            SpecialBlock(_) => (),
-            QuoteBlock(_) => write!(w, "<blockquote>")?,
-            CenterBlock(_) => write!(w, "<div class=\"center\">")?,
-            VerseBlock(_) => write!(w, "<p class=\"verse\">")?,
-            Bold => write!(w, "<b>")?,
-            Document { .. } => write!(w, "<main>")?,
-            DynBlock(_dyn_block) => (),
-            Headline { .. } => (),
-            List(list) => {
+            Element::SpecialBlock(_) => (),
+            Element::QuoteBlock(_) => write!(w, "<blockquote>")?,
+            Element::CenterBlock(_) => write!(w, "<div class=\"center\">")?,
+            Element::VerseBlock(_) => write!(w, "<p class=\"verse\">")?,
+            Element::Bold => write!(w, "<b>")?,
+            Element::Document { .. } => write!(w, "<main>")?,
+            Element::DynBlock(_dyn_block) => (),
+            Element::Headline { .. } => (),
+            Element::List(list) => {
                 if list.ordered {
                     write!(w, "<ol>")?;
                 } else {
                     write!(w, "<ul>")?;
                 }
             }
-            Italic => write!(w, "<i>")?,
-            ListItem(_) => write!(w, "<li>")?,
-            Paragraph { .. } => write!(w, "<p>")?,
-            Section => write!(w, "<section>")?,
-            Strike => write!(w, "<s>")?,
-            Underline => write!(w, "<u>")?,
+            Element::Italic => write!(w, "<i>")?,
+            Element::ListItem(_) => write!(w, "<li>")?,
+            Element::Paragraph { .. } => write!(w, "<p>")?,
+            Element::Section => write!(w, "<section>")?,
+            Element::Strike => write!(w, "<s>")?,
+            Element::Underline => write!(w, "<u>")?,
             // non-container elements
-            CommentBlock(_) => (),
-            ExampleBlock(block) => write!(
+            Element::CommentBlock(_) => (),
+            Element::ExampleBlock(block) => write!(
                 w,
                 "<pre class=\"example\">{}</pre>",
                 HtmlEscape(&block.contents)
             )?,
-            ExportBlock(block) => {
+            Element::ExportBlock(block) => {
                 if block.data.eq_ignore_ascii_case("HTML") {
                     write!(w, "{}", block.contents)?
                 }
             }
-            SourceBlock(block) => {
+            Element::SourceBlock(block) => {
                 if block.language.is_empty() {
                     write!(
                         w,
@@ -104,34 +102,32 @@ pub trait HtmlHandler<E: From<Error>>: Default {
                     )?;
                 }
             }
-            BabelCall(_) => (),
-            InlineSrc(inline_src) => write!(
+            Element::BabelCall(_) => (),
+            Element::InlineSrc(inline_src) => write!(
                 w,
                 "<code class=\"src src-{}\">{}</code>",
                 inline_src.lang,
                 HtmlEscape(&inline_src.body)
             )?,
-            Code { value } => write!(w, "<code>{}</code>", HtmlEscape(value))?,
-            FnRef(_fn_ref) => (),
-            InlineCall(_) => (),
-            Link(link) => write!(
+            Element::Code { value } => write!(w, "<code>{}</code>", HtmlEscape(value))?,
+            Element::FnRef(_fn_ref) => (),
+            Element::InlineCall(_) => (),
+            Element::Link(link) => write!(
                 w,
                 "<a href=\"{}\">{}</a>",
                 HtmlEscape(&link.path),
                 HtmlEscape(link.desc.as_ref().unwrap_or(&link.path)),
             )?,
-            Macros(_macros) => (),
-            RadioTarget => (),
-            Snippet(snippet) => {
+            Element::Macros(_macros) => (),
+            Element::RadioTarget => (),
+            Element::Snippet(snippet) => {
                 if snippet.name.eq_ignore_ascii_case("HTML") {
                     write!(w, "{}", snippet.value)?;
                 }
             }
-            Target(_target) => (),
-            Text { value } => write!(w, "{}", HtmlEscape(value))?,
-            Timestamp(timestamp) => {
-                use crate::elements::Timestamp;
-
+            Element::Target(_target) => (),
+            Element::Text { value } => write!(w, "{}", HtmlEscape(value))?,
+            Element::Timestamp(timestamp) => {
                 write!(
                     &mut w,
                     "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">"
@@ -159,57 +155,60 @@ pub trait HtmlHandler<E: From<Error>>: Default {
 
                 write!(&mut w, "</span></span>")?;
             }
-            Verbatim { value } => write!(&mut w, "<code>{}</code>", HtmlEscape(value))?,
-            FnDef(_fn_def) => (),
-            Clock(_clock) => (),
-            Comment(_) => (),
-            FixedWidth(fixed_width) => write!(
+            Element::Verbatim { value } => write!(&mut w, "<code>{}</code>", HtmlEscape(value))?,
+            Element::FnDef(_fn_def) => (),
+            Element::Clock(_clock) => (),
+            Element::Comment(_) => (),
+            Element::FixedWidth(fixed_width) => write!(
                 w,
                 "<pre class=\"example\">{}</pre>",
                 HtmlEscape(&fixed_width.value)
             )?,
-            Keyword(_keyword) => (),
-            Drawer(_drawer) => (),
-            Rule(_) => write!(w, "<hr>")?,
-            Cookie(cookie) => write!(w, "<code>{}</code>", cookie.value)?,
-            Title(title) => write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?,
-            Table(_) => (),
-            TableRow(_) => (),
-            TableCell => (),
+            Element::Keyword(_keyword) => (),
+            Element::Drawer(_drawer) => (),
+            Element::Rule(_) => write!(w, "<hr>")?,
+            Element::Cookie(cookie) => write!(w, "<code>{}</code>", cookie.value)?,
+            Element::Title(title) => {
+                write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?
+            }
+            Element::Table(_) => (),
+            Element::TableRow(_) => (),
+            Element::TableCell => (),
         }
 
         Ok(())
     }
-    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
-        use Element::*;
 
+    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
         match element {
             // container elements
-            SpecialBlock(_) => (),
-            QuoteBlock(_) => write!(w, "</blockquote>")?,
-            CenterBlock(_) => write!(w, "</div>")?,
-            VerseBlock(_) => write!(w, "</p>")?,
-            Bold => write!(w, "</b>")?,
-            Document { .. } => write!(w, "</main>")?,
-            DynBlock(_dyn_block) => (),
-            Headline { .. } => (),
-            List(list) => {
+            Element::SpecialBlock(_) => (),
+            Element::QuoteBlock(_) => write!(w, "</blockquote>")?,
+            Element::CenterBlock(_) => write!(w, "</div>")?,
+            Element::VerseBlock(_) => write!(w, "</p>")?,
+            Element::Bold => write!(w, "</b>")?,
+            Element::Document { .. } => write!(w, "</main>")?,
+            Element::DynBlock(_dyn_block) => (),
+            Element::Headline { .. } => (),
+            Element::List(list) => {
                 if list.ordered {
                     write!(w, "</ol>")?;
                 } else {
                     write!(w, "</ul>")?;
                 }
             }
-            Italic => write!(w, "</i>")?,
-            ListItem(_) => write!(w, "</li>")?,
-            Paragraph { .. } => write!(w, "</p>")?,
-            Section => write!(w, "</section>")?,
-            Strike => write!(w, "</s>")?,
-            Underline => write!(w, "</u>")?,
-            Title(title) => write!(w, "</h{}>", if title.level <= 6 { title.level } else { 6 })?,
-            Table(_) => (),
-            TableRow(_) => (),
-            TableCell => (),
+            Element::Italic => write!(w, "</i>")?,
+            Element::ListItem(_) => write!(w, "</li>")?,
+            Element::Paragraph { .. } => write!(w, "</p>")?,
+            Element::Section => write!(w, "</section>")?,
+            Element::Strike => write!(w, "</s>")?,
+            Element::Underline => write!(w, "</u>")?,
+            Element::Title(title) => {
+                write!(w, "</h{}>", if title.level <= 6 { title.level } else { 6 })?
+            }
+            Element::Table(_) => (),
+            Element::TableRow(_) => (),
+            Element::TableCell => (),
             // non-container elements
             _ => debug_assert!(!element.is_container()),
         }
