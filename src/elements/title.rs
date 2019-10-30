@@ -44,7 +44,8 @@ pub struct Title<'a> {
     /// Property drawer associated to this headline
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "HashMap::is_empty"))]
     pub properties: HashMap<Cow<'a, str>, Cow<'a, str>>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last title's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 

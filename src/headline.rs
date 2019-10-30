@@ -369,7 +369,7 @@ impl Headline {
             ),
         }
 
-        *org.arena[ttl_n].get_mut() = Element::Title(ttl);
+        org[ttl_n] = Element::Title(ttl);
 
         Headline {
             lvl,
@@ -519,7 +519,7 @@ impl Headline {
         }
         self.lvl = lvl;
         self.title_mut(org).level = lvl;
-        if let Element::Headline { level } = org.arena[self.hdl_n].get_mut() {
+        if let Element::Headline { level } = &mut org[self.hdl_n] {
             *level = lvl;
         }
         Ok(())

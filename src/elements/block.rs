@@ -12,14 +12,16 @@ use crate::parsers::{blank_lines, line, take_lines_while};
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SpecialBlock<'a> {
-    /// Optional block parameters
+    /// Block parameters
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub parameters: Option<Cow<'a, str>>,
     /// Block name
     pub name: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between first block's line and next non-blank
+    /// line
     pub pre_blank: usize,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last block's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 
@@ -42,9 +44,11 @@ pub struct QuoteBlock<'a> {
     /// Optional block parameters
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub parameters: Option<Cow<'a, str>>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between first block's line and next non-blank
+    /// line
     pub pre_blank: usize,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last block's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 
@@ -66,9 +70,11 @@ pub struct CenterBlock<'a> {
     /// Optional block parameters
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub parameters: Option<Cow<'a, str>>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between first block's line and next non-blank
+    /// line
     pub pre_blank: usize,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last block's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 
@@ -90,9 +96,11 @@ pub struct VerseBlock<'a> {
     /// Optional block parameters
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub parameters: Option<Cow<'a, str>>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between first block's line and next non-blank
+    /// line
     pub pre_blank: usize,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last block's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 
@@ -113,9 +121,10 @@ impl VerseBlock<'_> {
 pub struct CommentBlock<'a> {
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub data: Option<Cow<'a, str>>,
-    /// Comment, without block's boundaries
+    /// Comment block contents
     pub contents: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last block's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 
@@ -138,7 +147,8 @@ pub struct ExampleBlock<'a> {
     pub data: Option<Cow<'a, str>>,
     ///  Block contents
     pub contents: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last block's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 
@@ -160,7 +170,8 @@ pub struct ExportBlock<'a> {
     pub data: Cow<'a, str>,
     ///  Block contents
     pub contents: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last block's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 
@@ -184,7 +195,8 @@ pub struct SourceBlock<'a> {
     /// Language of the code in the block
     pub language: Cow<'a, str>,
     pub arguments: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last block's line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 

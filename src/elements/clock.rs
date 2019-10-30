@@ -31,7 +31,8 @@ pub enum Clock<'a> {
         delay: Option<Cow<'a, str>>,
         /// Clock duration
         duration: Cow<'a, str>,
-        /// Numbers of blank lines
+        /// Numbers of blank lines between the clock line and next non-blank
+        /// line or buffer's end
         post_blank: usize,
     },
     /// Running Clock
@@ -42,7 +43,8 @@ pub enum Clock<'a> {
         repeater: Option<Cow<'a, str>>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
         delay: Option<Cow<'a, str>>,
-        /// Numbers of blank lines
+        /// Numbers of blank lines between the clock line and next non-blank
+        /// line or buffer's end
         post_blank: usize,
     },
 }

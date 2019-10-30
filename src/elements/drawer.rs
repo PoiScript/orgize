@@ -16,9 +16,11 @@ use crate::parsers::{blank_lines, eol, line, take_lines_while};
 pub struct Drawer<'a> {
     /// Drawer name
     pub name: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between first drawer's line and next non-blank
+    /// line
     pub pre_blank: usize,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last drawer's line and next non-blank
+    /// line or buffer's end
     pub post_blank: usize,
 }
 

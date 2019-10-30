@@ -19,9 +19,11 @@ pub struct DynBlock<'a> {
     /// Block argument
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub arguments: Option<Cow<'a, str>>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between first block's line and next non-blank
+    /// line
     pub pre_blank: usize,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last drawer's line and next non-blank
+    /// line or buffer's end
     pub post_blank: usize,
 }
 

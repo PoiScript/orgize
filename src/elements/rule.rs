@@ -6,6 +6,8 @@ use crate::parsers::{blank_lines, eol};
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct Rule {
+    /// Numbers of blank lines between rule line and next non-blank line or
+    /// buffer's end
     pub post_blank: usize,
 }
 

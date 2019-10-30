@@ -16,7 +16,8 @@ use crate::parsers::{blank_lines, line};
 pub struct FnDef<'a> {
     /// Footnote label, used for refrence
     pub label: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between last footnote definition's line and next
+    /// non-blank line or buffer's end
     pub post_blank: usize,
 }
 

@@ -21,7 +21,8 @@ pub struct Keyword<'a> {
     pub optional: Option<Cow<'a, str>>,
     /// Keyword value
     pub value: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between keyword line and next non-blank line or
+    /// buffer's end
     pub post_blank: usize,
 }
 
@@ -41,8 +42,10 @@ impl Keyword<'_> {
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
 pub struct BabelCall<'a> {
+    /// Babel call value
     pub value: Cow<'a, str>,
-    /// Numbers of blank lines
+    /// Numbers of blank lines between babel call line and next non-blank line
+    /// or buffer's end
     pub post_blank: usize,
 }
 
