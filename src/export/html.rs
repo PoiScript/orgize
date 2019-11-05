@@ -1,5 +1,5 @@
 use std::fmt;
-use std::io::{Error, Write};
+use std::io::{Error, Result as IOResult, Write};
 
 use jetscii::{bytes, BytesConst};
 
@@ -50,7 +50,16 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
 }
 
 pub trait HtmlHandler<E: From<Error>>: Default {
-    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
+    fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
+    fn end<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
+}
+
+/// Default Html Handler
+#[derive(Default)]
+pub struct DefaultHtmlHandler;
+
+impl HtmlHandler<Error> for DefaultHtmlHandler {
+    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
         match element {
             // container elements
             Element::SpecialBlock(_) => (),
@@ -195,7 +204,7 @@ pub trait HtmlHandler<E: From<Error>>: Default {
         Ok(())
     }
 
-    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
+    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
         match element {
             // container elements
             Element::SpecialBlock(_) => (),
@@ -240,12 +249,6 @@ pub trait HtmlHandler<E: From<Error>>: Default {
         Ok(())
     }
 }
-
-/// Default Html Handler
-#[derive(Default)]
-pub struct DefaultHtmlHandler;
-
-impl HtmlHandler<Error> for DefaultHtmlHandler {}
 
 #[cfg(feature = "syntect")]
 mod syntect_handler {

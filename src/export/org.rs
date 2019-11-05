@@ -1,10 +1,18 @@
-use std::io::{Error, Write};
+use std::io::{Error, Result as IOResult, Write};
 
 use crate::elements::{Clock, Element, Table, Timestamp};
 use crate::export::write_datetime;
 
 pub trait OrgHandler<E: From<Error>>: Default {
-    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
+    fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
+    fn end<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
+}
+
+#[derive(Default)]
+pub struct DefaultOrgHandler;
+
+impl OrgHandler<Error> for DefaultOrgHandler {
+    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
         match element {
             // container elements
             Element::SpecialBlock(block) => {
@@ -189,7 +197,7 @@ pub trait OrgHandler<E: From<Error>>: Default {
         Ok(())
     }
 
-    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
+    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
         match element {
             // container elements
             Element::SpecialBlock(block) => {
@@ -311,8 +319,3 @@ fn write_timestamp<W: Write>(mut w: W, timestamp: &Timestamp) -> Result<(), Erro
     }
     Ok(())
 }
-
-#[derive(Default)]
-pub struct DefaultOrgHandler;
-
-impl OrgHandler<Error> for DefaultOrgHandler {}
