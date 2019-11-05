@@ -13,7 +13,7 @@ use crate::elements::{
     radio_target::parse_radio_target, BabelCall, CenterBlock, Clock, Comment, CommentBlock, Cookie,
     Drawer, DynBlock, Element, ExampleBlock, ExportBlock, FixedWidth, FnDef, FnRef, InlineCall,
     InlineSrc, Keyword, Link, List, ListItem, Macros, QuoteBlock, Rule, Snippet, SourceBlock,
-    SpecialBlock, Table, TableRow, Target, Timestamp, Title, VerseBlock,
+    SpecialBlock, Table, TableCell, TableRow, Target, Timestamp, Title, VerseBlock,
 };
 
 pub trait ElementArena<'a> {
@@ -707,28 +707,67 @@ pub fn parse_org_table<'a, T: ElementArena<'a>>(
     let (tail, contents) = take_lines_while(|line| line.trim_start().starts_with('|'))(contents);
     let (tail, blank) = blank_lines(tail);
 
+    let mut iter = contents.trim_end().lines().peekable();
+
+    let mut lines = vec![];
+
+    let mut has_header = false;
+
+    if let Some(line) = iter.next() {
+        let line = line.trim_start();
+        if !line.starts_with("|-") {
+            lines.push(line);
+        }
+    }
+
+    while let Some(line) = iter.next() {
+        let line = line.trim_start();
+        if iter.peek().is_none() && line.starts_with("|-") {
+            break;
+        } else if line.starts_with("|-") {
+            has_header = true;
+        }
+        lines.push(line);
+    }
+
     let parent = arena.append(
         Table::Org {
             tblfm: None,
             post_blank: blank,
+            has_header,
         },
         parent,
     );
 
-    let mut last_end = 0;
-    for start in memchr_iter(b'\n', contents.as_bytes()).chain(once(contents.len())) {
-        let line = contents[last_end..start].trim_start();
+    for line in lines {
         if line.starts_with("|-") {
-            arena.append(TableRow::Rule, parent);
-        } else if !line.is_empty() {
-            // ignores trailing newline
-            let parent = arena.append(TableRow::Standard, parent);
-            for content in line.split_terminator('|').skip(1) {
-                let node = arena.append(Element::TableCell, parent);
-                containers.push(Container::Inline { content, node });
+            if has_header {
+                arena.append(Element::TableRow(TableRow::HeaderRule), parent);
+                has_header = false;
+            } else {
+                arena.append(Element::TableRow(TableRow::BodyRule), parent);
+            }
+        } else {
+            if has_header {
+                let parent = arena.append(Element::TableRow(TableRow::Header), parent);
+                for content in line.split_terminator('|').skip(1) {
+                    let node = arena.append(Element::TableCell(TableCell::Header), parent);
+                    containers.push(Container::Inline {
+                        content: content.trim(),
+                        node,
+                    });
+                }
+            } else {
+                let parent = arena.append(Element::TableRow(TableRow::Body), parent);
+                for content in line.split_terminator('|').skip(1) {
+                    let node = arena.append(Element::TableCell(TableCell::Body), parent);
+                    containers.push(Container::Inline {
+                        content: content.trim(),
+                        node,
+                    });
+                }
             }
         }
-        last_end = start + 1;
     }
 
     tail

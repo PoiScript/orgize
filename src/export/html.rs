@@ -3,7 +3,7 @@ use std::io::{Error, Write};
 
 use jetscii::{bytes, BytesConst};
 
-use crate::elements::{Element, Timestamp};
+use crate::elements::{Element, Table, TableCell, TableRow, Timestamp};
 use crate::export::write_datetime;
 
 /// A wrapper for escaping sensitive characters in html.
@@ -169,11 +169,27 @@ pub trait HtmlHandler<E: From<Error>>: Default {
             Element::Rule(_) => write!(w, "<hr>")?,
             Element::Cookie(cookie) => write!(w, "<code>{}</code>", cookie.value)?,
             Element::Title(title) => {
-                write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?
+                write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?;
             }
-            Element::Table(_) => (),
-            Element::TableRow(_) => (),
-            Element::TableCell => (),
+            Element::Table(Table::TableEl { .. }) => (),
+            Element::Table(Table::Org { has_header, .. }) => {
+                write!(w, "<table>")?;
+                if *has_header {
+                    write!(w, "<thead>")?;
+                } else {
+                    write!(w, "<tbody>")?;
+                }
+            }
+            Element::TableRow(row) => match row {
+                TableRow::Body => write!(w, "<tr>")?,
+                TableRow::BodyRule => write!(w, "</tbody><tbody>")?,
+                TableRow::Header => write!(w, "<tr>")?,
+                TableRow::HeaderRule => write!(w, "</thead><tbody>")?,
+            },
+            Element::TableCell(cell) => match cell {
+                TableCell::Body => write!(w, "<td>")?,
+                TableCell::Header => write!(w, "<th>")?,
+            },
         }
 
         Ok(())
@@ -206,9 +222,17 @@ pub trait HtmlHandler<E: From<Error>>: Default {
             Element::Title(title) => {
                 write!(w, "</h{}>", if title.level <= 6 { title.level } else { 6 })?
             }
-            Element::Table(_) => (),
-            Element::TableRow(_) => (),
-            Element::TableCell => (),
+            Element::Table(Table::TableEl { .. }) => (),
+            Element::Table(Table::Org { .. }) => {
+                write!(w, "</tbody></table>")?;
+            }
+            Element::TableRow(TableRow::Body) | Element::TableRow(TableRow::Header) => {
+                write!(w, "</tr>")?;
+            }
+            Element::TableCell(cell) => match cell {
+                TableCell::Body => write!(w, "</td>")?,
+                TableCell::Header => write!(w, "</th>")?,
+            },
             // non-container elements
             _ => debug_assert!(!element.is_container()),
         }

@@ -18,6 +18,7 @@ pub enum Table<'a> {
         /// Numbers of blank lines between last table's line and next non-blank
         /// line or buffer's end
         post_blank: usize,
+        has_header: bool,
     },
     /// "table.el" type table
     #[cfg_attr(feature = "ser", serde(rename = "table.el"))]
@@ -63,9 +64,14 @@ impl Table<'_> {
 
     pub fn into_owned(self) -> Table<'static> {
         match self {
-            Table::Org { tblfm, post_blank } => Table::Org {
+            Table::Org {
+                tblfm,
+                post_blank,
+                has_header,
+            } => Table::Org {
                 tblfm: tblfm.map(Into::into).map(Cow::Owned),
                 post_blank: post_blank,
+                has_header: has_header,
             },
             Table::TableEl { value, post_blank } => Table::TableEl {
                 value: value.into_owned().into(),
@@ -76,14 +82,55 @@ impl Table<'_> {
 }
 
 /// Table Row Elemenet
+///
+/// # Syntax
+///
+/// ```text
+/// |   0 |   1 |   2 | <- TableRow::Body
+/// |   0 |   1 |   2 | <- TableRow::Body
+/// ```
+///
+/// ```text
+/// |-----+-----+-----| <- ignores
+/// |   0 |   1 |   2 | <- TableRow::Header
+/// |   0 |   1 |   2 | <- TableRow::Header
+/// |-----+-----+-----| <- TableRow::HeaderRule
+/// |   0 |   1 |   2 | <- TableRow::Body
+/// |-----+-----+-----| <- TableRow::BodyRule
+/// |   0 |   1 |   2 | <- TableRow::Body
+/// |-----+-----+-----| <- TableRow::BodyRule
+/// |-----+-----+-----| <- TableRow::BodyRule
+/// |   0 |   1 |   2 | <- TableRow::Body
+/// |-----+-----+-----| <- ignores
+/// ```
+///
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(tag = "table_row_type"))]
 #[cfg_attr(feature = "ser", serde(rename_all = "kebab-case"))]
 pub enum TableRow {
-    Standard,
-    Rule,
+    /// This row is part of table header
+    Header,
+    /// This row is part of table body
+    Body,
+    /// This row is between table header and body
+    HeaderRule,
+    /// This row is between table body and next body
+    BodyRule,
+}
+
+/// Table Cell Elemenet
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
+#[cfg_attr(feature = "ser", serde(tag = "table_cell_type"))]
+#[cfg_attr(feature = "ser", serde(rename_all = "kebab-case"))]
+pub enum TableCell {
+    /// Header cell
+    Header,
+    /// Body cell, or standard cell
+    Body,
 }
 
 #[test]

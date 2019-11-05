@@ -183,7 +183,7 @@ pub trait OrgHandler<E: From<Error>>: Default {
             }
             Element::Table(_) => (),
             Element::TableRow(_) => (),
-            Element::TableCell => (),
+            Element::TableCell(_) => (),
         }
 
         Ok(())
@@ -275,7 +275,7 @@ pub trait OrgHandler<E: From<Error>>: Default {
                 write_blank_lines(w, *post_blank)?;
             }
             Element::TableRow(_) => (),
-            Element::TableCell => (),
+            Element::TableCell(_) => (),
             // non-container elements
             _ => debug_assert!(!element.is_container()),
         }

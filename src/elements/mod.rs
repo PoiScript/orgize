@@ -47,7 +47,7 @@ pub use self::{
     planning::Planning,
     rule::Rule,
     snippet::Snippet,
-    table::{Table, TableRow},
+    table::{Table, TableCell, TableRow},
     target::Target,
     timestamp::{Datetime, Timestamp},
     title::Title,
@@ -103,33 +103,32 @@ pub enum Element<'a> {
     Title(Title<'a>),
     Table(Table<'a>),
     TableRow(TableRow),
-    TableCell,
+    TableCell(TableCell),
 }
 
 impl Element<'_> {
     pub fn is_container(&self) -> bool {
-        use Element::*;
-
         match self {
-            SpecialBlock(_)
-            | QuoteBlock(_)
-            | CenterBlock(_)
-            | VerseBlock(_)
-            | Bold
-            | Document { .. }
-            | DynBlock(_)
-            | Headline { .. }
-            | Italic
-            | List(_)
-            | ListItem(_)
-            | Paragraph { .. }
-            | Section
-            | Strike
-            | Underline
-            | Title(_)
-            | Table(_)
-            | TableRow(_)
-            | TableCell => true,
+            Element::SpecialBlock(_)
+            | Element::QuoteBlock(_)
+            | Element::CenterBlock(_)
+            | Element::VerseBlock(_)
+            | Element::Bold
+            | Element::Document { .. }
+            | Element::DynBlock(_)
+            | Element::Headline { .. }
+            | Element::Italic
+            | Element::List(_)
+            | Element::ListItem(_)
+            | Element::Paragraph { .. }
+            | Element::Section
+            | Element::Strike
+            | Element::Underline
+            | Element::Title(_)
+            | Element::Table(_)
+            | Element::TableRow(TableRow::Header)
+            | Element::TableRow(TableRow::Body)
+            | Element::TableCell(_) => true,
             _ => false,
         }
     }
@@ -187,7 +186,7 @@ impl Element<'_> {
             Title(e) => Title(e.into_owned()),
             Table(e) => Table(e.into_owned()),
             TableRow(e) => TableRow(e),
-            TableCell => TableCell,
+            TableCell(e) => TableCell(e),
         }
     }
 }

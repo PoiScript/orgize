@@ -1,7 +1,7 @@
 use indextree::NodeId;
 use std::ops::RangeInclusive;
 
-use crate::elements::{Element, Table, TableRow};
+use crate::elements::{Element, Table, TableCell, TableRow};
 use crate::Org;
 
 /// Validation Error
@@ -49,7 +49,7 @@ impl Org<'_> {
     pub fn validate(&self) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
-        macro_rules! expect {
+        macro_rules! expect_element {
             ($node:ident, $expect:expr, $($pattern:pat)|+) => {
                 match self[$node] {
                     $($pattern)|+ => (),
@@ -61,53 +61,93 @@ impl Org<'_> {
             };
         }
 
+        macro_rules! expect_children {
+            ($node:ident) => {
+                if self.arena[$node].first_child().is_none() {
+                    errors.push(ValidationError::ExpectedChildren { at: $node });
+                }
+            };
+        }
+
         for node_id in self.root.descendants(&self.arena) {
             let node = &self.arena[node_id];
             match node.get() {
                 Element::Document { .. } => {
                     let mut children = node_id.children(&self.arena);
-                    if let Some(node) = children.next() {
-                        expect!(
-                            node,
-                            "Headline,Section",
+                    if let Some(child) = children.next() {
+                        expect_element!(
+                            child,
+                            "Headline|Section",
                             Element::Headline { .. } | Element::Section
                         );
                     }
-                    for node in children {
-                        expect!(
-                            node,
+
+                    for child in children {
+                        expect_element!(
+                            child,
                             "Headline",
                             Element::Headline { .. }
                         );
                     }
                 }
                 Element::Headline { .. } => {
-                    if node.first_child().is_some() {
-                        let mut children = node_id.children(&self.arena);
-                        if let Some(node) = children.next() {
-                            expect!(node, "Title", Element::Title(_));
-                        }
-                        if let Some(node) = children.next() {
-                            expect!(
-                                node,
-                                "Headline,Section",
-                                Element::Headline { .. } | Element::Section
-                            );
-                        }
-                        for node in children {
-                            expect!(
-                                node,
-                                "Headline",
-                                Element::Headline { .. }
-                            );
-                        }
-                    } else {
-                        errors.push(ValidationError::ExpectedChildren { at: node_id });
+                    expect_children!(node_id);
+
+                    let mut children = node_id.children(&self.arena);
+                    if let Some(child) = children.next() {
+                        expect_element!(child, "Title", Element::Title(_));
+                    }
+
+                    if let Some(child) = children.next() {
+                        expect_element!(
+                            child,
+                            "Headline|Section",
+                            Element::Headline { .. } | Element::Section
+                        );
+                    }
+
+                    for child in children {
+                        expect_element!(
+                            child,
+                            "Headline",
+                            Element::Headline { .. }
+                        );
                     }
                 }
                 Element::Title(title) => {
                     if !title.raw.is_empty() && node.first_child().is_none() {
                         errors.push(ValidationError::ExpectedChildren { at: node_id });
+                    }
+                }
+                Element::List(_) => {
+                    expect_children!(node_id);
+                    for child in node_id.children(&self.arena) {
+                        expect_element!(child, "ListItem", Element::ListItem(_));
+                    }
+                }
+                Element::Table(Table::Org { .. }) => {
+                    for child in node_id.children(&self.arena) {
+                        expect_element!(child, "TableRow", Element::TableRow(_));
+                    }
+                }
+                Element::TableRow(TableRow::Header) => {
+                    expect_children!(node_id);
+                    for child in node_id.children(&self.arena) {
+                        expect_element!(
+                            child,
+                            "TableCell::Header",
+                            Element::TableCell(TableCell::Header)
+                        );
+                    }
+                }
+                Element::TableRow(TableRow::Body) => {
+                    expect_children!(node_id);
+                    for child in node_id.children(&self.arena) {
+                        expect_element!(
+                            child,
+                            "TableCell::Body",
+                            Element::TableCell(TableCell::Body)
+                        );
                     }
                 }
                 Element::CommentBlock(_)
@@ -134,19 +174,10 @@ impl Org<'_> {
                 | Element::Keyword(_)
                 | Element::Rule(_)
                 | Element::Cookie(_)
-                | Element::Table(Table::TableEl { .. })
-                | Element::TableRow(TableRow::Rule) => {
+                | Element::TableRow(TableRow::BodyRule)
+                | Element::TableRow(TableRow::HeaderRule) => {
                     if node.first_child().is_some() {
                         errors.push(ValidationError::UnexpectedChildren { at: node_id });
-                    }
-                }
-                Element::List(_) => {
-                    if node.first_child().is_some() {
-                        for node in node_id.children(&self.arena) {
-                            expect!(node, "ListItem", Element::ListItem(_));
-                        }
-                    } else {
-                        errors.push(ValidationError::ExpectedChildren { at: node_id });
                     }
                 }
                 Element::SpecialBlock(_)
@@ -155,21 +186,15 @@ impl Org<'_> {
                 | Element::VerseBlock(_)
                 | Element::Paragraph { .. }
                 | Element::Section
-                | Element::Table(Table::Org { .. })
-                | Element::TableRow(TableRow::Standard)
                 | Element::Bold
                 | Element::Italic
                 | Element::Underline
                 | Element::Strike
                 | Element::DynBlock(_)
                 | Element::ListItem(_) => {
-                    if node.first_child().is_none() {
-                        errors.push(ValidationError::ExpectedChildren { at: node_id });
-                    }
+                    expect_children!(node_id);
                 }
-                // TableCell is a container but it might
-                // not contains anything, e.g. `||||||`
-                Element::Drawer(_) | Element::TableCell => (),
+                Element::Drawer(_) | Element::TableCell(_) | Element::Table(_) => (),
             }
         }
         errors
