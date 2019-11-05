@@ -89,3 +89,68 @@ paragraph 4
      <p>paragraph 3</p><p>paragraph 4</p>\
      </section></main>"
 );
+
+test_suite!(
+    table1,
+    r#"
+|-----+-----+-----|
+|   0 |   1 |   2 |
+|-----+-----+-----|
+|   4 |   5 |   6 |
+"#,
+    "<main><section><table>\
+     <thead><tr><th>0</th><th>1</th><th>2</th></tr></thead>\
+     <tbody><tr><td>4</td><td>5</td><td>6</td></tr></tbody>\
+     </table></section></main>"
+);
+
+test_suite!(
+    table2,
+    r#"
+|-----+-----+-----|
+|   0 |   1 |   2 |
+|   4 |   5 |   6 |
+|-----+-----+-----|
+"#,
+    "<main><section><table>\
+     <tbody><tr><td>0</td><td>1</td><td>2</td></tr>\
+     <tr><td>4</td><td>5</td><td>6</td></tr></tbody>\
+     </table></section></main>"
+);
+
+test_suite!(
+    table3,
+    r#"
+|-----+-----+-----|
+|-----+-----+-----|
+|   0 |   1 |   2 |
+|   4 |   5 |   6 |
+"#,
+    "<main><section><table><thead></thead>\
+     <tbody><tr><td>0</td><td>1</td><td>2</td></tr>\
+     <tr><td>4</td><td>5</td><td>6</td></tr></tbody>\
+     </table></section></main>"
+);
+
+test_suite!(
+    table4,
+    r#"
+|   0 |   1 |   2 |
+|   4 |   5 |   6 |
+|-----+-----+-----|
+|-----+-----+-----|
+"#,
+    "<main><section><table>\
+     <thead><tr><th>0</th><th>1</th><th>2</th></tr>\
+     <tr><th>4</th><th>5</th><th>6</th></tr></thead>\
+     <tbody></tbody></table></section></main>"
+);
+
+test_suite!(
+    table5,
+    r#"
+|-----+-----+-----|
+|-----+-----+-----|
+"#,
+    "<main><section><table><tbody></tbody></table></section></main>"
+);
