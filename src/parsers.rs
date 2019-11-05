@@ -1,5 +1,3 @@
-// parser related functions
-
 use std::borrow::Cow;
 use std::iter::once;
 use std::marker::PhantomData;
@@ -722,7 +720,8 @@ pub fn parse_org_table<'a, T: ElementArena<'a>>(
         let line = contents[last_end..start].trim_start();
         if line.starts_with("|-") {
             arena.append(TableRow::Rule, parent);
-        } else {
+        } else if !line.is_empty() {
+            // ignores trailing newline
             let parent = arena.append(TableRow::Standard, parent);
             for content in line.split_terminator('|').skip(1) {
                 let node = arena.append(Element::TableCell, parent);
