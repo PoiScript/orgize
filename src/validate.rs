@@ -185,11 +185,13 @@ impl Org<'_> {
         if cfg!(debug_assertions) {
             let errors = self.validate();
             if !errors.is_empty() {
-                eprintln!("Validation failed. {} error(s) found:", errors.len());
-                for err in &errors {
+                eprintln!("Org validation failed. {} error(s) found:", errors.len());
+                for err in errors {
                     eprintln!("{:?} at {:?}", err, err.element(self));
                 }
-                panic!();
+                panic!(
+                    "Looks like there's a bug in orgize! Please report it with your org-mode content at https://github.com/PoiScript/orgize/issues."
+                );
             }
         }
     }
