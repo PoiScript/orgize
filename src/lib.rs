@@ -14,14 +14,14 @@
 //! Org::parse("* DONE Title :tag:");
 //! ```
 //!
-//! or [`Org::parse_with_config`]:
+//! or [`Org::parse_custom`]:
 //!
-//! [`Org::parse_with_config`]: struct.Org.html#method.parse_with_config
+//! [`Org::parse_custom`]: struct.Org.html#method.parse_custom
 //!
 //! ```rust
 //! use orgize::{Org, ParseConfig};
 //!
-//! Org::parse_with_config(
+//! Org::parse_custom(
 //!     "* TASK Title 1",
 //!     &ParseConfig {
 //!         // custom todo keywords
@@ -56,17 +56,17 @@
 //!
 //! # Render html
 //!
-//! You can call the [`Org::html`] function to generate html directly, which
+//! You can call the [`Org::write_html`] function to generate html directly, which
 //! uses the [`DefaultHtmlHandler`] internally:
 //!
-//! [`Org::html`]: struct.Org.html#method.html
+//! [`Org::write_html`]: struct.Org.html#method.write_html
 //! [`DefaultHtmlHandler`]: export/struct.DefaultHtmlHandler.html
 //!
 //! ```rust
 //! use orgize::Org;
 //!
 //! let mut writer = Vec::new();
-//! Org::parse("* title\n*section*").html(&mut writer).unwrap();
+//! Org::parse("* title\n*section*").write_html(&mut writer).unwrap();
 //!
 //! assert_eq!(
 //!     String::from_utf8(writer).unwrap(),
@@ -77,10 +77,10 @@
 //! # Render html with custom `HtmlHandler`
 //!
 //! To customize html rendering, simply implementing [`HtmlHandler`] trait and passing
-//! it to the [`Org::html_with_handler`] function.
+//! it to the [`Org::write_html_custom`] function.
 //!
 //! [`HtmlHandler`]: export/trait.HtmlHandler.html
-//! [`Org::html_with_handler`]: struct.Org.html#method.html_with_handler
+//! [`Org::write_html_custom`]: struct.Org.html#method.write_html_custom
 //!
 //! The following code demonstrates how to add a id for every headline and return
 //! own error type while rendering.
@@ -150,7 +150,7 @@
 //! fn main() -> Result<(), MyError> {
 //!     let mut writer = Vec::new();
 //!     let mut handler = MyHtmlHandler::default();
-//!     Org::parse("* title\n*section*").html_with_handler(&mut writer, &mut handler)?;
+//!     Org::parse("* title\n*section*").write_html_custom(&mut writer, &mut handler)?;
 //!
 //!     assert_eq!(
 //!         String::from_utf8(writer)?,

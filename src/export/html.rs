@@ -275,7 +275,7 @@ mod syntect_handler {
     ///
     /// let mut vec = vec![];
     ///
-    /// org.html_with_handler(&mut vec, &mut handler).unwrap();
+    /// org.write_html_custom(&mut vec, &mut handler).unwrap();
     /// ```
     ///
     /// Customize:
