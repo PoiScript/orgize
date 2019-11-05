@@ -15,7 +15,10 @@ use crate::{
 ///
 /// Each `Org` struct only has one `Document`.
 #[derive(Copy, Clone, Debug)]
-pub struct Document(Headline);
+pub struct Document {
+    doc_n: NodeId,
+    sec_n: Option<NodeId>,
+}
 
 impl Document {
     pub(crate) fn from_org(org: &Org) -> Document {
@@ -23,21 +26,20 @@ impl Document {
             .first_child()
             .and_then(|n| match org[n] {
                 Element::Section => Some(n),
-                _ => None,
+                Element::Headline { .. } => None,
+                _ => unreachable!("Document should only contains section and headline."),
             });
-        // document can be treated as zero-level headline without title
-        Document(Headline {
-            lvl: 0,
-            hdl_n: org.root,
-            ttl_n: org.root,
+
+        Document {
+            doc_n: org.root,
             sec_n,
-        })
+        }
     }
 
     /// Returns the ID of the section element of this document,
     /// or `None` if it has no section.
     pub fn section_node(self) -> Option<NodeId> {
-        self.0.sec_n
+        self.sec_n
     }
 
     /// Returns an iterator of this document's children.
@@ -65,11 +67,10 @@ impl Document {
     /// assert!(iter.next().is_none());
     /// ```
     pub fn children<'a>(self, org: &'a Org) -> impl Iterator<Item = Headline> + 'a {
-        self.0
-            .hdl_n
+        self.doc_n
             .children(&org.arena)
-            // skip sec_n if exists
-            .skip(if self.0.sec_n.is_some() { 1 } else { 0 })
+            // skip section if exists
+            .skip(if self.sec_n.is_some() { 1 } else { 0 })
             .map(move |n| match org[n] {
                 Element::Headline { level } => Headline::from_node(n, level, org),
                 _ => unreachable!(),
@@ -104,11 +105,10 @@ impl Document {
     /// assert!(org.document().first_child(&org).is_none());
     /// ```
     pub fn first_child(self, org: &Org) -> Option<Headline> {
-        self.0
-            .hdl_n
+        self.doc_n
             .children(&org.arena)
-            // skip sec_n if exists
-            .nth(if self.0.sec_n.is_some() { 1 } else { 0 })
+            // skip section if exists
+            .nth(if self.sec_n.is_some() { 1 } else { 0 })
             .map(move |n| match org[n] {
                 Element::Headline { level } => Headline::from_node(n, level, org),
                 _ => unreachable!(),
@@ -143,7 +143,13 @@ impl Document {
     /// assert!(org.document().last_child(&org).is_none());
     /// ```
     pub fn last_child(self, org: &Org) -> Option<Headline> {
-        self.0.last_child(org)
+        org.arena[self.doc_n]
+            .last_child()
+            .and_then(|n| match org[n] {
+                Element::Headline { level } => Some(Headline::from_node(n, level, org)),
+                Element::Section => None,
+                _ => unreachable!("Document should only contains section and headline."),
+            })
     }
 
     /// Changes the section content of this document.
@@ -177,24 +183,22 @@ impl Document {
     where
         S: Into<Cow<'a, str>>,
     {
-        let sec_n = if let Some(sec_n) = self.0.sec_n {
+        if let Some(sec_n) = self.sec_n {
             let children: Vec<_> = sec_n.children(&org.arena).collect();
             for child in children {
                 child.detach(&mut org.arena);
             }
-            sec_n
         } else {
             let sec_n = org.arena.new_node(Element::Section);
-            self.0.sec_n = Some(sec_n);
-            self.0.hdl_n.prepend(sec_n, &mut org.arena);
-            sec_n
-        };
+            self.sec_n = Some(sec_n);
+            self.doc_n.prepend(sec_n, &mut org.arena);
+        }
 
         match content.into() {
             Cow::Borrowed(content) => parse_container(
                 &mut org.arena,
                 Container::Block {
-                    node: sec_n,
+                    node: self.sec_n.unwrap(),
                     content,
                 },
                 &ParseConfig::default(),
@@ -202,7 +206,7 @@ impl Document {
             Cow::Owned(ref content) => parse_container(
                 &mut OwnedArena::new(&mut org.arena),
                 Container::Block {
-                    node: sec_n,
+                    node: self.sec_n.unwrap(),
                     content,
                 },
                 &ParseConfig::default(),
@@ -261,7 +265,19 @@ impl Document {
     /// assert!(d.append(h4, &mut org).is_err());
     /// ```
     pub fn append(self, hdl: Headline, org: &mut Org) -> ValidationResult<()> {
-        self.0.append(hdl, org)
+        hdl.check_detached(org)?;
+
+        if let Some(last) = self.last_child(org) {
+            hdl.check_level(1..=last.lvl)?;
+        } else {
+            hdl.check_level(1..=usize::max_value())?;
+        }
+
+        self.doc_n.append(hdl.hdl_n, &mut org.arena);
+
+        org.debug_validate();
+
+        Ok(())
     }
 
     /// Prepends a new child to this document.
@@ -316,13 +332,13 @@ impl Document {
         if let Some(first) = self.first_child(org) {
             hdl.check_level(first.lvl..=usize::MAX)?;
         } else {
-            hdl.check_level(self.0.lvl + 1..=usize::MAX)?;
+            hdl.check_level(1..=usize::MAX)?;
         }
 
-        if let Some(sec_n) = self.0.sec_n {
+        if let Some(sec_n) = self.sec_n {
             sec_n.insert_after(hdl.hdl_n, &mut org.arena);
         } else {
-            self.0.hdl_n.prepend(hdl.hdl_n, &mut org.arena);
+            self.doc_n.prepend(hdl.hdl_n, &mut org.arena);
         }
 
         org.debug_validate();
@@ -623,24 +639,22 @@ impl Headline {
     where
         S: Into<Cow<'a, str>>,
     {
-        let sec_n = if let Some(sec_n) = self.sec_n {
+        if let Some(sec_n) = self.sec_n {
             let children: Vec<_> = sec_n.children(&org.arena).collect();
             for child in children {
                 child.detach(&mut org.arena);
             }
-            sec_n
         } else {
             let sec_n = org.arena.new_node(Element::Section);
             self.sec_n = Some(sec_n);
             self.ttl_n.insert_after(sec_n, &mut org.arena);
-            sec_n
-        };
+        }
 
         match content.into() {
             Cow::Borrowed(content) => parse_container(
                 &mut org.arena,
                 Container::Block {
-                    node: sec_n,
+                    node: self.sec_n.unwrap(),
                     content,
                 },
                 &ParseConfig::default(),
@@ -648,7 +662,7 @@ impl Headline {
             Cow::Owned(ref content) => parse_container(
                 &mut OwnedArena::new(&mut org.arena),
                 Container::Block {
-                    node: sec_n,
+                    node: self.sec_n.unwrap(),
                     content,
                 },
                 &ParseConfig::default(),
@@ -722,6 +736,7 @@ impl Headline {
     pub fn children<'a>(self, org: &'a Org) -> impl Iterator<Item = Headline> + 'a {
         self.hdl_n
             .children(&org.arena)
+            // skip title and section
             .skip(if self.sec_n.is_some() { 2 } else { 1 })
             .filter_map(move |n| match org[n] {
                 Element::Headline { level } => Some(Headline::from_node(n, level, org)),
@@ -757,6 +772,7 @@ impl Headline {
     pub fn first_child(self, org: &Org) -> Option<Headline> {
         self.hdl_n
             .children(&org.arena)
+            // skip title and section
             .nth(if self.sec_n.is_some() { 2 } else { 1 })
             .map(|n| match org[n] {
                 Element::Headline { level } => Headline::from_node(n, level, org),
@@ -795,7 +811,7 @@ impl Headline {
             .and_then(|n| match org[n] {
                 Element::Headline { level } => Some(Headline::from_node(n, level, org)),
                 Element::Section | Element::Title(_) => None,
-                _ => unreachable!(),
+                _ => unreachable!("Headline should only contains section and headline."),
             })
     }
 
