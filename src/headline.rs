@@ -169,7 +169,7 @@ impl Document {
     /// d.set_section_content("s", &mut org);
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -250,7 +250,7 @@ impl Document {
     /// assert!(d.append(h4, &mut org).is_ok());
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -313,7 +313,7 @@ impl Document {
     /// assert!(d.prepend(h1, &mut org).is_ok());
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -456,7 +456,7 @@ impl Headline {
     /// h1.title_mut(&mut org).priority = Some('A');
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     "* [#A] h1\n",
@@ -494,7 +494,7 @@ impl Headline {
     /// assert!(h1_2.set_level(5, &mut org).is_ok());
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -560,7 +560,7 @@ impl Headline {
     /// h1_1.set_title_content(String::from("*H1_1*"), &mut org);
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -624,7 +624,7 @@ impl Headline {
     /// h1_1.set_section_content(String::from("*s1_1*"), &mut org);
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -903,7 +903,7 @@ impl Headline {
     /// h1_2.detach(&mut org);
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -958,7 +958,7 @@ impl Headline {
     /// assert!(h1_1.append(h1_1_2, &mut org).is_ok());
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -1079,7 +1079,7 @@ impl Headline {
     /// assert!(h1_1_3.insert_before(h1_1_2, &mut org).is_ok());
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"
@@ -1147,7 +1147,7 @@ impl Headline {
     /// assert!(h1_1_1.insert_after(h1_1_2, &mut org).is_ok());
     ///
     /// let mut writer = Vec::new();
-    /// org.org(&mut writer).unwrap();
+    /// org.write_org(&mut writer).unwrap();
     /// assert_eq!(
     ///     String::from_utf8(writer).unwrap(),
     ///     r#"

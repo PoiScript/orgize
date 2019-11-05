@@ -54,12 +54,6 @@ impl<'a> Org<'a> {
         org
     }
 
-    /// Parses string `text` into `Org` struct with custom `ParseConfig`.
-    #[deprecated(since = "0.6.0", note = "rename to parse_custom")]
-    pub fn parse_with_config(text: &'a str, config: &ParseConfig) -> Org<'a> {
-        Org::parse_custom(text, config)
-    }
-
     /// Returns a refrence to the underlay arena.
     pub fn arena(&self) -> &Arena<Element<'a>> {
         &self.arena
@@ -114,26 +108,6 @@ impl<'a> Org<'a> {
         Ok(())
     }
 
-    /// Writes an `Org` struct as html format.
-    #[deprecated(since = "0.6.0", note = "rename to write_html")]
-    pub fn html<W>(&self, writer: W) -> Result<(), Error>
-    where
-        W: Write,
-    {
-        self.write_html_custom(writer, &mut DefaultHtmlHandler)
-    }
-
-    /// Writes an `Org` struct as html format with custom `HtmlHandler`.
-    #[deprecated(since = "0.6.0", note = "rename to write_html_custom")]
-    pub fn html_with_handler<W, H, E>(&self, writer: W, handler: &mut H) -> Result<(), E>
-    where
-        W: Write,
-        E: From<Error>,
-        H: HtmlHandler<E>,
-    {
-        self.write_html_custom(writer, handler)
-    }
-
     /// Writes an `Org` struct as org format.
     pub fn write_org<W>(&self, writer: W) -> Result<(), Error>
     where
@@ -157,26 +131,6 @@ impl<'a> Org<'a> {
         }
 
         Ok(())
-    }
-
-    /// Writes an `Org` struct as org format.
-    #[deprecated(since = "0.6.0", note = "rename to write_org")]
-    pub fn org<W>(&self, writer: W) -> Result<(), Error>
-    where
-        W: Write,
-    {
-        self.write_org_custom(writer, &mut DefaultOrgHandler)
-    }
-
-    /// Writes an `Org` struct as org format with custom `OrgHandler`.
-    #[deprecated(since = "0.6.0", note = "rename to write_org_custom")]
-    pub fn org_with_handler<W, H, E>(&self, writer: W, handler: &mut H) -> Result<(), E>
-    where
-        W: Write,
-        E: From<Error>,
-        H: OrgHandler<E>,
-    {
-        self.write_org_custom(writer, handler)
     }
 }
 

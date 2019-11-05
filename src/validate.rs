@@ -200,12 +200,6 @@ impl Org<'_> {
         errors
     }
 
-    #[deprecated(since = "0.3.1", note = "rename to validate")]
-    /// Validates an `Org` struct.
-    pub fn check(&self) -> Vec<ValidationError> {
-        self.validate()
-    }
-
     pub(crate) fn debug_validate(&self) {
         if cfg!(debug_assertions) {
             let errors = self.validate();
