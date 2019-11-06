@@ -154,3 +154,19 @@ test_suite!(
 "#,
     "<main><section><table><tbody></tbody></table></section></main>"
 );
+
+test_suite!(
+    table6,
+    r#"
+|
+|-
+|
+|-
+|
+"#,
+    "<main><section><table>\
+     <thead><tr></tr></thead>\
+     <tbody><tr></tr></tbody>\
+     <tbody><tr></tr></tbody>\
+     </table></section></main>"
+);

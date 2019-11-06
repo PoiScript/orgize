@@ -131,7 +131,6 @@ impl Org<'_> {
                     }
                 }
                 Element::TableRow(TableRow::Header) => {
-                    expect_children!(node_id);
                     for child in node_id.children(&self.arena) {
                         expect_element!(
                             child,
@@ -141,7 +140,6 @@ impl Org<'_> {
                     }
                 }
                 Element::TableRow(TableRow::Body) => {
-                    expect_children!(node_id);
                     for child in node_id.children(&self.arena) {
                         expect_element!(
                             child,

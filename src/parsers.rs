@@ -713,6 +713,8 @@ pub fn parse_org_table<'a, T: ElementArena<'a>>(
 
     let mut has_header = false;
 
+    // TODO: merge contiguous rules
+
     if let Some(line) = iter.next() {
         let line = line.trim_start();
         if !line.starts_with("|-") {
