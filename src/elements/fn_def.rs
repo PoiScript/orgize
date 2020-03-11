@@ -14,7 +14,7 @@ use crate::parsers::{blank_lines, line};
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug, Default)]
 pub struct FnDef<'a> {
-    /// Footnote label, used for refrence
+    /// Footnote label, used for reference
     pub label: Cow<'a, str>,
     /// Numbers of blank lines between last footnote definition's line and next
     /// non-blank line or buffer's end

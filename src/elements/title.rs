@@ -20,7 +20,7 @@ use crate::{
     parsers::{blank_lines, line, skip_empty_lines, take_one_word},
 };
 
-/// Title Elemenet
+/// Title Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -38,7 +38,7 @@ pub struct Title<'a> {
     pub keyword: Option<Cow<'a, str>>,
     /// Raw headline's text, without the stars and the tags
     pub raw: Cow<'a, str>,
-    /// Planning elemenet associated to this headline
+    /// Planning element associated to this headline
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub planning: Option<Box<Planning<'a>>>,
     /// Property drawer associated to this headline

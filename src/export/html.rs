@@ -299,7 +299,7 @@ mod syntect_handler {
     ///     ..Default::default()
     /// };
     ///
-    /// // Make sure to check if theme presents or it will painc at runtime
+    /// // Make sure to check if theme presents or it will panic at runtime
     /// if handler.theme_set.themes.contains_key("dont-exists") {
     ///
     /// }
