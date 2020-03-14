@@ -26,7 +26,7 @@ pub struct List {
     pub post_blank: usize,
 }
 
-/// List Item Elemenet
+/// List Item Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]

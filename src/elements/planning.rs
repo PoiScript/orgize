@@ -2,7 +2,7 @@ use memchr::memchr;
 
 use crate::elements::Timestamp;
 
-/// Palnning element
+/// Planning element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]

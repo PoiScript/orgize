@@ -33,7 +33,7 @@
 //!
 //! # Iter
 //!
-//! [`Org::iter`] function will returns an iteractor of [`Event`]s, which is
+//! [`Org::iter`] function will returns an iterator of [`Event`]s, which is
 //! a simple wrapper of [`Element`].
 //!
 //! [`Org::iter`]: struct.Org.html#method.iter

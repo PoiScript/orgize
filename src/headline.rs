@@ -359,7 +359,7 @@ pub struct Headline {
 }
 
 impl Headline {
-    /// Creates a new detaced Headline.
+    /// Creates a new detached Headline.
     pub fn new<'a>(ttl: Title<'a>, org: &mut Org<'a>) -> Headline {
         let lvl = ttl.level;
         let hdl_n = org.arena.new_node(Element::Headline { level: ttl.level });
@@ -472,7 +472,7 @@ impl Headline {
     /// Changes the level of this headline.
     ///
     /// Returns an error if this headline is attached and the given new level
-    /// dones't meet the requirements.
+    /// doesn't meet the requirements.
     ///
     /// ```rust
     /// # use orgize::{elements::Title, Headline, Org};

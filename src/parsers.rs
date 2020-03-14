@@ -101,7 +101,7 @@ impl<'a> ElementArena<'a> for OwnedArena<'a, '_, '_> {
 pub enum Container<'a> {
     // Block, List Item
     Block { content: &'a str, node: NodeId },
-    // Pargraph, Inline Markup
+    // Paragraph, Inline Markup
     Inline { content: &'a str, node: NodeId },
     // Headline
     Headline { content: &'a str, node: NodeId },

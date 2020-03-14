@@ -11,7 +11,7 @@ use nom::{
 
 use crate::parsers::{blank_lines, line};
 
-/// Keyword Elemenet
+/// Keyword Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]
@@ -38,7 +38,7 @@ impl Keyword<'_> {
     }
 }
 
-/// Babel Call Elemenet
+/// Babel Call Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[derive(Debug)]

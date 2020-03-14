@@ -18,7 +18,7 @@ pub struct InlineCall<'a> {
     /// Header arguments applied to the code block
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub inside_header: Option<Cow<'a, str>>,
-    /// Arugment passed to the code block
+    /// Argument passed to the code block
     pub arguments: Cow<'a, str>,
     /// Header arguments applied to the calling instance
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]

@@ -23,7 +23,7 @@ pub enum ValidationError {
     ExpectedDetached {
         at: NodeId,
     },
-    /// Expected headline level in sepcify range
+    /// Expected headline level in specify range
     HeadlineLevelMismatch {
         range: RangeInclusive<usize>,
         at: NodeId,

@@ -4,7 +4,7 @@ use memchr::memchr;
 
 use crate::parsers::{blank_lines, take_lines_while};
 
-/// Table Elemenet
+/// Table Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
@@ -81,7 +81,7 @@ impl Table<'_> {
     }
 }
 
-/// Table Row Elemenet
+/// Table Row Element
 ///
 /// # Syntax
 ///
@@ -120,7 +120,7 @@ pub enum TableRow {
     BodyRule,
 }
 
-/// Table Cell Elemenet
+/// Table Cell Element
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]

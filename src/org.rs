@@ -54,7 +54,7 @@ impl<'a> Org<'a> {
         org
     }
 
-    /// Returns a refrence to the underlay arena.
+    /// Returns a reference to the underlay arena.
     pub fn arena(&self) -> &Arena<Element<'a>> {
         &self.arena
     }

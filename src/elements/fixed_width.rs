@@ -6,7 +6,7 @@ use crate::parsers::{blank_lines, take_lines_while};
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct FixedWidth<'a> {
-    /// Fxied width value
+    /// Fixed width value
     pub value: Cow<'a, str>,
     /// Numbers of blank lines between last fixed width's line and next
     /// non-blank line or buffer's end
