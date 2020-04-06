@@ -6,7 +6,7 @@ use crate::{
     config::{ParseConfig, DEFAULT_CONFIG},
     elements::{Element, Keyword},
     export::{DefaultHtmlHandler, DefaultOrgHandler, HtmlHandler, OrgHandler},
-    parsers::{blank_lines, parse_container, Container},
+    parsers::{blank_lines, parse_container, Container, OwnedArena},
 };
 
 pub struct Org<'a> {
@@ -33,6 +33,11 @@ impl<'a> Org<'a> {
         Org::parse_custom(text, &DEFAULT_CONFIG)
     }
 
+    /// Likes `parse`, but accepts `String`.
+    pub fn parse_string(text: String) -> Org<'static> {
+        Org::parse_string_custom(text, &DEFAULT_CONFIG)
+    }
+
     /// Parses string `text` into `Org` struct with custom `ParseConfig`.
     pub fn parse_custom(text: &'a str, config: &ParseConfig) -> Org<'a> {
         let mut arena = Arena::new();
@@ -42,6 +47,27 @@ impl<'a> Org<'a> {
 
         parse_container(
             &mut org.arena,
+            Container::Document {
+                content: text,
+                node: org.root,
+            },
+            config,
+        );
+
+        org.debug_validate();
+
+        org
+    }
+
+    /// Likes `parse_custom`, but accepts `String`.
+    pub fn parse_string_custom(text: String, config: &ParseConfig) -> Org<'static> {
+        let mut arena = Arena::new();
+        let (text, pre_blank) = blank_lines(&text);
+        let root = arena.new_node(Element::Document { pre_blank });
+        let mut org = Org { arena, root };
+
+        parse_container(
+            &mut OwnedArena::new(&mut org.arena),
             Container::Document {
                 content: text,
                 node: org.root,
