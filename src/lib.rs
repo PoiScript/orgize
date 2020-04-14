@@ -225,6 +225,7 @@ pub mod elements;
 pub mod export;
 mod headline;
 mod org;
+mod parse;
 mod parsers;
 mod validate;
 

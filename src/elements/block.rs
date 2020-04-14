@@ -8,7 +8,141 @@ use nom::{
     IResult,
 };
 
-use crate::parsers::{blank_lines, line, take_lines_while};
+use crate::elements::Element;
+use crate::parse::combinators::{blank_lines_count, line, lines_till};
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub(crate) struct RawBlock<'a> {
+    pub name: &'a str,
+    pub arguments: &'a str,
+
+    pub pre_blank: usize,
+    pub contents: &'a str,
+    pub contents_without_blank_lines: &'a str,
+
+    pub post_blank: usize,
+}
+
+impl<'a> RawBlock<'a> {
+    pub fn parse(input: &'a str) -> Option<(&str, RawBlock)> {
+        Self::parse_internal::<()>(input).ok()
+    }
+
+    fn parse_internal<E>(input: &'a str) -> IResult<&str, RawBlock, E>
+    where
+        E: ParseError<&'a str>,
+    {
+        let (input, _) = space0(input)?;
+        let (input, name) = preceded(tag_no_case("#+BEGIN_"), alpha1)(input)?;
+        let (input, arguments) = line(input)?;
+        let end_line = format!("#+END_{}", name);
+        let (input, contents) =
+            lines_till(|line| line.trim().eq_ignore_ascii_case(&end_line))(input)?;
+        dbg!(contents);
+        let (contents_without_blank_lines, pre_blank) = blank_lines_count(contents)?;
+        dbg!(contents_without_blank_lines);
+        dbg!(pre_blank);
+        let (input, post_blank) = blank_lines_count(input)?;
+
+        Ok((
+            input,
+            RawBlock {
+                name,
+                contents,
+                arguments: arguments.trim(),
+                pre_blank,
+                contents_without_blank_lines,
+                post_blank,
+            },
+        ))
+    }
+
+    pub fn into_element(self) -> (Element<'a>, &'a str) {
+        let RawBlock {
+            name,
+            contents,
+            arguments,
+            pre_blank,
+            contents_without_blank_lines,
+            post_blank,
+        } = self;
+
+        let arguments: Option<Cow<'a, str>> = if arguments.is_empty() {
+            None
+        } else {
+            Some(arguments.into())
+        };
+
+        let element = match &*name.to_uppercase() {
+            "CENTER" => CenterBlock {
+                parameters: arguments,
+                pre_blank,
+                post_blank,
+            }
+            .into(),
+            "QUOTE" => QuoteBlock {
+                parameters: arguments,
+                pre_blank,
+                post_blank,
+            }
+            .into(),
+            "VERSE" => VerseBlock {
+                parameters: arguments,
+                pre_blank,
+                post_blank,
+            }
+            .into(),
+            "COMMENT" => CommentBlock {
+                data: arguments,
+                contents: contents.into(),
+                post_blank,
+            }
+            .into(),
+            "EXAMPLE" => ExampleBlock {
+                data: arguments,
+                contents: contents.into(),
+                post_blank,
+            }
+            .into(),
+            "EXPORT" => ExportBlock {
+                data: arguments.unwrap_or_default(),
+                contents: contents.into(),
+                post_blank,
+            }
+            .into(),
+            "SRC" => {
+                let (language, arguments) = match &arguments {
+                    Some(Cow::Borrowed(args)) => {
+                        let (language, arguments) =
+                            args.split_at(args.find(' ').unwrap_or_else(|| args.len()));
+                        (language.into(), arguments.into())
+                    }
+                    None => (Cow::Borrowed(""), Cow::Borrowed("")),
+                    _ => unreachable!(
+                        "`parse_block_element` returns `Some(Cow::Borrowed)` or `None`"
+                    ),
+                };
+                SourceBlock {
+                    arguments,
+                    language,
+                    contents: contents.into(),
+                    post_blank,
+                }
+                .into()
+            }
+            _ => SpecialBlock {
+                parameters: arguments,
+                name: name.into(),
+                pre_blank,
+                post_blank,
+            }
+            .into(),
+        };
+
+        (element, contents_without_blank_lines)
+    }
+}
 
 /// Special Block Element
 #[derive(Debug)]
@@ -220,59 +354,48 @@ impl SourceBlock<'_> {
     // TODO: fn retain_labels() -> bool {  }
 }
 
-#[inline]
-pub fn parse_block_element(input: &str) -> Option<(&str, (&str, Option<&str>, &str, usize))> {
-    parse_block_element_internal::<()>(input).ok()
-}
-
-#[inline]
-fn parse_block_element_internal<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&str, (&str, Option<&str>, &str, usize), E> {
-    let (input, _) = space0(input)?;
-    let (input, name) = preceded(tag_no_case("#+BEGIN_"), alpha1)(input)?;
-    let (input, args) = line(input)?;
-    let end_line = format!("#+END_{}", name);
-    let (input, contents) =
-        take_lines_while(|line| !line.trim().eq_ignore_ascii_case(&end_line))(input);
-    let (input, _) = line(input)?;
-    let (input, blank) = blank_lines(input);
-
-    Ok((
-        input,
-        (
-            name,
-            if args.trim().is_empty() {
-                None
-            } else {
-                Some(args.trim())
-            },
-            contents,
-            blank,
-        ),
-    ))
-}
-
 #[test]
 fn parse() {
     use nom::error::VerboseError;
 
     assert_eq!(
-        parse_block_element_internal::<VerboseError<&str>>(
+        RawBlock::parse_internal::<VerboseError<&str>>(
             r#"#+BEGIN_SRC
 #+END_SRC"#
         ),
-        Ok(("", ("SRC".into(), None, "", 0)))
+        Ok((
+            "",
+            RawBlock {
+                contents: "",
+                contents_without_blank_lines: "",
+                pre_blank: 0,
+                post_blank: 0,
+                name: "SRC".into(),
+                arguments: ""
+            }
+        ))
     );
+
     assert_eq!(
-        parse_block_element_internal::<VerboseError<&str>>(
+        RawBlock::parse_internal::<VerboseError<&str>>(
             r#"#+begin_src
    #+end_src"#
         ),
-        Ok(("", ("src".into(), None, "", 0)))
+        Ok((
+            "",
+            RawBlock {
+                contents: "",
+                contents_without_blank_lines: "",
+                pre_blank: 0,
+                post_blank: 0,
+                name: "src".into(),
+                arguments: ""
+            }
+        ))
     );
+
     assert_eq!(
-        parse_block_element_internal::<VerboseError<&str>>(
+        RawBlock::parse_internal::<VerboseError<&str>>(
             r#"#+BEGIN_SRC javascript
 console.log('Hello World!');
 #+END_SRC
@@ -281,12 +404,14 @@ console.log('Hello World!');
         ),
         Ok((
             "",
-            (
-                "SRC".into(),
-                Some("javascript".into()),
-                "console.log('Hello World!');\n",
-                1
-            )
+            RawBlock {
+                contents: "console.log('Hello World!');\n",
+                contents_without_blank_lines: "console.log('Hello World!');\n",
+                pre_blank: 0,
+                post_blank: 1,
+                name: "SRC".into(),
+                arguments: "javascript"
+            }
         ))
     );
     // TODO: more testing

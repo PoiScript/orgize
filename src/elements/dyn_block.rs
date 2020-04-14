@@ -7,7 +7,7 @@ use nom::{
     IResult,
 };
 
-use crate::parsers::{blank_lines, line, take_lines_while};
+use crate::parse::combinators::{blank_lines_count, line, lines_till};
 
 /// Dynamic Block Element
 #[derive(Debug, Default)]
@@ -43,19 +43,18 @@ impl DynBlock<'_> {
 }
 
 #[inline]
-fn parse_dyn_block<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&str, (DynBlock, &str), E> {
+fn parse_dyn_block<'a, E>(input: &'a str) -> IResult<&str, (DynBlock, &str), E>
+where
+    E: ParseError<&'a str>,
+{
     let (input, _) = space0(input)?;
     let (input, _) = tag_no_case("#+BEGIN:")(input)?;
     let (input, _) = space1(input)?;
     let (input, name) = alpha1(input)?;
     let (input, args) = line(input)?;
-    let (input, contents) =
-        take_lines_while(|line| !line.trim().eq_ignore_ascii_case("#+END:"))(input);
-    let (contents, pre_blank) = blank_lines(contents);
-    let (input, _) = line(input)?;
-    let (input, post_blank) = blank_lines(input);
+    let (input, contents) = lines_till(|line| line.trim().eq_ignore_ascii_case("#+END:"))(input)?;
+    let (contents, pre_blank) = blank_lines_count(contents)?;
+    let (input, post_blank) = blank_lines_count(input)?;
 
     Ok((
         input,

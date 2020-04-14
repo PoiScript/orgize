@@ -8,7 +8,7 @@ use nom::{
     IResult,
 };
 
-use crate::parsers::{blank_lines, eol, line, take_lines_while};
+use crate::parse::combinators::{blank_lines_count, eol, lines_till};
 
 /// Drawer Element
 #[derive(Debug, Default)]
@@ -40,23 +40,25 @@ impl Drawer<'_> {
 }
 
 #[inline]
-pub fn parse_drawer<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&str, (Drawer, &str), E> {
+pub fn parse_drawer<'a, E>(input: &'a str) -> IResult<&str, (Drawer, &str), E>
+where
+    E: ParseError<&'a str>,
+{
     let (input, (mut drawer, content)) = parse_drawer_without_blank(input)?;
 
-    let (content, blank) = blank_lines(content);
+    let (content, blank) = blank_lines_count(content)?;
     drawer.pre_blank = blank;
 
-    let (input, blank) = blank_lines(input);
+    let (input, blank) = blank_lines_count(input)?;
     drawer.post_blank = blank;
 
     Ok((input, (drawer, content)))
 }
 
-pub fn parse_drawer_without_blank<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&str, (Drawer, &str), E> {
+pub fn parse_drawer_without_blank<'a, E>(input: &'a str) -> IResult<&str, (Drawer, &str), E>
+where
+    E: ParseError<&'a str>,
+{
     let (input, _) = space0(input)?;
     let (input, name) = delimited(
         tag(":"),
@@ -64,9 +66,7 @@ pub fn parse_drawer_without_blank<'a, E: ParseError<&'a str>>(
         tag(":"),
     )(input)?;
     let (input, _) = eol(input)?;
-    let (input, contents) =
-        take_lines_while(|line| !line.trim().eq_ignore_ascii_case(":END:"))(input);
-    let (input, _) = line(input)?;
+    let (input, contents) = lines_till(|line| line.trim().eq_ignore_ascii_case(":END:"))(input)?;
 
     Ok((
         input,
@@ -124,4 +124,7 @@ fn parse() {
             )
         ))
     );
+
+    // https://github.com/PoiScript/orgize/issues/9
+    assert!(parse_drawer::<()>(":SPAGHETTI:\n").is_err());
 }

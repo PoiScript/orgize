@@ -17,7 +17,7 @@ use nom::{
 use crate::{
     config::ParseConfig,
     elements::{drawer::parse_drawer_without_blank, Planning, Timestamp},
-    parsers::{blank_lines, line, skip_empty_lines, take_one_word},
+    parse::combinators::{blank_lines_count, line, one_word},
 };
 
 /// Title Element
@@ -123,17 +123,20 @@ impl Default for Title<'_> {
 }
 
 #[inline]
-fn parse_title<'a, E: ParseError<&'a str>>(
+fn parse_title<'a, E>(
     input: &'a str,
     config: &ParseConfig,
-) -> IResult<&'a str, (Title<'a>, &'a str), E> {
+) -> IResult<&'a str, (Title<'a>, &'a str), E>
+where
+    E: ParseError<&'a str>,
+{
     let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
 
     debug_assert!(level > 0);
 
     let (input, keyword) = opt(preceded(
         space1,
-        verify(take_one_word, |s: &str| {
+        verify(one_word, |s: &str| {
             config.todo_keywords.0.iter().any(|x| x == s)
                 || config.todo_keywords.1.iter().any(|x| x == s)
         }),
@@ -142,7 +145,7 @@ fn parse_title<'a, E: ParseError<&'a str>>(
     let (input, priority) = opt(preceded(
         space1,
         map_parser(
-            take_one_word,
+            one_word,
             delimited(
                 tag("[#"),
                 verify(anychar, |c: &char| c.is_ascii_uppercase()),
@@ -168,7 +171,7 @@ fn parse_title<'a, E: ParseError<&'a str>>(
         .unwrap_or((input, None));
 
     let (input, properties) = opt(parse_properties_drawer)(input)?;
-    let (input, blank) = blank_lines(input);
+    let (input, post_blank) = blank_lines_count(input)?;
 
     Ok((
         input,
@@ -181,7 +184,7 @@ fn parse_title<'a, E: ParseError<&'a str>>(
                 tags,
                 raw: raw.into(),
                 planning,
-                post_blank: blank,
+                post_blank,
             },
             raw,
         ),
@@ -211,7 +214,8 @@ fn parse_properties_drawer<'a, E: ParseError<&'a str>>(
 fn parse_node_property<'a, E: ParseError<&'a str>>(
     input: &'a str,
 ) -> IResult<&str, (&str, &str), E> {
-    let input = skip_empty_lines(input).trim_start();
+    let (input, _) = blank_lines_count(input)?;
+    let input = input.trim_start();
     let (input, name) = map(delimited(tag(":"), take_until(":"), tag(":")), |s: &str| {
         s.trim_end_matches('+')
     })(input)?;

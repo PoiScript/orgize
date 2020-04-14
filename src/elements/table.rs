@@ -1,8 +1,11 @@
 use std::borrow::Cow;
 
-use memchr::memchr;
+use nom::{
+    error::{ErrorKind, ParseError},
+    Err, IResult,
+};
 
-use crate::parsers::{blank_lines, take_lines_while};
+use crate::parse::combinators::{blank_lines_count, line, lines_while};
 
 /// Table Element
 #[derive(Debug)]
@@ -31,33 +34,42 @@ pub enum Table<'a> {
 }
 
 impl Table<'_> {
-    pub fn parse_table_el(input: &str) -> Option<(&str, Table<'_>)> {
-        let first_line = memchr(b'\n', input.as_bytes())
-            .map(|i| input[0..i].trim())
-            .unwrap_or_else(|| input.trim());
+    pub fn parse_table_el(input: &str) -> Option<(&str, Table)> {
+        Self::parse_table_el_internal::<()>(input).ok()
+    }
 
-        // first line must be the "+-" string and followed by plus or minus signs
+    fn parse_table_el_internal<'a, E>(input: &'a str) -> IResult<&str, Table, E>
+    where
+        E: ParseError<&'a str>,
+    {
+        let (_, first_line) = line(input)?;
+
+        let first_line = first_line.trim();
+
+        // Table.el tables start at lines beginning with "+-" string and followed by plus or minus signs
         if !first_line.starts_with("+-")
             || first_line
                 .as_bytes()
                 .iter()
                 .any(|&c| c != b'+' && c != b'-')
         {
-            return None;
+            // TODO: better error kind
+            return Err(Err::Error(E::from_error_kind(input, ErrorKind::Many0)));
         }
 
-        let (input, content) = take_lines_while(|line| {
+        // Table.el tables end at the first line not starting with either a vertical line or a plus sign.
+        let (input, content) = lines_while(|line| {
             let line = line.trim_start();
             line.starts_with('|') || line.starts_with('+')
-        })(input);
+        })(input)?;
 
-        let (input, blank) = blank_lines(input);
+        let (input, post_blank) = blank_lines_count(input)?;
 
-        Some((
+        Ok((
             input,
             Table::TableEl {
                 value: content.into(),
-                post_blank: blank,
+                post_blank,
             },
         ))
     }
@@ -70,12 +82,12 @@ impl Table<'_> {
                 has_header,
             } => Table::Org {
                 tblfm: tblfm.map(Into::into).map(Cow::Owned),
-                post_blank: post_blank,
-                has_header: has_header,
+                post_blank,
+                has_header,
             },
             Table::TableEl { value, post_blank } => Table::TableEl {
                 value: value.into_owned().into(),
-                post_blank: post_blank,
+                post_blank,
             },
         }
     }

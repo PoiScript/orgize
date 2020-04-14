@@ -1,20 +1,19 @@
-use std::borrow::Cow;
 use std::iter::once;
 use std::marker::PhantomData;
 
 use indextree::{Arena, NodeId};
 use jetscii::{bytes, BytesConst};
 use memchr::{memchr, memchr_iter};
-use nom::{bytes::complete::take_while1, combinator::verify, error::ParseError, IResult};
+use nom::bytes::complete::take_while1;
 
 use crate::config::ParseConfig;
 use crate::elements::{
-    block::parse_block_element, emphasis::parse_emphasis, keyword::parse_keyword,
-    radio_target::parse_radio_target, BabelCall, CenterBlock, Clock, Comment, CommentBlock, Cookie,
-    Drawer, DynBlock, Element, ExampleBlock, ExportBlock, FixedWidth, FnDef, FnRef, InlineCall,
-    InlineSrc, Keyword, Link, List, ListItem, Macros, QuoteBlock, Rule, Snippet, SourceBlock,
-    SpecialBlock, Table, TableCell, TableRow, Target, Timestamp, Title, VerseBlock,
+    block::RawBlock, emphasis::Emphasis, keyword::RawKeyword, radio_target::parse_radio_target,
+    Clock, Comment, Cookie, Drawer, DynBlock, Element, FixedWidth, FnDef, FnRef, InlineCall,
+    InlineSrc, Link, List, ListItem, Macros, Rule, Snippet, Table, TableCell, TableRow, Target,
+    Timestamp, Title,
 };
+use crate::parse::combinators::lines_while;
 
 pub trait ElementArena<'a> {
     fn append<T>(&mut self, element: T, parent: NodeId) -> NodeId
@@ -28,7 +27,9 @@ pub trait ElementArena<'a> {
         T: Into<Element<'a>>;
 }
 
-impl<'a> ElementArena<'a> for Arena<Element<'a>> {
+pub type BorrowedArena<'a> = Arena<Element<'a>>;
+
+impl<'a> ElementArena<'a> for BorrowedArena<'a> {
     fn append<T>(&mut self, element: T, parent: NodeId) -> NodeId
     where
         T: Into<Element<'a>>,
@@ -153,7 +154,8 @@ pub fn parse_section_and_headlines<'a, T: ElementArena<'a>>(
     parent: NodeId,
     containers: &mut Vec<Container<'a>>,
 ) {
-    let content = skip_empty_lines(content);
+    let content = blank_lines_count(content).0;
+
     if content.is_empty() {
         return;
     }
@@ -194,10 +196,10 @@ pub fn parse_blocks<'a, T: ElementArena<'a>>(
     parent: NodeId,
     containers: &mut Vec<Container<'a>>,
 ) {
-    let mut tail = skip_empty_lines(content);
+    let mut tail = blank_lines_count(content).0;
 
     if let Some(new_tail) = parse_block(content, arena, parent, containers) {
-        tail = skip_empty_lines(new_tail);
+        tail = blank_lines_count(new_tail).0;
     }
 
     let mut text = tail;
@@ -208,13 +210,13 @@ pub fn parse_blocks<'a, T: ElementArena<'a>>(
             .map(|i| i + 1)
             .unwrap_or_else(|| tail.len());
         if tail.as_bytes()[0..i].iter().all(u8::is_ascii_whitespace) {
-            let (tail_, blank) = blank_lines(&tail[i..]);
+            let (tail_, blank) = blank_lines_count(&tail[i..]);
             debug_assert_ne!(tail, tail_);
             tail = tail_;
 
             let node = arena.append(
                 Element::Paragraph {
-                    // including current line (&tail[0..i])
+                    // including the current line (&tail[0..i])
                     post_blank: blank + 1,
                 },
                 parent,
@@ -239,8 +241,8 @@ pub fn parse_blocks<'a, T: ElementArena<'a>>(
 
                 pos = 0;
             }
-            debug_assert_ne!(tail, skip_empty_lines(new_tail));
-            tail = skip_empty_lines(new_tail);
+            debug_assert_ne!(tail, blank_lines_count(new_tail).0);
+            tail = blank_lines_count(new_tail).0;
             text = tail;
         } else {
             debug_assert_ne!(tail, &tail[i..]);
@@ -323,41 +325,27 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
             }
         }
         b'#' => {
-            if let Some((tail, (name, args, content, blank))) = parse_block_element(contents) {
-                match_block(
-                    arena,
-                    parent,
-                    containers,
-                    name.into(),
-                    args.map(Into::into),
-                    content,
-                    blank,
-                );
+            if let Some((tail, block)) = RawBlock::parse(contents) {
+                let (element, content) = block.into_element();
+                // avoid use after free
+                let is_block_container = match element {
+                    Element::CenterBlock(_)
+                    | Element::QuoteBlock(_)
+                    | Element::VerseBlock(_)
+                    | Element::SpecialBlock(_) => true,
+                    _ => false,
+                };
+                let node = arena.append(element, parent);
+                if is_block_container {
+                    containers.push(Container::Block { content, node });
+                }
                 Some(tail)
             } else if let Some((tail, (dyn_block, content))) = DynBlock::parse(contents) {
                 let node = arena.append(dyn_block, parent);
                 containers.push(Container::Block { content, node });
                 Some(tail)
-            } else if let Some((tail, (key, optional, value, blank))) = parse_keyword(contents) {
-                if (&*key).eq_ignore_ascii_case("CALL") {
-                    arena.append(
-                        BabelCall {
-                            value: value.into(),
-                            post_blank: blank,
-                        },
-                        parent,
-                    );
-                } else {
-                    arena.append(
-                        Keyword {
-                            key: key.into(),
-                            optional: optional.map(Into::into),
-                            value: value.into(),
-                            post_blank: blank,
-                        },
-                        parent,
-                    );
-                }
+            } else if let Some((tail, keyword)) = RawKeyword::parse(contents) {
+                arena.append(keyword.into_element(), parent);
                 Some(tail)
             } else {
                 let (tail, comment) = Comment::parse(contents)?;
@@ -366,118 +354,6 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
             }
         }
         _ => None,
-    }
-}
-
-pub fn match_block<'a, T: ElementArena<'a>>(
-    arena: &mut T,
-    parent: NodeId,
-    containers: &mut Vec<Container<'a>>,
-    name: Cow<'a, str>,
-    parameters: Option<Cow<'a, str>>,
-    content: &'a str,
-    post_blank: usize,
-) {
-    match &*name.to_uppercase() {
-        "CENTER" => {
-            let (content, pre_blank) = blank_lines(content);
-            let node = arena.append(
-                CenterBlock {
-                    parameters,
-                    pre_blank,
-                    post_blank,
-                },
-                parent,
-            );
-            containers.push(Container::Block { content, node });
-        }
-        "QUOTE" => {
-            let (content, pre_blank) = blank_lines(content);
-            let node = arena.append(
-                QuoteBlock {
-                    parameters,
-                    pre_blank,
-                    post_blank,
-                },
-                parent,
-            );
-            containers.push(Container::Block { content, node });
-        }
-        "VERSE" => {
-            let (content, pre_blank) = blank_lines(content);
-            let node = arena.append(
-                VerseBlock {
-                    parameters,
-                    pre_blank,
-                    post_blank,
-                },
-                parent,
-            );
-            containers.push(Container::Block { content, node });
-        }
-        "COMMENT" => {
-            arena.append(
-                CommentBlock {
-                    data: parameters,
-                    contents: content.into(),
-                    post_blank,
-                },
-                parent,
-            );
-        }
-        "EXAMPLE" => {
-            arena.append(
-                ExampleBlock {
-                    data: parameters,
-                    contents: content.into(),
-                    post_blank,
-                },
-                parent,
-            );
-        }
-        "EXPORT" => {
-            arena.append(
-                ExportBlock {
-                    data: parameters.unwrap_or_default(),
-                    contents: content.into(),
-                    post_blank,
-                },
-                parent,
-            );
-        }
-        "SRC" => {
-            let (language, arguments) = match &parameters {
-                Some(Cow::Borrowed(args)) => {
-                    let (language, arguments) =
-                        args.split_at(args.find(' ').unwrap_or_else(|| args.len()));
-                    (language.into(), arguments.into())
-                }
-                None => (Cow::Borrowed(""), Cow::Borrowed("")),
-                _ => unreachable!("`parse_block_element` returns `Some(Cow::Borrowed)` or `None`"),
-            };
-            arena.append(
-                SourceBlock {
-                    arguments,
-                    language,
-                    contents: content.into(),
-                    post_blank,
-                },
-                parent,
-            );
-        }
-        _ => {
-            let (content, pre_blank) = blank_lines(content);
-            let node = arena.append(
-                SpecialBlock {
-                    parameters,
-                    name,
-                    pre_blank,
-                    post_blank,
-                },
-                parent,
-            );
-            containers.push(Container::Block { content, node });
-        }
     }
 }
 
@@ -565,7 +441,9 @@ pub fn parse_inline<'a, T: ElementArena<'a>>(
         return None;
     }
 
-    match contents.as_bytes()[0] {
+    let byte = contents.as_bytes()[0];
+
+    match byte {
         b'@' => {
             let (tail, snippet) = Snippet::parse(contents)?;
             arena.append(snippet, parent);
@@ -608,40 +486,17 @@ pub fn parse_inline<'a, T: ElementArena<'a>>(
                 Some(tail)
             }
         }
-        b'*' => {
-            let (tail, content) = parse_emphasis(contents, b'*')?;
-            let node = arena.append(Element::Bold, parent);
-            containers.push(Container::Inline { content, node });
-            Some(tail)
-        }
-        b'+' => {
-            let (tail, content) = parse_emphasis(contents, b'+')?;
-            let node = arena.append(Element::Strike, parent);
-            containers.push(Container::Inline { content, node });
-            Some(tail)
-        }
-        b'/' => {
-            let (tail, content) = parse_emphasis(contents, b'/')?;
-            let node = arena.append(Element::Italic, parent);
-            containers.push(Container::Inline { content, node });
-            Some(tail)
-        }
-        b'_' => {
-            let (tail, content) = parse_emphasis(contents, b'_')?;
-            let node = arena.append(Element::Underline, parent);
-            containers.push(Container::Inline { content, node });
-            Some(tail)
-        }
-        b'=' => {
-            let (tail, value) = parse_emphasis(contents, b'=')?;
-            let value = value.into();
-            arena.append(Element::Verbatim { value }, parent);
-            Some(tail)
-        }
-        b'~' => {
-            let (tail, value) = parse_emphasis(contents, b'~')?;
-            let value = value.into();
-            arena.append(Element::Code { value }, parent);
+        b'*' | b'+' | b'/' | b'_' | b'=' | b'~' => {
+            let (tail, emphasis) = Emphasis::parse(contents, byte)?;
+            let (element, content) = emphasis.into_element();
+            let is_inline_container = match element {
+                Element::Bold | Element::Strike | Element::Italic | Element::Underline => true,
+                _ => false,
+            };
+            let node = arena.append(element, parent);
+            if is_inline_container {
+                containers.push(Container::Inline { content, node });
+            }
             Some(tail)
         }
         b's' => {
@@ -684,14 +539,14 @@ pub fn parse_list<'a, T: ElementArena<'a>>(
         }
     }
 
-    let (tail, blank) = blank_lines(tail);
+    let (tail, post_blank) = blank_lines_count(tail);
 
     arena.set(
         parent,
         List {
             indent: first_item_indent,
             ordered: first_item_ordered,
-            post_blank: blank,
+            post_blank,
         },
     );
 
@@ -704,8 +559,10 @@ pub fn parse_org_table<'a, T: ElementArena<'a>>(
     containers: &mut Vec<Container<'a>>,
     parent: NodeId,
 ) -> &'a str {
-    let (tail, contents) = take_lines_while(|line| line.trim_start().starts_with('|'))(contents);
-    let (tail, blank) = blank_lines(tail);
+    let (tail, contents) =
+        lines_while::<_, ()>(|line| line.trim_start().starts_with('|'))(contents)
+            .unwrap_or((contents, ""));
+    let (tail, post_blank) = blank_lines_count(tail);
 
     let mut iter = contents.trim_end().lines().peekable();
 
@@ -735,7 +592,7 @@ pub fn parse_org_table<'a, T: ElementArena<'a>>(
     let parent = arena.append(
         Table::Org {
             tblfm: None,
-            post_blank: blank,
+            post_blank,
             has_header,
         },
         parent,
@@ -775,56 +632,18 @@ pub fn parse_org_table<'a, T: ElementArena<'a>>(
     tail
 }
 
-pub fn line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
-    if let Some(i) = memchr(b'\n', input.as_bytes()) {
-        if i > 0 && input.as_bytes()[i - 1] == b'\r' {
-            Ok((&input[i + 1..], &input[0..i - 1]))
-        } else {
-            Ok((&input[i + 1..], &input[0..i]))
-        }
-    } else {
-        Ok(("", input))
-    }
-}
-
-pub fn eol<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
-    verify(line, |s: &str| {
-        s.as_bytes().iter().all(|c| c.is_ascii_whitespace())
-    })(input)
-}
-
-pub fn take_lines_while(predicate: impl Fn(&str) -> bool) -> impl Fn(&str) -> (&str, &str) {
-    move |input| {
-        let mut last_end = 0;
-        for i in memchr_iter(b'\n', input.as_bytes()) {
-            if i > 0 && input.as_bytes()[i - 1] == b'\r' {
-                if !predicate(&input[last_end..i - 1]) {
-                    return (&input[last_end..], &input[0..last_end]);
-                }
-            } else if !predicate(&input[last_end..i]) {
-                return (&input[last_end..], &input[0..last_end]);
-            }
-            last_end = i + 1;
-        }
-        if !predicate(&input[last_end..]) {
-            (&input[last_end..], &input[0..last_end])
-        } else {
-            ("", input)
-        }
-    }
-}
-
-pub fn skip_empty_lines(input: &str) -> &str {
-    take_lines_while(|line| line.as_bytes().iter().all(|c| c.is_ascii_whitespace()))(input).0
+pub fn blank_lines_count(input: &str) -> (&str, usize) {
+    crate::parse::combinators::blank_lines_count::<()>(input).unwrap_or((input, 0))
 }
 
 pub fn parse_headline(input: &str) -> Option<(&str, (&str, usize))> {
     let (input_, level) = parse_headline_level(input)?;
-    let (input_, content) = take_lines_while(move |line| {
+    let (input_, content) = lines_while::<_, ()>(move |line| {
         parse_headline_level(line)
             .map(|(_, l)| l > level)
             .unwrap_or(true)
-    })(input_);
+    })(input_)
+    .unwrap_or((input_, ""));
     Some((input_, (&input[0..level + content.len()], level)))
 }
 
@@ -836,42 +655,4 @@ pub fn parse_headline_level(input: &str) -> Option<(&str, usize)> {
     } else {
         None
     }
-}
-
-pub fn take_one_word<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
-    take_while1(|c: char| !c.is_ascii_whitespace())(input)
-}
-
-#[test]
-pub fn test_skip_empty_lines() {
-    assert_eq!(skip_empty_lines("foo"), "foo");
-    assert_eq!(skip_empty_lines(" foo"), " foo");
-    assert_eq!(skip_empty_lines(" \nfoo\n"), "foo\n");
-    assert_eq!(skip_empty_lines(" \n\n\nfoo\n"), "foo\n");
-    assert_eq!(skip_empty_lines(" \n  \n\nfoo\n"), "foo\n");
-    assert_eq!(skip_empty_lines(" \n  \n\n   foo\n"), "   foo\n");
-}
-
-pub fn blank_lines(input: &str) -> (&str, usize) {
-    let bytes = input.as_bytes();
-    let mut blank = 0;
-    let mut last_end = 0;
-    for i in memchr_iter(b'\n', bytes) {
-        if bytes[last_end..i].iter().all(u8::is_ascii_whitespace) {
-            blank += 1;
-        } else {
-            break;
-        }
-        last_end = 1 + i;
-    }
-    (&input[last_end..], blank)
-}
-
-#[test]
-pub fn test_blank_lines() {
-    assert_eq!(blank_lines("foo"), ("foo", 0));
-    assert_eq!(blank_lines(" foo"), (" foo", 0));
-    assert_eq!(blank_lines("  \t\nfoo\n"), ("foo\n", 1));
-    assert_eq!(blank_lines("\n    \r\n\nfoo\n"), ("foo\n", 3));
-    assert_eq!(blank_lines("\r\n   \n  \r\n   foo\n"), ("   foo\n", 3));
 }

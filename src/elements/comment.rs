@@ -1,6 +1,11 @@
 use std::borrow::Cow;
 
-use crate::parsers::{blank_lines, take_lines_while};
+use nom::{
+    error::{ErrorKind, ParseError},
+    Err, IResult,
+};
+
+use crate::parse::combinators::{blank_lines_count, lines_while};
 
 #[derive(Debug, Default)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
@@ -13,22 +18,31 @@ pub struct Comment<'a> {
 }
 
 impl Comment<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, Comment<'_>)> {
-        let (input, value) = take_lines_while(|line| {
+    pub(crate) fn parse(input: &str) -> Option<(&str, Comment)> {
+        Self::parse_internal::<()>(input).ok()
+    }
+
+    fn parse_internal<'a, E>(input: &'a str) -> IResult<&str, Comment, E>
+    where
+        E: ParseError<&'a str>,
+    {
+        let (input, value) = lines_while(|line| {
             let line = line.trim_start();
             line == "#" || line.starts_with("# ")
-        })(input);
-        let (input, blank) = blank_lines(input);
+        })(input)?;
 
         if value.is_empty() {
-            return None;
+            // TODO: better error kind
+            return Err(Err::Error(E::from_error_kind(input, ErrorKind::Many0)));
         }
 
-        Some((
+        let (input, post_blank) = blank_lines_count(input)?;
+
+        Ok((
             input,
             Comment {
                 value: value.into(),
-                post_blank: blank,
+                post_blank,
             },
         ))
     }

@@ -1,25 +1,55 @@
 use bytecount::count;
 use memchr::memchr_iter;
 
-#[inline]
-pub(crate) fn parse_emphasis(text: &str, marker: u8) -> Option<(&str, &str)> {
-    debug_assert!(text.len() >= 3);
+use crate::elements::Element;
 
-    let bytes = text.as_bytes();
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub(crate) struct Emphasis<'a> {
+    marker: u8,
+    contents: &'a str,
+}
 
-    if bytes[1].is_ascii_whitespace() {
-        return None;
-    }
-
-    for i in memchr_iter(marker, bytes).skip(1) {
-        if count(&bytes[1..i], b'\n') >= 2 {
-            break;
-        } else if validate_marker(i, text) {
-            return Some((&text[i + 1..], &text[1..i]));
+impl<'a> Emphasis<'a> {
+    pub fn parse(text: &str, marker: u8) -> Option<(&str, Emphasis)> {
+        debug_assert!(text.len() >= 3);
+        let bytes = text.as_bytes();
+        if bytes[1].is_ascii_whitespace() {
+            return None;
         }
+        for i in memchr_iter(marker, bytes).skip(1) {
+            if count(&bytes[1..i], b'\n') >= 2 {
+                break;
+            } else if validate_marker(i, text) {
+                return Some((
+                    &text[i + 1..],
+                    Emphasis {
+                        marker,
+                        contents: &text[1..i],
+                    },
+                ));
+            }
+        }
+        None
     }
 
-    None
+    pub fn into_element(self) -> (Element<'a>, &'a str) {
+        let Emphasis { marker, contents } = self;
+        let element = match marker {
+            b'*' => Element::Bold,
+            b'+' => Element::Strike,
+            b'/' => Element::Italic,
+            b'_' => Element::Underline,
+            b'=' => Element::Verbatim {
+                value: contents.into(),
+            },
+            b'~' => Element::Code {
+                value: contents.into(),
+            },
+            _ => unreachable!(),
+        };
+        (element, contents)
+    }
 }
 
 fn validate_marker(pos: usize, text: &str) -> bool {
@@ -37,12 +67,39 @@ fn validate_marker(pos: usize, text: &str) -> bool {
 
 #[test]
 fn parse() {
-    assert_eq!(parse_emphasis("*bold*", b'*'), Some(("", "bold")));
-    assert_eq!(parse_emphasis("*bo*ld*", b'*'), Some(("", "bo*ld")));
-    assert_eq!(parse_emphasis("*bo\nld*", b'*'), Some(("", "bo\nld")));
-    assert_eq!(parse_emphasis("*bold*a", b'*'), None);
-    assert_eq!(parse_emphasis("*bold*", b'/'), None);
-    assert_eq!(parse_emphasis("*bold *", b'*'), None);
-    assert_eq!(parse_emphasis("* bold*", b'*'), None);
-    assert_eq!(parse_emphasis("*b\nol\nd*", b'*'), None);
+    assert_eq!(
+        Emphasis::parse("*bold*", b'*'),
+        Some((
+            "",
+            Emphasis {
+                contents: "bold",
+                marker: b'*'
+            }
+        ))
+    );
+    assert_eq!(
+        Emphasis::parse("*bo*ld*", b'*'),
+        Some((
+            "",
+            Emphasis {
+                contents: "bo*ld",
+                marker: b'*'
+            }
+        ))
+    );
+    assert_eq!(
+        Emphasis::parse("*bo\nld*", b'*'),
+        Some((
+            "",
+            Emphasis {
+                contents: "bo\nld",
+                marker: b'*'
+            }
+        ))
+    );
+    assert_eq!(Emphasis::parse("*bold*a", b'*'), None);
+    assert_eq!(Emphasis::parse("*bold*", b'/'), None);
+    assert_eq!(Emphasis::parse("*bold *", b'*'), None);
+    assert_eq!(Emphasis::parse("* bold*", b'*'), None);
+    assert_eq!(Emphasis::parse("*b\nol\nd*", b'*'), None);
 }

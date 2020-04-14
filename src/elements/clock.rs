@@ -10,8 +10,7 @@ use nom::{
 };
 
 use crate::elements::timestamp::{parse_inactive, Datetime, Timestamp};
-
-use crate::parsers::{blank_lines, eol};
+use crate::parse::combinators::{blank_lines_count, eol};
 
 /// Clock Element
 #[cfg_attr(test, derive(PartialEq))]
@@ -156,7 +155,7 @@ fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Cloc
             let (input, _) = space0(input)?;
             let (input, duration) = recognize(separated_pair(digit1, char(':'), digit1))(input)?;
             let (input, _) = eol(input)?;
-            let (input, blank) = blank_lines(input);
+            let (input, blank) = blank_lines_count(input)?;
             Ok((
                 input,
                 Clock::Closed {
@@ -175,7 +174,7 @@ fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Cloc
             delay,
         } => {
             let (input, _) = eol(input)?;
-            let (input, blank) = blank_lines(input);
+            let (input, blank) = blank_lines_count(input)?;
             Ok((
                 input,
                 Clock::Running {

@@ -6,7 +6,7 @@ use crate::{
     config::{ParseConfig, DEFAULT_CONFIG},
     elements::{Element, Keyword},
     export::{DefaultHtmlHandler, DefaultOrgHandler, HtmlHandler, OrgHandler},
-    parsers::{blank_lines, parse_container, Container, OwnedArena},
+    parsers::{blank_lines_count, parse_container, Container, OwnedArena},
 };
 
 pub struct Org<'a> {
@@ -41,7 +41,7 @@ impl<'a> Org<'a> {
     /// Parses string `text` into `Org` struct with custom `ParseConfig`.
     pub fn parse_custom(text: &'a str, config: &ParseConfig) -> Org<'a> {
         let mut arena = Arena::new();
-        let (text, pre_blank) = blank_lines(text);
+        let (text, pre_blank) = blank_lines_count(text);
         let root = arena.new_node(Element::Document { pre_blank });
         let mut org = Org { arena, root };
 
@@ -62,7 +62,7 @@ impl<'a> Org<'a> {
     /// Likes `parse_custom`, but accepts `String`.
     pub fn parse_string_custom(text: String, config: &ParseConfig) -> Org<'static> {
         let mut arena = Arena::new();
-        let (text, pre_blank) = blank_lines(&text);
+        let (text, pre_blank) = blank_lines_count(&text);
         let root = arena.new_node(Element::Document { pre_blank });
         let mut org = Org { arena, root };
 

@@ -9,7 +9,76 @@ use nom::{
     IResult,
 };
 
-use crate::parsers::{blank_lines, line};
+use crate::elements::Element;
+use crate::parse::combinators::{blank_lines_count, line};
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub(crate) struct RawKeyword<'a> {
+    pub key: &'a str,
+    pub value: &'a str,
+    pub optional: Option<&'a str>,
+    pub post_blank: usize,
+}
+
+impl<'a> RawKeyword<'a> {
+    pub fn parse(input: &'a str) -> Option<(&str, RawKeyword)> {
+        Self::parse_internal::<()>(input).ok()
+    }
+
+    fn parse_internal<E>(input: &'a str) -> IResult<&str, RawKeyword, E>
+    where
+        E: ParseError<&'a str>,
+    {
+        let (input, _) = space0(input)?;
+        let (input, _) = tag("#+")(input)?;
+        let (input, key) =
+            take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '[')(input)?;
+        let (input, optional) = opt(delimited(
+            tag("["),
+            take_till(|c| c == ']' || c == '\n'),
+            tag("]"),
+        ))(input)?;
+        let (input, _) = tag(":")(input)?;
+        let (input, value) = line(input)?;
+        let (input, post_blank) = blank_lines_count(input)?;
+
+        Ok((
+            input,
+            RawKeyword {
+                key,
+                optional,
+                value: value.trim(),
+                post_blank,
+            },
+        ))
+    }
+
+    pub fn into_element(self) -> Element<'a> {
+        let RawKeyword {
+            key,
+            value,
+            optional,
+            post_blank,
+        } = self;
+
+        if (&*key).eq_ignore_ascii_case("CALL") {
+            BabelCall {
+                value: value.into(),
+                post_blank,
+            }
+            .into()
+        } else {
+            Keyword {
+                key: key.into(),
+                optional: optional.map(Into::into),
+                value: value.into(),
+                post_blank,
+            }
+            .into()
+        }
+    }
+}
 
 /// Keyword Element
 #[cfg_attr(test, derive(PartialEq))]
@@ -39,9 +108,9 @@ impl Keyword<'_> {
 }
 
 /// Babel Call Element
+#[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
 pub struct BabelCall<'a> {
     /// Babel call value
     pub value: Cow<'a, str>,
@@ -59,70 +128,112 @@ impl BabelCall<'_> {
     }
 }
 
-#[inline]
-pub fn parse_keyword(input: &str) -> Option<(&str, (&str, Option<&str>, &str, usize))> {
-    parse_keyword_internal::<()>(input).ok()
-}
-
-#[inline]
-fn parse_keyword_internal<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&str, (&str, Option<&str>, &str, usize), E> {
-    let (input, _) = space0(input)?;
-    let (input, _) = tag("#+")(input)?;
-    let (input, key) = take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '[')(input)?;
-    let (input, optional) = opt(delimited(
-        tag("["),
-        take_till(|c| c == ']' || c == '\n'),
-        tag("]"),
-    ))(input)?;
-    let (input, _) = tag(":")(input)?;
-    let (input, value) = line(input)?;
-    let (input, blank) = blank_lines(input);
-
-    Ok((input, (key, optional, value.trim(), blank)))
-}
-
 #[test]
 fn parse() {
     use nom::error::VerboseError;
 
     assert_eq!(
-        parse_keyword_internal::<VerboseError<&str>>("#+KEY:"),
-        Ok(("", ("KEY", None, "", 0)))
+        RawKeyword::parse_internal::<VerboseError<&str>>("#+KEY:"),
+        Ok((
+            "",
+            RawKeyword {
+                key: "KEY",
+                optional: None,
+                value: "",
+                post_blank: 0
+            }
+        ))
     );
     assert_eq!(
-        parse_keyword_internal::<VerboseError<&str>>("#+KEY: VALUE"),
-        Ok(("", ("KEY", None, "VALUE", 0)))
+        RawKeyword::parse_internal::<VerboseError<&str>>("#+KEY: VALUE"),
+        Ok((
+            "",
+            RawKeyword {
+                key: "KEY",
+                optional: None,
+                value: "VALUE",
+                post_blank: 0
+            }
+        ))
     );
     assert_eq!(
-        parse_keyword_internal::<VerboseError<&str>>("#+K_E_Y: VALUE"),
-        Ok(("", ("K_E_Y", None, "VALUE", 0)))
+        RawKeyword::parse_internal::<VerboseError<&str>>("#+K_E_Y: VALUE"),
+        Ok((
+            "",
+            RawKeyword {
+                key: "K_E_Y",
+                optional: None,
+                value: "VALUE",
+                post_blank: 0
+            }
+        ))
     );
     assert_eq!(
-        parse_keyword_internal::<VerboseError<&str>>("#+KEY:VALUE\n"),
-        Ok(("", ("KEY", None, "VALUE", 0)))
+        RawKeyword::parse_internal::<VerboseError<&str>>("#+KEY:VALUE\n"),
+        Ok((
+            "",
+            RawKeyword {
+                key: "KEY",
+                optional: None,
+                value: "VALUE",
+                post_blank: 0
+            }
+        ))
     );
-    assert!(parse_keyword_internal::<VerboseError<&str>>("#+KE Y: VALUE").is_err());
-    assert!(parse_keyword_internal::<VerboseError<&str>>("#+ KEY: VALUE").is_err());
+    assert!(RawKeyword::parse_internal::<VerboseError<&str>>("#+KE Y: VALUE").is_err());
+    assert!(RawKeyword::parse_internal::<VerboseError<&str>>("#+ KEY: VALUE").is_err());
 
     assert_eq!(
-        parse_keyword_internal::<VerboseError<&str>>("#+RESULTS:"),
-        Ok(("", ("RESULTS", None, "", 0)))
+        RawKeyword::parse_internal::<VerboseError<&str>>("#+RESULTS:"),
+        Ok((
+            "",
+            RawKeyword {
+                key: "RESULTS",
+                optional: None,
+                value: "",
+                post_blank: 0
+            }
+        ))
     );
 
     assert_eq!(
-        parse_keyword_internal::<VerboseError<&str>>("#+ATTR_LATEX: :width 5cm\n"),
-        Ok(("", ("ATTR_LATEX", None, ":width 5cm", 0)))
+        RawKeyword::parse_internal::<VerboseError<&str>>("#+ATTR_LATEX: :width 5cm\n"),
+        Ok((
+            "",
+            RawKeyword {
+                key: "ATTR_LATEX",
+                optional: None,
+                value: ":width 5cm",
+                post_blank: 0
+            }
+        ))
     );
 
     assert_eq!(
-        parse_keyword_internal::<VerboseError<&str>>("#+CALL: double(n=4)"),
-        Ok(("", ("CALL", None, "double(n=4)", 0)))
+        RawKeyword::parse_internal::<VerboseError<&str>>("#+CALL: double(n=4)"),
+        Ok((
+            "",
+            RawKeyword {
+                key: "CALL",
+                optional: None,
+                value: "double(n=4)",
+                post_blank: 0
+            }
+        ))
     );
 
     assert_eq!(
-        parse_keyword_internal::<VerboseError<&str>>("#+CAPTION[Short caption]: Longer caption."),
-        Ok(("", ("CAPTION", Some("Short caption"), "Longer caption.", 0)))
+        RawKeyword::parse_internal::<VerboseError<&str>>(
+            "#+CAPTION[Short caption]: Longer caption."
+        ),
+        Ok((
+            "",
+            RawKeyword {
+                key: "CAPTION",
+                optional: Some("Short caption"),
+                value: "Longer caption.",
+                post_blank: 0
+            }
+        ))
     );
 }

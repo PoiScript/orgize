@@ -1,6 +1,11 @@
 use std::borrow::Cow;
 
-use crate::parsers::{blank_lines, take_lines_while};
+use nom::{
+    error::{ErrorKind, ParseError},
+    Err, IResult,
+};
+
+use crate::parse::combinators::{blank_lines_count, lines_while};
 
 #[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -14,22 +19,31 @@ pub struct FixedWidth<'a> {
 }
 
 impl FixedWidth<'_> {
-    pub(crate) fn parse(input: &str) -> Option<(&str, FixedWidth<'_>)> {
-        let (input, value) = take_lines_while(|line| {
+    pub(crate) fn parse(input: &str) -> Option<(&str, FixedWidth)> {
+        Self::parse_internal::<()>(input).ok()
+    }
+
+    fn parse_internal<'a, E>(input: &'a str) -> IResult<&str, FixedWidth, E>
+    where
+        E: ParseError<&'a str>,
+    {
+        let (input, value) = lines_while(|line| {
             let line = line.trim_start();
             line == ":" || line.starts_with(": ")
-        })(input);
-        let (input, blank) = blank_lines(input);
+        })(input)?;
 
         if value.is_empty() {
-            return None;
+            // TODO: better error kind
+            return Err(Err::Error(E::from_error_kind(input, ErrorKind::Many0)));
         }
 
-        Some((
+        let (input, post_blank) = blank_lines_count(input)?;
+
+        Ok((
             input,
             FixedWidth {
                 value: value.into(),
-                post_blank: blank,
+                post_blank,
             },
         ))
     }
