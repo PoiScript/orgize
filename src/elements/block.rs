@@ -39,10 +39,7 @@ impl<'a> RawBlock<'a> {
         let end_line = format!("#+END_{}", name);
         let (input, contents) =
             lines_till(|line| line.trim().eq_ignore_ascii_case(&end_line))(input)?;
-        dbg!(contents);
         let (contents_without_blank_lines, pre_blank) = blank_lines_count(contents)?;
-        dbg!(contents_without_blank_lines);
-        dbg!(pre_blank);
         let (input, post_blank) = blank_lines_count(input)?;
 
         Ok((
