@@ -12,13 +12,21 @@ pub(crate) struct Emphasis<'a> {
 
 impl<'a> Emphasis<'a> {
     pub fn parse(text: &str, marker: u8) -> Option<(&str, Emphasis)> {
-        debug_assert!(text.len() >= 3);
+        if text.len() < 3 {
+            return None;
+        }
+
         let bytes = text.as_bytes();
+
         if bytes[1].is_ascii_whitespace() {
             return None;
         }
+
         for i in memchr_iter(marker, bytes).skip(1) {
-            if count(&bytes[1..i], b'\n') >= 2 {
+            // contains at least one character
+            if i == 1 {
+                continue;
+            } else if count(&bytes[1..i], b'\n') >= 2 {
                 break;
             } else if validate_marker(i, text) {
                 return Some((
