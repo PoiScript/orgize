@@ -12,7 +12,7 @@ use crate::parse::combinators::{blank_lines_count, line};
 /// Footnote Definition Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct FnDef<'a> {
     /// Footnote label, used for reference
     pub label: Cow<'a, str>,

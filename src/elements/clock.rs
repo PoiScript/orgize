@@ -16,7 +16,7 @@ use crate::parse::combinators::{blank_lines_count, eol};
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(untagged))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Clock<'a> {
     /// Closed Clock
     Closed {

@@ -13,7 +13,7 @@ use nom::{
 /// Statistics Cookie Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cookie<'a> {
     /// Full cookie value
     pub value: Cow<'a, str>,

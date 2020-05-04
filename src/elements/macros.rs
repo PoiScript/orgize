@@ -11,7 +11,7 @@ use nom::{
 /// Macro Object
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Macros<'a> {
     /// Macro name
     pub name: Cow<'a, str>,

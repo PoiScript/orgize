@@ -142,7 +142,7 @@ impl<'a> RawBlock<'a> {
 }
 
 /// Special Block Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SpecialBlock<'a> {
@@ -171,7 +171,7 @@ impl SpecialBlock<'_> {
 }
 
 /// Quote Block Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct QuoteBlock<'a> {
@@ -197,7 +197,7 @@ impl QuoteBlock<'_> {
 }
 
 /// Center Block Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CenterBlock<'a> {
@@ -223,7 +223,7 @@ impl CenterBlock<'_> {
 }
 
 /// Verse Block Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct VerseBlock<'a> {
@@ -249,7 +249,7 @@ impl VerseBlock<'_> {
 }
 
 /// Comment Block Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CommentBlock<'a> {
@@ -273,7 +273,7 @@ impl CommentBlock<'_> {
 }
 
 /// Example Block Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExampleBlock<'a> {
@@ -297,7 +297,7 @@ impl ExampleBlock<'_> {
 }
 
 /// Export Block Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExportBlock<'a> {
@@ -320,7 +320,7 @@ impl ExportBlock<'_> {
 }
 
 /// Src Block Element
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SourceBlock<'a> {

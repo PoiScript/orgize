@@ -8,7 +8,7 @@ use nom::{
 use crate::parse::combinators::{blank_lines_count, line, lines_while};
 
 /// Table Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(tag = "table_type"))]
@@ -116,7 +116,7 @@ impl Table<'_> {
 /// |-----+-----+-----| <- ignores
 /// ```
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(tag = "table_row_type"))]
@@ -133,7 +133,7 @@ pub enum TableRow {
 }
 
 /// Table Cell Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(tag = "table_cell_type"))]

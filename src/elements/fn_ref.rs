@@ -12,7 +12,7 @@ use nom::{
 /// Footnote Reference Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnRef<'a> {
     /// Footnote label
     pub label: Cow<'a, str>,
