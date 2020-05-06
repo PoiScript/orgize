@@ -188,11 +188,13 @@ impl Org<'_> {
                 | Element::Italic
                 | Element::Underline
                 | Element::Strike
-                | Element::DynBlock(_)
-                | Element::ListItem(_) => {
+                | Element::DynBlock(_) => {
                     expect_children!(node_id);
                 }
-                Element::Drawer(_) | Element::TableCell(_) | Element::Table(_) => (),
+                Element::ListItem(_)
+                | Element::Drawer(_)
+                | Element::TableCell(_)
+                | Element::Table(_) => (),
             }
         }
         errors
