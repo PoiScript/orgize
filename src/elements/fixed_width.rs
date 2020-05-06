@@ -7,7 +7,7 @@ use nom::{
 
 use crate::parse::combinators::{blank_lines_count, lines_while};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct FixedWidth<'a> {

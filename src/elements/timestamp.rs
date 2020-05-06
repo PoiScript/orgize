@@ -100,7 +100,7 @@ mod chrono {
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(rename_all = "kebab-case"))]
 #[cfg_attr(feature = "ser", serde(tag = "timestamp_type"))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Timestamp<'a> {
     Active {
         start: Datetime<'a>,

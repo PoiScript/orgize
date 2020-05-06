@@ -23,7 +23,7 @@ use crate::{
 /// Title Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Title<'a> {
     /// Headline level, number of stars
     pub level: usize,

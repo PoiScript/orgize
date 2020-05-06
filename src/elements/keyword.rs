@@ -83,7 +83,7 @@ impl<'a> RawKeyword<'a> {
 /// Keyword Element
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Keyword<'a> {
     /// Keyword name
     pub key: Cow<'a, str>,
@@ -108,7 +108,7 @@ impl Keyword<'_> {
 }
 
 /// Babel Call Element
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct BabelCall<'a> {
