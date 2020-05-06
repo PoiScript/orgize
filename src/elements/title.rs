@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use memchr::memrchr;
+use memchr::memrchr2;
 use nom::{
     bytes::complete::{tag, take_until, take_while},
     character::complete::{anychar, space1},
@@ -155,7 +155,9 @@ where
     ))(input)?;
     let (input, tail) = line(input)?;
     let tail = tail.trim();
-    let (raw, tags) = memrchr(b' ', tail.as_bytes())
+
+    // tags can be separated by space or \t
+    let (raw, tags) = memrchr2(b' ', b'\t', tail.as_bytes())
         .map(|i| (tail[0..i].trim(), &tail[i + 1..]))
         .filter(|(_, x)| is_tag_line(x))
         .unwrap_or((tail, ""));
