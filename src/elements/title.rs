@@ -157,7 +157,7 @@ where
     let tail = tail.trim();
     let (raw, tags) = memrchr(b' ', tail.as_bytes())
         .map(|i| (tail[0..i].trim(), &tail[i + 1..]))
-        .filter(|(_, x)| x.len() > 2 && x.starts_with(':') && x.ends_with(':'))
+        .filter(|(_, x)| is_tag_line(x))
         .unwrap_or((tail, ""));
 
     let tags = tags
@@ -189,6 +189,15 @@ where
             raw,
         ),
     ))
+}
+
+fn is_tag_line(input: &str) -> bool {
+    input.len() > 2
+        && input.starts_with(':')
+        && input.ends_with(':')
+        && input.chars().all(|ch| {
+            ch.is_alphanumeric() || ch == '_' || ch == '@' || ch == '#' || ch == '%' || ch == ':'
+        })
 }
 
 #[inline]
