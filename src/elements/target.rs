@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::verify,
-    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -20,7 +19,7 @@ pub struct Target<'a> {
 impl Target<'_> {
     #[inline]
     pub(crate) fn parse(input: &str) -> Option<(&str, Target)> {
-        parse_target::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> Target<'static> {
@@ -31,7 +30,7 @@ impl Target<'_> {
 }
 
 #[inline]
-fn parse_target<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Target, E> {
+fn parse_internal(input: &str) -> IResult<&str, Target, ()> {
     let (input, target) = delimited(
         tag("<<"),
         verify(
@@ -51,11 +50,9 @@ fn parse_target<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Tar
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_target::<VerboseError<&str>>("<<target>>"),
-        Ok((
+        Target::parse("<<target>>"),
+        Some((
             "",
             Target {
                 target: "target".into()
@@ -63,18 +60,19 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_target::<VerboseError<&str>>("<<tar get>>"),
-        Ok((
+        Target::parse("<<tar get>>"),
+        Some((
             "",
             Target {
                 target: "tar get".into()
             }
         ))
     );
-    assert!(parse_target::<VerboseError<&str>>("<<target >>").is_err());
-    assert!(parse_target::<VerboseError<&str>>("<< target>>").is_err());
-    assert!(parse_target::<VerboseError<&str>>("<<ta<get>>").is_err());
-    assert!(parse_target::<VerboseError<&str>>("<<ta>get>>").is_err());
-    assert!(parse_target::<VerboseError<&str>>("<<ta\nget>>").is_err());
-    assert!(parse_target::<VerboseError<&str>>("<<target>").is_err());
+
+    assert!(Target::parse("<<target >>").is_none());
+    assert!(Target::parse("<< target>>").is_none());
+    assert!(Target::parse("<<ta<get>>").is_none());
+    assert!(Target::parse("<<ta>get>>").is_none());
+    assert!(Target::parse("<<ta\nget>>").is_none());
+    assert!(Target::parse("<<target>").is_none());
 }

@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_while1},
     character::complete::space0,
-    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -27,7 +26,7 @@ pub struct Drawer<'a> {
 
 impl Drawer<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, (Drawer, &str))> {
-        parse_drawer::<()>(input).ok()
+        parse_drawer(input).ok()
     }
 
     pub fn into_owned(self) -> Drawer<'static> {
@@ -40,10 +39,7 @@ impl Drawer<'_> {
 }
 
 #[inline]
-pub fn parse_drawer<'a, E>(input: &'a str) -> IResult<&str, (Drawer, &str), E>
-where
-    E: ParseError<&'a str>,
-{
+pub fn parse_drawer(input: &str) -> IResult<&str, (Drawer, &str), ()> {
     let (input, (mut drawer, content)) = parse_drawer_without_blank(input)?;
 
     let (content, blank) = blank_lines_count(content)?;
@@ -55,10 +51,7 @@ where
     Ok((input, (drawer, content)))
 }
 
-pub fn parse_drawer_without_blank<'a, E>(input: &'a str) -> IResult<&str, (Drawer, &str), E>
-where
-    E: ParseError<&'a str>,
-{
+pub fn parse_drawer_without_blank(input: &str) -> IResult<&str, (Drawer, &str), ()> {
     let (input, _) = space0(input)?;
     let (input, name) = delimited(
         tag(":"),
@@ -83,10 +76,8 @@ where
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_drawer::<VerboseError<&str>>(
+        parse_drawer(
             r#":PROPERTIES:
   :CUSTOM_ID: id
   :END:"#
@@ -104,7 +95,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_drawer::<VerboseError<&str>>(
+        parse_drawer(
             r#":PROPERTIES:
 
 
@@ -126,5 +117,5 @@ fn parse() {
     );
 
     // https://github.com/PoiScript/orgize/issues/9
-    assert!(parse_drawer::<()>(":SPAGHETTI:\n").is_err());
+    assert!(parse_drawer(":SPAGHETTI:\n").is_err());
 }

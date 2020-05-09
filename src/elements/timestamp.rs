@@ -4,7 +4,6 @@ use nom::{
     bytes::complete::{tag, take, take_till, take_while, take_while_m_n},
     character::complete::{space0, space1},
     combinator::{map, map_res, opt},
-    error::ParseError,
     sequence::preceded,
     IResult,
 };
@@ -139,15 +138,15 @@ pub enum Timestamp<'a> {
 
 impl Timestamp<'_> {
     pub(crate) fn parse_active(input: &str) -> Option<(&str, Timestamp)> {
-        parse_active::<()>(input).ok()
+        parse_active(input).ok()
     }
 
     pub(crate) fn parse_inactive(input: &str) -> Option<(&str, Timestamp)> {
-        parse_inactive::<()>(input).ok()
+        parse_inactive(input).ok()
     }
 
     pub(crate) fn parse_diary(input: &str) -> Option<(&str, Timestamp)> {
-        parse_diary::<()>(input).ok()
+        parse_diary(input).ok()
     }
 
     pub fn into_owned(self) -> Timestamp<'static> {
@@ -199,7 +198,7 @@ impl Timestamp<'_> {
     }
 }
 
-pub fn parse_active<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Timestamp, E> {
+pub fn parse_active(input: &str) -> IResult<&str, Timestamp, ()> {
     let (input, _) = tag("<")(input)?;
     let (input, start) = parse_datetime(input)?;
 
@@ -252,7 +251,7 @@ pub fn parse_active<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str,
     }
 }
 
-pub fn parse_inactive<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Timestamp, E> {
+pub fn parse_inactive(input: &str) -> IResult<&str, Timestamp, ()> {
     let (input, _) = tag("[")(input)?;
     let (input, start) = parse_datetime(input)?;
 
@@ -305,7 +304,7 @@ pub fn parse_inactive<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&st
     }
 }
 
-pub fn parse_diary<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Timestamp, E> {
+pub fn parse_diary(input: &str) -> IResult<&str, Timestamp, ()> {
     let (input, _) = tag("<%%(")(input)?;
     let (input, value) = take_till(|c| c == ')' || c == '>' || c == '\n')(input)?;
     let (input, _) = tag(")>")(input)?;
@@ -318,7 +317,7 @@ pub fn parse_diary<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, 
     ))
 }
 
-fn parse_time<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, (u8, u8), E> {
+fn parse_time(input: &str) -> IResult<&str, (u8, u8), ()> {
     let (input, hour) = map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), |num| {
         u8::from_str_radix(num, 10)
     })(input)?;
@@ -327,7 +326,7 @@ fn parse_time<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, (u8, 
     Ok((input, (hour, minute)))
 }
 
-fn parse_datetime<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Datetime, E> {
+fn parse_datetime(input: &str) -> IResult<&str, Datetime, ()> {
     let parse_u8 = |num| u8::from_str_radix(num, 10);
 
     let (input, year) = map_res(take(4usize), |num| u16::from_str_radix(num, 10))(input)?;
@@ -410,10 +409,8 @@ fn parse_datetime<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, D
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_inactive::<VerboseError<&str>>("[2003-09-16 Tue]"),
+        parse_inactive("[2003-09-16 Tue]"),
         Ok((
             "",
             Timestamp::Inactive {
@@ -431,7 +428,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_inactive::<VerboseError<&str>>("[2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39]"),
+        parse_inactive("[2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39]"),
         Ok((
             "",
             Timestamp::InactiveRange {
@@ -457,7 +454,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_active::<VerboseError<&str>>("<2003-09-16 Tue 09:39-10:39>"),
+        parse_active("<2003-09-16 Tue 09:39-10:39>"),
         Ok((
             "",
             Timestamp::ActiveRange {

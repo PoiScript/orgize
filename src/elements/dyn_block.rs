@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::tag_no_case,
     character::complete::{alpha1, space0, space1},
-    error::ParseError,
     IResult,
 };
 
@@ -29,7 +28,7 @@ pub struct DynBlock<'a> {
 
 impl DynBlock<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, (DynBlock, &str))> {
-        parse_dyn_block::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> DynBlock<'static> {
@@ -43,10 +42,7 @@ impl DynBlock<'_> {
 }
 
 #[inline]
-fn parse_dyn_block<'a, E>(input: &'a str) -> IResult<&str, (DynBlock, &str), E>
-where
-    E: ParseError<&'a str>,
-{
+fn parse_internal(input: &str) -> IResult<&str, (DynBlock, &str), ()> {
     let (input, _) = space0(input)?;
     let (input, _) = tag_no_case("#+BEGIN:")(input)?;
     let (input, _) = space1(input)?;
@@ -76,11 +72,9 @@ where
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     // TODO: testing
     assert_eq!(
-        parse_dyn_block::<VerboseError<&str>>(
+        DynBlock::parse(
             r#"#+BEGIN: clocktable :scope file
 
 
@@ -89,7 +83,7 @@ CONTENTS
 
 "#
         ),
-        Ok((
+        Some((
             "",
             (
                 DynBlock {

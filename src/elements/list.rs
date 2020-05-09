@@ -7,7 +7,6 @@ use nom::{
     bytes::complete::tag,
     character::complete::{digit1, space0},
     combinator::{map, recognize},
-    error::ParseError,
     sequence::terminated,
     IResult,
 };
@@ -45,7 +44,7 @@ pub struct ListItem<'a> {
 impl ListItem<'_> {
     #[inline]
     pub(crate) fn parse(input: &str) -> Option<(&str, (ListItem, &str))> {
-        list_item::<()>(input).ok()
+        list_item(input).ok()
     }
 
     pub fn into_owned(self) -> ListItem<'static> {
@@ -57,7 +56,7 @@ impl ListItem<'_> {
     }
 }
 
-fn list_item<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, (ListItem, &str), E> {
+fn list_item(input: &str) -> IResult<&str, (ListItem, &str), ()> {
     let (input, indent) = map(space0, |s: &str| s.len())(input)?;
     let (input, bullet) = recognize(alt((
         tag("+ "),
@@ -122,10 +121,8 @@ fn list_item_contents(input: &str, indent: usize) -> (&str, &str) {
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"+ item1
 + item2"#
         ),
@@ -143,7 +140,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"* item1
 
 * item2"#
@@ -163,7 +160,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"* item1
 
 
@@ -185,7 +182,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"* item1
 
 "#
@@ -205,7 +202,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"+ item1
   + item2
 "#
@@ -225,7 +222,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"+ item1
 
   + item2
@@ -249,7 +246,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"  + item1
 
   + item2"#
@@ -269,7 +266,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"  1. item1
 2. item2
   3. item3"#
@@ -289,7 +286,7 @@ fn parse() {
         ))
     );
     assert_eq!(
-        list_item::<VerboseError<&str>>(
+        list_item(
             r#"+ 1
 
   - 2

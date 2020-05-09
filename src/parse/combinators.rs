@@ -4,15 +4,12 @@ use memchr::memchr;
 use nom::{
     bytes::complete::take_while1,
     combinator::verify,
-    error::{ErrorKind, ParseError},
+    error::{make_error, ErrorKind},
     Err, IResult,
 };
 
 // read until the first line_ending, if line_ending is not present, return the input directly
-pub fn line<'a, E>(input: &'a str) -> IResult<&'a str, &'a str, E>
-where
-    E: ParseError<&'a str>,
-{
+pub fn line(input: &str) -> IResult<&str, &str, ()> {
     if let Some(i) = memchr(b'\n', input.as_bytes()) {
         if i > 0 && input.as_bytes()[i - 1] == b'\r' {
             Ok((&input[i + 1..], &input[0..i - 1]))
@@ -24,10 +21,9 @@ where
     }
 }
 
-pub fn lines_till<'a, F, E>(predicate: F) -> impl Fn(&'a str) -> IResult<&str, &str, E>
+pub fn lines_till<F>(predicate: F) -> impl Fn(&str) -> IResult<&str, &str, ()>
 where
     F: Fn(&str) -> bool,
-    E: ParseError<&'a str>,
 {
     move |i| {
         let mut input = i;
@@ -35,7 +31,7 @@ where
         loop {
             // TODO: better error kind
             if input.is_empty() {
-                return Err(Err::Error(E::from_error_kind(input, ErrorKind::Many0)));
+                return Err(Err::Error(make_error(input, ErrorKind::Many0)));
             }
 
             let (input_, line_) = line(input)?;
@@ -52,10 +48,9 @@ where
     }
 }
 
-pub fn lines_while<'a, F, E>(predicate: F) -> impl Fn(&'a str) -> IResult<&str, &str, E>
+pub fn lines_while<F>(predicate: F) -> impl Fn(&str) -> IResult<&str, &str, ()>
 where
     F: Fn(&str) -> bool,
-    E: ParseError<&'a str>,
 {
     move |i| {
         let mut input = i;
@@ -82,44 +77,29 @@ where
 
 #[test]
 fn test_lines_while() {
+    assert_eq!(lines_while(|line| line == "foo")("foo"), Ok(("", "foo")));
+    assert_eq!(lines_while(|line| line == "foo")("bar"), Ok(("bar", "")));
     assert_eq!(
-        lines_while::<_, ()>(|line| line == "foo")("foo"),
-        Ok(("", "foo"))
-    );
-    assert_eq!(
-        lines_while::<_, ()>(|line| line == "foo")("bar"),
-        Ok(("bar", ""))
-    );
-    assert_eq!(
-        lines_while::<_, ()>(|line| line == "foo")("foo\n\n"),
+        lines_while(|line| line == "foo")("foo\n\n"),
         Ok(("\n", "foo\n"))
     );
     assert_eq!(
-        lines_while::<_, ()>(|line| line.trim().is_empty())("\n\n\n"),
+        lines_while(|line| line.trim().is_empty())("\n\n\n"),
         Ok(("", "\n\n\n"))
     );
 }
 
-pub fn eol<'a, E>(input: &'a str) -> IResult<&str, &str, E>
-where
-    E: ParseError<&'a str>,
-{
+pub fn eol(input: &str) -> IResult<&str, &str, ()> {
     verify(line, |s: &str| {
         s.as_bytes().iter().all(u8::is_ascii_whitespace)
     })(input)
 }
 
-pub fn one_word<'a, E>(input: &'a str) -> IResult<&str, &str, E>
-where
-    E: ParseError<&'a str>,
-{
+pub fn one_word(input: &str) -> IResult<&str, &str, ()> {
     take_while1(|c: char| !c.is_ascii_whitespace())(input)
 }
 
-pub fn blank_lines_count<'a, E>(input: &'a str) -> IResult<&str, usize, E>
-where
-    E: ParseError<&'a str>,
-{
+pub fn blank_lines_count(input: &str) -> IResult<&str, usize, ()> {
     let mut count = 0;
     let mut input = input;
 
@@ -144,16 +124,13 @@ where
 
 #[test]
 fn test_blank_lines_count() {
-    assert_eq!(blank_lines_count::<()>("foo"), Ok(("foo", 0)));
-    assert_eq!(blank_lines_count::<()>(" foo"), Ok((" foo", 0)));
-    assert_eq!(blank_lines_count::<()>("  \t\nfoo\n"), Ok(("foo\n", 1)));
+    assert_eq!(blank_lines_count("foo"), Ok(("foo", 0)));
+    assert_eq!(blank_lines_count(" foo"), Ok((" foo", 0)));
+    assert_eq!(blank_lines_count("  \t\nfoo\n"), Ok(("foo\n", 1)));
+    assert_eq!(blank_lines_count("\n    \r\n\nfoo\n"), Ok(("foo\n", 3)));
     assert_eq!(
-        blank_lines_count::<()>("\n    \r\n\nfoo\n"),
-        Ok(("foo\n", 3))
-    );
-    assert_eq!(
-        blank_lines_count::<()>("\r\n   \n  \r\n   foo\n"),
+        blank_lines_count("\r\n   \n  \r\n   foo\n"),
         Ok(("   foo\n", 3))
     );
-    assert_eq!(blank_lines_count::<()>("\r\n   \n  \r\n   \n"), Ok(("", 4)));
+    assert_eq!(blank_lines_count("\r\n   \n  \r\n   \n"), Ok(("", 4)));
 }

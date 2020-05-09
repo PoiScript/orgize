@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take, take_until, take_while1},
     combinator::{opt, verify},
-    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -22,7 +21,7 @@ pub struct Macros<'a> {
 
 impl Macros<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, Macros)> {
-        parse_macros::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> Macros<'static> {
@@ -34,7 +33,7 @@ impl Macros<'_> {
 }
 
 #[inline]
-fn parse_macros<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Macros, E> {
+fn parse_internal(input: &str) -> IResult<&str, Macros, ()> {
     let (input, _) = tag("{{{")(input)?;
     let (input, name) = verify(
         take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
@@ -53,12 +52,10 @@ fn parse_macros<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Mac
 }
 
 #[test]
-fn parse() {
-    use nom::error::VerboseError;
-
+fn test() {
     assert_eq!(
-        parse_macros::<VerboseError<&str>>("{{{poem(red,blue)}}}"),
-        Ok((
+        Macros::parse("{{{poem(red,blue)}}}"),
+        Some((
             "",
             Macros {
                 name: "poem".into(),
@@ -67,8 +64,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_macros::<VerboseError<&str>>("{{{poem())}}}"),
-        Ok((
+        Macros::parse("{{{poem())}}}"),
+        Some((
             "",
             Macros {
                 name: "poem".into(),
@@ -77,8 +74,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_macros::<VerboseError<&str>>("{{{author}}}"),
-        Ok((
+        Macros::parse("{{{author}}}"),
+        Some((
             "",
             Macros {
                 name: "author".into(),
@@ -86,8 +83,9 @@ fn parse() {
             }
         ))
     );
-    assert!(parse_macros::<VerboseError<&str>>("{{{0uthor}}}").is_err());
-    assert!(parse_macros::<VerboseError<&str>>("{{{author}}").is_err());
-    assert!(parse_macros::<VerboseError<&str>>("{{{poem(}}}").is_err());
-    assert!(parse_macros::<VerboseError<&str>>("{{{poem)}}}").is_err());
+
+    assert!(Macros::parse("{{{0uthor}}}").is_none());
+    assert!(Macros::parse("{{{author}}").is_none());
+    assert!(Macros::parse("{{{poem(}}}").is_none());
+    assert!(Macros::parse("{{{poem)}}}").is_none());
 }

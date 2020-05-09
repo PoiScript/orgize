@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::opt,
-    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -22,7 +21,7 @@ pub struct Link<'a> {
 impl Link<'_> {
     #[inline]
     pub(crate) fn parse(input: &str) -> Option<(&str, Link)> {
-        parse_link::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> Link<'static> {
@@ -34,7 +33,7 @@ impl Link<'_> {
 }
 
 #[inline]
-fn parse_link<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Link, E> {
+fn parse_internal(input: &str) -> IResult<&str, Link, ()> {
     let (input, path) = delimited(
         tag("[["),
         take_while(|c: char| c != '<' && c != '>' && c != '\n' && c != ']'),
@@ -57,11 +56,9 @@ fn parse_link<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Link,
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_link::<VerboseError<&str>>("[[#id]]"),
-        Ok((
+        Link::parse("[[#id]]"),
+        Some((
             "",
             Link {
                 path: "#id".into(),
@@ -70,8 +67,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_link::<VerboseError<&str>>("[[#id][desc]]"),
-        Ok((
+        Link::parse("[[#id][desc]]"),
+        Some((
             "",
             Link {
                 path: "#id".into(),
@@ -79,5 +76,5 @@ fn parse() {
             }
         ))
     );
-    assert!(parse_link::<VerboseError<&str>>("[[#id][desc]").is_err());
+    assert!(Link::parse("[[#id][desc]").is_none());
 }

@@ -4,7 +4,6 @@ use nom::{
     bytes::complete::tag,
     character::complete::{char, digit1, space0},
     combinator::recognize,
-    error::ParseError,
     sequence::separated_pair,
     IResult,
 };
@@ -50,7 +49,7 @@ pub enum Clock<'a> {
 
 impl Clock<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, Clock)> {
-        parse_clock::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_onwed(self) -> Clock<'static> {
@@ -137,7 +136,7 @@ impl Clock<'_> {
     }
 }
 
-fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Clock, E> {
+fn parse_internal(input: &str) -> IResult<&str, Clock, ()> {
     let (input, _) = space0(input)?;
     let (input, _) = tag("CLOCK:")(input)?;
     let (input, _) = space0(input)?;
@@ -193,11 +192,9 @@ fn parse_clock<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Cloc
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_clock::<VerboseError<&str>>("CLOCK: [2003-09-16 Tue 09:39]"),
-        Ok((
+        Clock::parse("CLOCK: [2003-09-16 Tue 09:39]"),
+        Some((
             "",
             Clock::Running {
                 start: Datetime {
@@ -215,10 +212,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_clock::<VerboseError<&str>>(
-            "CLOCK: [2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39] =>  1:00\n\n"
-        ),
-        Ok((
+        Clock::parse("CLOCK: [2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39] =>  1:00\n\n"),
+        Some((
             "",
             Clock::Closed {
                 start: Datetime {

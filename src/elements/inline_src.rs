@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_till, take_while1},
     combinator::opt,
-    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -24,7 +23,7 @@ pub struct InlineSrc<'a> {
 
 impl InlineSrc<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, InlineSrc)> {
-        parse_inline_src::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> InlineSrc<'static> {
@@ -37,7 +36,7 @@ impl InlineSrc<'_> {
 }
 
 #[inline]
-fn parse_inline_src<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, InlineSrc, E> {
+fn parse_internal(input: &str) -> IResult<&str, InlineSrc, ()> {
     let (input, _) = tag("src_")(input)?;
     let (input, lang) =
         take_while1(|c: char| !c.is_ascii_whitespace() && c != '[' && c != '{')(input)?;
@@ -60,11 +59,9 @@ fn parse_inline_src<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str,
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_inline_src::<VerboseError<&str>>("src_C{int a = 0;}"),
-        Ok((
+        InlineSrc::parse("src_C{int a = 0;}"),
+        Some((
             "",
             InlineSrc {
                 lang: "C".into(),
@@ -74,8 +71,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_inline_src::<VerboseError<&str>>("src_xml[:exports code]{<tag>text</tag>}"),
-        Ok((
+        InlineSrc::parse("src_xml[:exports code]{<tag>text</tag>}"),
+        Some((
             "",
             InlineSrc {
                 lang: "xml".into(),
@@ -85,11 +82,7 @@ fn parse() {
         ))
     );
 
-    assert!(
-        parse_inline_src::<VerboseError<&str>>("src_xml[:exports code]{<tag>text</tag>").is_err()
-    );
-    assert!(
-        parse_inline_src::<VerboseError<&str>>("src_[:exports code]{<tag>text</tag>}").is_err()
-    );
-    assert!(parse_inline_src::<VerboseError<&str>>("src_xml[:exports code]").is_err());
+    assert!(InlineSrc::parse("src_xml[:exports code]{<tag>text</tag>").is_none());
+    assert!(InlineSrc::parse("src_[:exports code]{<tag>text</tag>}").is_none());
+    assert!(InlineSrc::parse("src_xml[:exports code]").is_none());
 }

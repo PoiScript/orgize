@@ -8,7 +8,7 @@ use nom::{
     bytes::complete::{tag, take_until, take_while},
     character::complete::{anychar, space1},
     combinator::{map, map_parser, opt, verify},
-    error::{ErrorKind, ParseError},
+    error::{make_error, ErrorKind},
     multi::fold_many0,
     sequence::{delimited, preceded},
     Err, IResult,
@@ -54,7 +54,7 @@ impl Title<'_> {
         input: &'a str,
         config: &ParseConfig,
     ) -> Option<(&'a str, (Title<'a>, &'a str))> {
-        parse_title::<()>(input, config).ok()
+        parse_title(input, config).ok()
     }
 
     // TODO: fn is_quoted(&self) -> bool { }
@@ -123,13 +123,7 @@ impl Default for Title<'_> {
 }
 
 #[inline]
-fn parse_title<'a, E>(
-    input: &'a str,
-    config: &ParseConfig,
-) -> IResult<&'a str, (Title<'a>, &'a str), E>
-where
-    E: ParseError<&'a str>,
-{
+fn parse_title<'a>(input: &'a str, config: &ParseConfig) -> IResult<&'a str, (Title<'a>, &'a str), ()> {
     let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
 
     debug_assert!(level > 0);
@@ -203,12 +197,10 @@ fn is_tag_line(input: &str) -> bool {
 }
 
 #[inline]
-fn parse_properties_drawer<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>, E> {
+fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>, ()> {
     let (input, (drawer, content)) = parse_drawer_without_blank(input.trim_start())?;
     if drawer.name != "PROPERTIES" {
-        return Err(Err::Error(E::from_error_kind(input, ErrorKind::Tag)));
+        return Err(Err::Error(make_error(input, ErrorKind::Tag)));
     }
     let (_, map) = fold_many0(
         parse_node_property,
@@ -222,9 +214,7 @@ fn parse_properties_drawer<'a, E: ParseError<&'a str>>(
 }
 
 #[inline]
-fn parse_node_property<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&str, (&str, &str), E> {
+fn parse_node_property(input: &str) -> IResult<&str, (&str, &str), ()> {
     let (input, _) = blank_lines_count(input)?;
     let input = input.trim_start();
     let (input, name) = map(delimited(tag(":"), take_until(":"), tag(":")), |s: &str| {
@@ -236,15 +226,10 @@ fn parse_node_property<'a, E: ParseError<&'a str>>(
 
 #[test]
 fn parse_title_() {
-    use nom::error::VerboseError;
-
     use crate::config::DEFAULT_CONFIG;
 
     assert_eq!(
-        parse_title::<VerboseError<&str>>(
-            "**** DONE [#A] COMMENT Title :tag:a2%:",
-            &DEFAULT_CONFIG
-        ),
+        parse_title("**** DONE [#A] COMMENT Title :tag:a2%:", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -263,7 +248,7 @@ fn parse_title_() {
         ))
     );
     assert_eq!(
-        parse_title::<VerboseError<&str>>("**** ToDO [#A] COMMENT Title", &DEFAULT_CONFIG),
+        parse_title("**** ToDO [#A] COMMENT Title", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -282,7 +267,7 @@ fn parse_title_() {
         ))
     );
     assert_eq!(
-        parse_title::<VerboseError<&str>>("**** T0DO [#A] COMMENT Title", &DEFAULT_CONFIG),
+        parse_title("**** T0DO [#A] COMMENT Title", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -301,7 +286,7 @@ fn parse_title_() {
         ))
     );
     assert_eq!(
-        parse_title::<VerboseError<&str>>("**** DONE [#1] COMMENT Title", &DEFAULT_CONFIG),
+        parse_title("**** DONE [#1] COMMENT Title", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -320,7 +305,7 @@ fn parse_title_() {
         ))
     );
     assert_eq!(
-        parse_title::<VerboseError<&str>>("**** DONE [#a] COMMENT Title", &DEFAULT_CONFIG),
+        parse_title("**** DONE [#a] COMMENT Title", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -339,7 +324,7 @@ fn parse_title_() {
         ))
     );
     assert_eq!(
-        parse_title::<VerboseError<&str>>("**** Title :tag:a2%", &DEFAULT_CONFIG),
+        parse_title("**** Title :tag:a2%", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -358,7 +343,7 @@ fn parse_title_() {
         ))
     );
     assert_eq!(
-        parse_title::<VerboseError<&str>>("**** Title tag:a2%:", &DEFAULT_CONFIG),
+        parse_title("**** Title tag:a2%:", &DEFAULT_CONFIG),
         Ok((
             "",
             (
@@ -378,7 +363,7 @@ fn parse_title_() {
     );
 
     assert_eq!(
-        parse_title::<VerboseError<&str>>(
+        parse_title(
             "**** DONE Title",
             &ParseConfig {
                 todo_keywords: (vec![], vec![]),
@@ -403,7 +388,7 @@ fn parse_title_() {
         ))
     );
     assert_eq!(
-        parse_title::<VerboseError<&str>>(
+        parse_title(
             "**** TASK [#A] Title",
             &ParseConfig {
                 todo_keywords: (vec!["TASK".to_string()], vec![]),
@@ -431,12 +416,8 @@ fn parse_title_() {
 
 #[test]
 fn parse_properties_drawer_() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_properties_drawer::<VerboseError<&str>>(
-            "   :PROPERTIES:\n   :CUSTOM_ID: id\n   :END:"
-        ),
+        parse_properties_drawer("   :PROPERTIES:\n   :CUSTOM_ID: id\n   :END:"),
         Ok((
             "",
             vec![("CUSTOM_ID".into(), "id".into())]

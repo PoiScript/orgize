@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use nom::{
-    error::{ErrorKind, ParseError},
+    error::{make_error, ErrorKind},
     Err, IResult,
 };
 
@@ -35,13 +35,10 @@ pub enum Table<'a> {
 
 impl Table<'_> {
     pub fn parse_table_el(input: &str) -> Option<(&str, Table)> {
-        Self::parse_table_el_internal::<()>(input).ok()
+        Self::parse_table_el_internal(input).ok()
     }
 
-    fn parse_table_el_internal<'a, E>(input: &'a str) -> IResult<&str, Table, E>
-    where
-        E: ParseError<&'a str>,
-    {
+    fn parse_table_el_internal(input: &str) -> IResult<&str, Table, ()> {
         let (_, first_line) = line(input)?;
 
         let first_line = first_line.trim();
@@ -54,7 +51,7 @@ impl Table<'_> {
                 .any(|&c| c != b'+' && c != b'-')
         {
             // TODO: better error kind
-            return Err(Err::Error(E::from_error_kind(input, ErrorKind::Many0)));
+            return Err(Err::Error(make_error(input, ErrorKind::Many0)));
         }
 
         // Table.el tables end at the first line not starting with either a vertical line or a plus sign.

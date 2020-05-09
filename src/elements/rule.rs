@@ -1,6 +1,4 @@
-use nom::{
-    bytes::complete::take_while_m_n, character::complete::space0, error::ParseError, IResult,
-};
+use nom::{bytes::complete::take_while_m_n, character::complete::space0, IResult};
 
 use crate::parse::combinators::{blank_lines_count, eol};
 
@@ -15,14 +13,11 @@ pub struct Rule {
 
 impl Rule {
     pub(crate) fn parse(input: &str) -> Option<(&str, Rule)> {
-        parse_rule::<()>(input).ok()
+        parse_internal(input).ok()
     }
 }
 
-fn parse_rule<'a, E>(input: &'a str) -> IResult<&str, Rule, E>
-where
-    E: ParseError<&'a str>,
-{
+fn parse_internal(input: &str) -> IResult<&str, Rule, ()> {
     let (input, _) = space0(input)?;
     let (input, _) = take_while_m_n(5, usize::max_value(), |c| c == '-')(input)?;
     let (input, _) = eol(input)?;
@@ -32,32 +27,22 @@ where
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
+    assert_eq!(Rule::parse("-----"), Some(("", Rule { post_blank: 0 })));
+    assert_eq!(Rule::parse("--------"), Some(("", Rule { post_blank: 0 })));
+    assert_eq!(
+        Rule::parse("-----\n\n\n"),
+        Some(("", Rule { post_blank: 2 }))
+    );
+    assert_eq!(Rule::parse("-----  \n"), Some(("", Rule { post_blank: 0 })));
 
-    assert_eq!(
-        parse_rule::<VerboseError<&str>>("-----"),
-        Ok(("", Rule { post_blank: 0 }))
-    );
-    assert_eq!(
-        parse_rule::<VerboseError<&str>>("--------"),
-        Ok(("", Rule { post_blank: 0 }))
-    );
-    assert_eq!(
-        parse_rule::<VerboseError<&str>>("-----\n\n\n"),
-        Ok(("", Rule { post_blank: 2 }))
-    );
-    assert_eq!(
-        parse_rule::<VerboseError<&str>>("-----  \n"),
-        Ok(("", Rule { post_blank: 0 }))
-    );
-    assert!(parse_rule::<VerboseError<&str>>("").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("----").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("----").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("None----").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("None  ----").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("None------").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("----None----").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("\t\t----").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("------None").is_err());
-    assert!(parse_rule::<VerboseError<&str>>("----- None").is_err());
+    assert!(Rule::parse("").is_none());
+    assert!(Rule::parse("----").is_none());
+    assert!(Rule::parse("----").is_none());
+    assert!(Rule::parse("None----").is_none());
+    assert!(Rule::parse("None  ----").is_none());
+    assert!(Rule::parse("None------").is_none());
+    assert!(Rule::parse("----None----").is_none());
+    assert!(Rule::parse("\t\t----").is_none());
+    assert!(Rule::parse("------None").is_none());
+    assert!(Rule::parse("----- None").is_none());
 }

@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use nom::{
     bytes::complete::{tag, take_till},
     combinator::opt,
-    error::ParseError,
     sequence::{delimited, preceded},
     IResult,
 };
@@ -27,7 +26,7 @@ pub struct InlineCall<'a> {
 
 impl InlineCall<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, InlineCall)> {
-        parse_inline_call::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> InlineCall<'static> {
@@ -41,7 +40,7 @@ impl InlineCall<'_> {
 }
 
 #[inline]
-fn parse_inline_call<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, InlineCall, E> {
+fn parse_internal(input: &str) -> IResult<&str, InlineCall, ()> {
     let (input, name) = preceded(
         tag("call_"),
         take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')'),
@@ -72,11 +71,9 @@ fn parse_inline_call<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_inline_call::<VerboseError<&str>>("call_square(4)"),
-        Ok((
+        InlineCall::parse("call_square(4)"),
+        Some((
             "",
             InlineCall {
                 name: "square".into(),
@@ -87,8 +84,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_inline_call::<VerboseError<&str>>("call_square[:results output](4)"),
-        Ok((
+        InlineCall::parse("call_square[:results output](4)"),
+        Some((
             "",
             InlineCall {
                 name: "square".into(),
@@ -99,8 +96,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_inline_call::<VerboseError<&str>>("call_square(4)[:results html]"),
-        Ok((
+        InlineCall::parse("call_square(4)[:results html]"),
+        Some((
             "",
             InlineCall {
                 name: "square".into(),
@@ -111,8 +108,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_inline_call::<VerboseError<&str>>("call_square[:results output](4)[:results html]"),
-        Ok((
+        InlineCall::parse("call_square[:results output](4)[:results html]"),
+        Some((
             "",
             InlineCall {
                 name: "square".into(),

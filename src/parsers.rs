@@ -560,8 +560,7 @@ pub fn parse_org_table<'a, T: ElementArena<'a>>(
     parent: NodeId,
 ) -> &'a str {
     let (tail, contents) =
-        lines_while::<_, ()>(|line| line.trim_start().starts_with('|'))(contents)
-            .unwrap_or((contents, ""));
+        lines_while(|line| line.trim_start().starts_with('|'))(contents).unwrap_or((contents, ""));
     let (tail, post_blank) = blank_lines_count(tail);
 
     let mut iter = contents.trim_end().lines().peekable();
@@ -633,12 +632,12 @@ pub fn parse_org_table<'a, T: ElementArena<'a>>(
 }
 
 pub fn blank_lines_count(input: &str) -> (&str, usize) {
-    crate::parse::combinators::blank_lines_count::<()>(input).unwrap_or((input, 0))
+    crate::parse::combinators::blank_lines_count(input).unwrap_or((input, 0))
 }
 
 pub fn parse_headline(input: &str) -> Option<(&str, (&str, usize))> {
     let (input_, level) = parse_headline_level(input)?;
-    let (input_, content) = lines_while::<_, ()>(move |line| {
+    let (input_, content) = lines_while(move |line| {
         parse_headline_level(line)
             .map(|(_, l)| l > level)
             .unwrap_or(true)

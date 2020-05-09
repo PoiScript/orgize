@@ -1,7 +1,6 @@
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::verify,
-    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -10,13 +9,11 @@ use nom::{
 
 #[inline]
 pub fn parse_radio_target(input: &str) -> Option<(&str, &str)> {
-    parse_radio_target_internal::<()>(input).ok()
+    parse_internal(input).ok()
 }
 
 #[inline]
-fn parse_radio_target_internal<'a, E: ParseError<&'a str>>(
-    input: &'a str,
-) -> IResult<&str, &str, E> {
+fn parse_internal(input: &str) -> IResult<&str, &str, ()> {
     let (input, contents) = delimited(
         tag("<<<"),
         verify(
@@ -31,20 +28,13 @@ fn parse_radio_target_internal<'a, E: ParseError<&'a str>>(
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
+    assert_eq!(parse_radio_target("<<<target>>>"), Some(("", "target")));
+    assert_eq!(parse_radio_target("<<<tar get>>>"), Some(("", "tar get")));
 
-    assert_eq!(
-        parse_radio_target_internal::<VerboseError<&str>>("<<<target>>>"),
-        Ok(("", "target"))
-    );
-    assert_eq!(
-        parse_radio_target_internal::<VerboseError<&str>>("<<<tar get>>>"),
-        Ok(("", "tar get"))
-    );
-    assert!(parse_radio_target_internal::<VerboseError<&str>>("<<<target >>>").is_err());
-    assert!(parse_radio_target_internal::<VerboseError<&str>>("<<< target>>>").is_err());
-    assert!(parse_radio_target_internal::<VerboseError<&str>>("<<<ta<get>>>").is_err());
-    assert!(parse_radio_target_internal::<VerboseError<&str>>("<<<ta>get>>>").is_err());
-    assert!(parse_radio_target_internal::<VerboseError<&str>>("<<<ta\nget>>>").is_err());
-    assert!(parse_radio_target_internal::<VerboseError<&str>>("<<<target>>").is_err());
+    assert!(parse_radio_target("<<<target >>>").is_none());
+    assert!(parse_radio_target("<<< target>>>").is_none());
+    assert!(parse_radio_target("<<<ta<get>>>").is_none());
+    assert!(parse_radio_target("<<<ta>get>>>").is_none());
+    assert!(parse_radio_target("<<<ta\nget>>>").is_none());
+    assert!(parse_radio_target("<<<target>>").is_none());
 }

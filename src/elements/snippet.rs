@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use nom::{
     bytes::complete::{tag, take, take_until, take_while1},
-    error::ParseError,
     sequence::{delimited, separated_pair},
     IResult,
 };
@@ -20,7 +19,7 @@ pub struct Snippet<'a> {
 
 impl Snippet<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, Snippet)> {
-        parse_snippet::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> Snippet<'static> {
@@ -32,7 +31,7 @@ impl Snippet<'_> {
 }
 
 #[inline]
-fn parse_snippet<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Snippet, E> {
+fn parse_internal(input: &str) -> IResult<&str, Snippet, ()> {
     let (input, (name, value)) = delimited(
         tag("@@"),
         separated_pair(
@@ -54,11 +53,9 @@ fn parse_snippet<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Sn
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_snippet::<VerboseError<&str>>("@@html:<b>@@"),
-        Ok((
+        Snippet::parse("@@html:<b>@@"),
+        Some((
             "",
             Snippet {
                 name: "html".into(),
@@ -67,8 +64,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_snippet::<VerboseError<&str>>("@@latex:any arbitrary LaTeX code@@"),
-        Ok((
+        Snippet::parse("@@latex:any arbitrary LaTeX code@@"),
+        Some((
             "",
             Snippet {
                 name: "latex".into(),
@@ -77,8 +74,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_snippet::<VerboseError<&str>>("@@html:@@"),
-        Ok((
+        Snippet::parse("@@html:@@"),
+        Some((
             "",
             Snippet {
                 name: "html".into(),
@@ -87,8 +84,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_snippet::<VerboseError<&str>>("@@html:<p>@</p>@@"),
-        Ok((
+        Snippet::parse("@@html:<p>@</p>@@"),
+        Some((
             "",
             Snippet {
                 name: "html".into(),
@@ -96,7 +93,8 @@ fn parse() {
             }
         ))
     );
-    assert!(parse_snippet::<VerboseError<&str>>("@@html:<b>@").is_err());
-    assert!(parse_snippet::<VerboseError<&str>>("@@html<b>@@").is_err());
-    assert!(parse_snippet::<VerboseError<&str>>("@@:<b>@@").is_err());
+
+    assert!(Snippet::parse("@@html:<b>@").is_none());
+    assert!(Snippet::parse("@@html<b>@@").is_none());
+    assert!(Snippet::parse("@@:<b>@@").is_none());
 }

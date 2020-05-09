@@ -4,7 +4,7 @@ use memchr::memchr2_iter;
 use nom::{
     bytes::complete::{tag, take_while},
     combinator::opt,
-    error::{ErrorKind, ParseError},
+    error::{make_error, ErrorKind},
     sequence::preceded,
     Err, IResult,
 };
@@ -22,7 +22,7 @@ pub struct FnRef<'a> {
 
 impl FnRef<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, FnRef)> {
-        parse_fn_ref::<()>(input).ok()
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> FnRef<'static> {
@@ -34,7 +34,7 @@ impl FnRef<'_> {
 }
 
 #[inline]
-fn parse_fn_ref<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, FnRef, E> {
+fn parse_internal(input: &str) -> IResult<&str, FnRef, ()> {
     let (input, _) = tag("[fn:")(input)?;
     let (input, label) =
         take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_')(input)?;
@@ -50,7 +50,7 @@ fn parse_fn_ref<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, FnR
     ))
 }
 
-fn balanced_brackets<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
+fn balanced_brackets(input: &str) -> IResult<&str, &str, ()> {
     let mut pairs = 1;
     for i in memchr2_iter(b'[', b']', input.as_bytes()) {
         if input.as_bytes()[i] == b'[' {
@@ -61,16 +61,14 @@ fn balanced_brackets<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str
             return Ok((&input[i..], &input[0..i]));
         }
     }
-    Err(Err::Error(E::from_error_kind(input, ErrorKind::Tag)))
+    Err(Err::Error(make_error(input, ErrorKind::Tag)))
 }
 
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        parse_fn_ref::<VerboseError<&str>>("[fn:1]"),
-        Ok((
+        FnRef::parse("[fn:1]"),
+        Some((
             "",
             FnRef {
                 label: "1".into(),
@@ -79,8 +77,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_fn_ref::<VerboseError<&str>>("[fn:1:2]"),
-        Ok((
+        FnRef::parse("[fn:1:2]"),
+        Some((
             "",
             FnRef {
                 label: "1".into(),
@@ -89,8 +87,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_fn_ref::<VerboseError<&str>>("[fn::2]"),
-        Ok((
+        FnRef::parse("[fn::2]"),
+        Some((
             "",
             FnRef {
                 label: "".into(),
@@ -99,8 +97,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        parse_fn_ref::<VerboseError<&str>>("[fn::[]]"),
-        Ok((
+        FnRef::parse("[fn::[]]"),
+        Some((
             "",
             FnRef {
                 label: "".into(),
@@ -109,5 +107,5 @@ fn parse() {
         ))
     );
 
-    assert!(parse_fn_ref::<VerboseError<&str>>("[fn::[]").is_err());
+    assert!(FnRef::parse("[fn::[]").is_none());
 }

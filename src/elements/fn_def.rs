@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use nom::{
     bytes::complete::{tag, take_while1},
-    error::ParseError,
     sequence::delimited,
     IResult,
 };
@@ -23,33 +22,7 @@ pub struct FnDef<'a> {
 
 impl FnDef<'_> {
     pub(crate) fn parse(input: &str) -> Option<(&str, (FnDef, &str))> {
-        Self::parse_internal::<()>(input).ok()
-    }
-
-    fn parse_internal<'a, E>(input: &'a str) -> IResult<&str, (FnDef, &str), E>
-    where
-        E: ParseError<&'a str>,
-    {
-        let (input, label) = delimited(
-            tag("[fn:"),
-            take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
-            tag("]"),
-        )(input)?;
-
-        let (input, content) = line(input)?;
-
-        let (input, post_blank) = blank_lines_count(input)?;
-
-        Ok((
-            input,
-            (
-                FnDef {
-                    label: label.into(),
-                    post_blank,
-                },
-                content,
-            ),
-        ))
+        parse_internal(input).ok()
     }
 
     pub fn into_owned(self) -> FnDef<'static> {
@@ -60,13 +33,34 @@ impl FnDef<'_> {
     }
 }
 
+fn parse_internal(input: &str) -> IResult<&str, (FnDef, &str), ()> {
+    let (input, label) = delimited(
+        tag("[fn:"),
+        take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
+        tag("]"),
+    )(input)?;
+
+    let (input, content) = line(input)?;
+
+    let (input, post_blank) = blank_lines_count(input)?;
+
+    Ok((
+        input,
+        (
+            FnDef {
+                label: label.into(),
+                post_blank,
+            },
+            content,
+        ),
+    ))
+}
+
 #[test]
 fn parse() {
-    use nom::error::VerboseError;
-
     assert_eq!(
-        FnDef::parse_internal::<VerboseError<&str>>("[fn:1] https://orgmode.org"),
-        Ok((
+        FnDef::parse("[fn:1] https://orgmode.org"),
+        Some((
             "",
             (
                 FnDef {
@@ -78,8 +72,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        FnDef::parse_internal::<VerboseError<&str>>("[fn:word_1] https://orgmode.org"),
-        Ok((
+        FnDef::parse("[fn:word_1] https://orgmode.org"),
+        Some((
             "",
             (
                 FnDef {
@@ -91,8 +85,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        FnDef::parse_internal::<VerboseError<&str>>("[fn:WORD-1] https://orgmode.org"),
-        Ok((
+        FnDef::parse("[fn:WORD-1] https://orgmode.org"),
+        Some((
             "",
             (
                 FnDef {
@@ -104,8 +98,8 @@ fn parse() {
         ))
     );
     assert_eq!(
-        FnDef::parse_internal::<VerboseError<&str>>("[fn:WORD]"),
-        Ok((
+        FnDef::parse("[fn:WORD]"),
+        Some((
             "",
             (
                 FnDef {
@@ -117,7 +111,7 @@ fn parse() {
         ))
     );
 
-    assert!(FnDef::parse_internal::<VerboseError<&str>>("[fn:] https://orgmode.org").is_err());
-    assert!(FnDef::parse_internal::<VerboseError<&str>>("[fn:wor d] https://orgmode.org").is_err());
-    assert!(FnDef::parse_internal::<VerboseError<&str>>("[fn:WORD https://orgmode.org").is_err());
+    assert!(FnDef::parse("[fn:] https://orgmode.org").is_none());
+    assert!(FnDef::parse("[fn:wor d] https://orgmode.org").is_none());
+    assert!(FnDef::parse("[fn:WORD https://orgmode.org").is_none());
 }
