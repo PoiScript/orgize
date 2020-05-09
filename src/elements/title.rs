@@ -83,7 +83,8 @@ impl Title<'_> {
 
     /// Returns `true` if this headline is commented
     pub fn is_commented(&self) -> bool {
-        self.raw.starts_with("COMMENT ") || self.raw == "COMMENT"
+        self.raw.starts_with("COMMENT")
+            && (self.raw.len() == 7 || self.raw[7..].starts_with(char::is_whitespace))
     }
 
     pub fn into_owned(self) -> Title<'static> {
