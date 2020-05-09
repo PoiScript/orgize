@@ -112,7 +112,7 @@ pub fn blank_lines_count(input: &str) -> IResult<&str, usize, ()> {
 
         debug_assert_ne!(input, input_);
 
-        if !line_.as_bytes().iter().all(u8::is_ascii_whitespace) {
+        if !line_.chars().all(char::is_whitespace) {
             return Ok((input, count));
         }
 
