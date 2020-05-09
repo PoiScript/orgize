@@ -5,9 +5,10 @@ use std::collections::HashMap;
 
 use memchr::memrchr2;
 use nom::{
+    branch::alt,
     bytes::complete::{tag, take_until, take_while},
-    character::complete::{anychar, space1},
-    combinator::{map, map_parser, opt, verify},
+    character::complete::{anychar, line_ending, space1},
+    combinator::{map, opt, verify},
     error::{make_error, ErrorKind},
     multi::fold_many0,
     sequence::{delimited, preceded},
@@ -122,8 +123,15 @@ impl Default for Title<'_> {
     }
 }
 
+fn white_spaces_or_eol(input: &str) -> IResult<&str, &str, ()> {
+    alt((space1, line_ending))(input)
+}
+
 #[inline]
-fn parse_title<'a>(input: &'a str, config: &ParseConfig) -> IResult<&'a str, (Title<'a>, &'a str), ()> {
+fn parse_title<'a>(
+    input: &'a str,
+    config: &ParseConfig,
+) -> IResult<&'a str, (Title<'a>, &'a str), ()> {
     let (input, level) = map(take_while(|c: char| c == '*'), |s: &str| s.len())(input)?;
 
     debug_assert!(level > 0);
@@ -136,16 +144,14 @@ fn parse_title<'a>(input: &'a str, config: &ParseConfig) -> IResult<&'a str, (Ti
         }),
     ))(input)?;
 
-    let (input, priority) = opt(preceded(
+    let (input, priority) = opt(delimited(
         space1,
-        map_parser(
-            one_word,
-            delimited(
-                tag("[#"),
-                verify(anychar, |c: &char| c.is_ascii_uppercase()),
-                tag("]"),
-            ),
+        delimited(
+            tag("[#"),
+            verify(anychar, |c: &char| c.is_ascii_uppercase()),
+            tag("]"),
         ),
+        white_spaces_or_eol,
     ))(input)?;
     let (input, tail) = line(input)?;
     let tail = tail.trim();
@@ -323,6 +329,28 @@ fn parse_title_() {
             )
         ))
     );
+
+    // https://github.com/PoiScript/orgize/issues/20
+    assert_eq!(
+        parse_title("** DONE [#B]::", &DEFAULT_CONFIG),
+        Ok((
+            "",
+            (
+                Title {
+                    level: 2,
+                    keyword: Some("DONE".into()),
+                    priority: None,
+                    raw: "[#B]::".into(),
+                    tags: vec![],
+                    planning: None,
+                    properties: HashMap::new(),
+                    post_blank: 0,
+                },
+                "[#B]::"
+            )
+        ))
+    );
+
     assert_eq!(
         parse_title("**** Title :tag:a2%", &DEFAULT_CONFIG),
         Ok((
