@@ -1,7 +1,12 @@
 //! Headline Title
 
+#[cfg(not(feature = "preserve-property-order"))]
+type PropertiesMap<K, V> = std::collections::HashMap<K, V>;
+
+#[cfg(feature = "preserve-property-order")]
+type PropertiesMap<K, V> = indexmap::IndexMap<K, V>;
+
 use std::borrow::Cow;
-use std::collections::HashMap;
 
 use memchr::memrchr2;
 use nom::{
@@ -43,8 +48,11 @@ pub struct Title<'a> {
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub planning: Option<Box<Planning<'a>>>,
     /// Property drawer associated to this headline
-    #[cfg_attr(feature = "ser", serde(skip_serializing_if = "HashMap::is_empty"))]
-    pub properties: HashMap<Cow<'a, str>, Cow<'a, str>>,
+    #[cfg_attr(
+        feature = "ser",
+        serde(skip_serializing_if = "PropertiesMap::is_empty")
+    )]
+    pub properties: PropertiesMap<Cow<'a, str>, Cow<'a, str>>,
     /// Numbers of blank lines between last title's line and next non-blank line
     /// or buffer's end
     pub post_blank: usize,
@@ -118,7 +126,7 @@ impl Default for Title<'_> {
             keyword: None,
             raw: Cow::Borrowed(""),
             planning: None,
-            properties: HashMap::new(),
+            properties: PropertiesMap::new(),
             post_blank: 0,
         }
     }
@@ -204,15 +212,17 @@ fn is_tag_line(input: &str) -> bool {
 }
 
 #[inline]
-fn parse_properties_drawer(input: &str) -> IResult<&str, HashMap<Cow<'_, str>, Cow<'_, str>>, ()> {
+fn parse_properties_drawer(
+    input: &str,
+) -> IResult<&str, PropertiesMap<Cow<'_, str>, Cow<'_, str>>, ()> {
     let (input, (drawer, content)) = parse_drawer_without_blank(input.trim_start())?;
     if drawer.name != "PROPERTIES" {
         return Err(Err::Error(make_error(input, ErrorKind::Tag)));
     }
     let (_, map) = fold_many0(
         parse_node_property,
-        HashMap::new(),
-        |mut acc: HashMap<_, _>, (name, value)| {
+        PropertiesMap::new(),
+        |mut acc: PropertiesMap<_, _>, (name, value)| {
             acc.insert(name.into(), value.into());
             acc
         },
@@ -247,7 +257,7 @@ fn parse_title_() {
                     raw: "COMMENT Title".into(),
                     tags: vec!["tag".into(), "a2%".into()],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "COMMENT Title"
@@ -266,7 +276,7 @@ fn parse_title_() {
                     raw: "ToDO [#A] COMMENT Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "ToDO [#A] COMMENT Title"
@@ -285,7 +295,7 @@ fn parse_title_() {
                     raw: "T0DO [#A] COMMENT Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "T0DO [#A] COMMENT Title"
@@ -304,7 +314,7 @@ fn parse_title_() {
                     raw: "[#1] COMMENT Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "[#1] COMMENT Title"
@@ -323,7 +333,7 @@ fn parse_title_() {
                     raw: "[#a] COMMENT Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "[#a] COMMENT Title"
@@ -344,7 +354,7 @@ fn parse_title_() {
                     raw: "[#B]::".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "[#B]::"
@@ -364,7 +374,7 @@ fn parse_title_() {
                     raw: "Title :tag:a2%".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "Title :tag:a2%"
@@ -383,7 +393,7 @@ fn parse_title_() {
                     raw: "Title tag:a2%:".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "Title tag:a2%:"
@@ -409,7 +419,7 @@ fn parse_title_() {
                     raw: "DONE Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "DONE Title"
@@ -434,7 +444,7 @@ fn parse_title_() {
                     raw: "Title".into(),
                     tags: vec![],
                     planning: None,
-                    properties: HashMap::new(),
+                    properties: PropertiesMap::new(),
                     post_blank: 0,
                 },
                 "Title"
@@ -451,7 +461,50 @@ fn parse_properties_drawer_() {
             "",
             vec![("CUSTOM_ID".into(), "id".into())]
                 .into_iter()
-                .collect::<HashMap<_, _>>()
+                .collect::<PropertiesMap<_, _>>()
         ))
     )
+}
+
+#[test]
+fn preserve_properties_drawer_order() {
+    let mut properties = Vec::default();
+    // Use a large number of properties to reduce false pass rate, since HashMap
+    // is non-deterministic. There are roughly 10^18 possible derangements of this sequence.
+    for i in 0..20 {
+        // Avoid alphabetic or numeric order.
+        let j = (i + 7) % 20;
+        properties.push((
+            Cow::Owned(format!(
+                "{}{}",
+                if i % 3 == 0 {
+                    "FOO"
+                } else if i % 3 == 1 {
+                    "QUX"
+                } else {
+                    "BAR"
+                },
+                j
+            )),
+            Cow::Owned(i.to_string()),
+        ));
+    }
+
+    let mut s = String::default();
+    for (k, v) in &properties {
+        s += &format!("   :{}: {}\n", k, v);
+    }
+    let drawer = format!("   :PROPERTIES:\n{}:END:\n", &s);
+    let mut parsed: Vec<(_, _)> = parse_properties_drawer(&drawer)
+        .unwrap()
+        .1
+        .into_iter()
+        .collect();
+
+    #[cfg(not(feature = "preserve-property-order"))]
+    parsed.sort();
+    #[cfg(not(feature = "preserve-property-order"))]
+    properties.sort();
+
+    assert_eq!(parsed, properties);
 }

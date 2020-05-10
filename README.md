@@ -195,13 +195,15 @@ println!("{}", to_string(&org).unwrap());
 
 ## Features
 
-By now, orgize provides three features:
+By now, orgize provides four features:
 
 + `ser`: adds the ability to serialize `Org` and other elements using `serde`, enabled by default.
 
 + `chrono`: adds the ability to convert `Datetime` into `chrono` structs, disabled by default.
 
 + `syntect`: provides `SyntectHtmlHandler` for highlighting code block, disabled by default.
+
++ `preserve-property-order`: Uses `IndexMap` instead of `HashMap` to represent properties, disabled by default.
 
 ## License
 
