@@ -60,32 +60,59 @@ fn fuzz(
         let structure_len = structure.chars().count();
 
         while s.len() < length {
-            let r = rng.gen_range(0, 7);
-            if r == 0 {
+            let r = rng.gen_range(0, 80);
+            if r < 10 {
                 s += "* ";
-            } else if r == 1 {
+            } else if r < 20 {
                 s += "\n* ";
-            } else if r == 2 {
+            } else if r < 30 {
                 s.push('\n');
-            } else if r == 3 {
+            } else if r < 40 {
                 s.extend(
                     rng.sample_iter(rand::distributions::Alphanumeric)
                         .take((rng.next_u32() % 20).try_into().unwrap()),
                 );
                 s.push(' ')
-            } else if r == 4 {
+            } else if r < 50 {
                 s.extend(
                     rng.sample_iter::<char, _>(rand::distributions::Standard)
                         .take((rng.next_u32() % 20 as u32).try_into().unwrap()),
                 );
                 s.push(' ')
-            } else if r == 5 {
+            } else if r < 60 {
                 s.push(
                     structure
                         .chars()
                         .nth(rng.gen_range(0, structure_len))
                         .unwrap(),
                 );
+            } else if r < 64 {
+                let mut thing = gen_planning();
+                if rng.gen_range(0, 10) == 2 {
+                    thing = format!("Hello\n{}", &thing);
+                }
+                appendify(&mut s, &thing);
+            } else if r < 68 {
+                let mut thing = gen_properties();
+                if rng.gen_range(0, 10) == 2 {
+                    thing = format!("Hello\n{}", &thing);
+                }
+                appendify(&mut s, &thing);
+            } else if r < 72 {
+                let r = rng.gen_range(0, 13);
+                let stuff = if r == 1 {
+                    format!("{}{}", gen_planning(), gen_properties())
+                } else if r == 2 {
+                    format!("{}\n{}", gen_properties(), gen_planning())
+                } else if r == 3 {
+                    format!("Hello!\n{}\n{}", gen_planning(), gen_properties())
+                } else if r == 4 {
+                    format!("Hello!\nWorld!\n{}\n{}", gen_planning(), gen_properties())
+                } else {
+                    format!("\n{}\n{}", gen_planning(), gen_properties())
+                };
+
+                appendify(&mut s, &stuff);
             } else {
                 s.extend(
                     rng.sample_iter::<char, _>(rand::distributions::Standard)
@@ -126,6 +153,94 @@ fn fuzz(
 
         counter += 1;
     }
+}
+
+fn appendify(s: &mut String, thing: &str) {
+    let mut rng = rand::thread_rng();
+    let r = rng.gen_range(0, 10);
+    if r == 1 {
+        *s += thing;
+    } else if r == 2 {
+        *s += thing;
+        s.push('\n');
+    } else if r == 3 {
+        s.push('\n');
+        *s += thing;
+    } else {
+        *s += "\n* Hello\n";
+        *s += thing;
+        s.push('\n');
+    }
+}
+
+fn gen_properties() -> String {
+    let mut rng = rand::thread_rng();
+    let mut properties = "  :PROPERTIES:\n".to_string();
+
+    for _ in 0..rng.gen_range(0, 10) {
+        let mut name: String = rng
+            .sample_iter::<char, _>(rand::distributions::Standard)
+            .take(rng.gen_range(1, 5))
+            .filter(|c| *c != '+' && !c.is_whitespace())
+            .collect();
+        if name.is_empty() {
+            continue;
+        }
+        if rng.gen_range(0, 5) == 2 {
+            name.push('+');
+        }
+
+        let value: String = rng
+            .sample_iter::<char, _>(rand::distributions::Standard)
+            .take(rng.gen_range(0, 50))
+            .filter(|c| *c != '\n')
+            .collect();
+
+        properties += &format!("   {}: {}\n", &name, &value);
+    }
+
+    properties += ":END:";
+
+    properties
+}
+
+fn gen_planning() -> String {
+    let mut rng = rand::thread_rng();
+    let mut planning = String::new();
+    for _ in 0..rng.gen_range(0, 5) {
+        let r = rng.gen_range(0, 3);
+        if r == 0 {
+            planning += "DEADLINE";
+        } else if r == 1 {
+            planning += "SCHEDULED";
+        } else {
+            planning += "CLOSED";
+        }
+        if rng.gen_range(0, 20) == 7 {
+            planning += "FROBBLE";
+        }
+        if rng.gen_range(0, 7) != 1 {
+            planning += ": ";
+        }
+        if rng.gen_range(0, 7) != 1 {
+            let r = rng.gen_range(0, 5);
+            if r == 0 {
+                planning += "<2019-02-04>";
+            } else if r == 1 {
+                planning += "[2019-02-04]";
+            } else if r == 2 {
+                planning += "<2019-02-04 .+1w>";
+            } else if r == 3 {
+                planning += "<2019-02-04 Sun ++1w>";
+            } else if r == 4 {
+                planning += "<2019-02-04 Sun -1w>";
+            }
+        }
+        if rng.gen_range(0, 10) != 1 {
+            planning += " ";
+        }
+    }
+    planning
 }
 
 fn main() {
