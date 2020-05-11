@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::{Error, Result as IOResult, Write};
 
 use crate::elements::{Clock, Element, Table, Timestamp};
@@ -125,7 +126,7 @@ impl OrgHandler<Error> for DefaultOrgHandler {
             Element::Target(_target) => (),
             Element::Text { value } => write!(w, "{}", value)?,
             Element::Timestamp(timestamp) => {
-                write_timestamp(&mut w, &timestamp)?;
+                write!(&mut w, "{}", timestamp)?;
             }
             Element::Verbatim { value } => write!(w, "={}=", value)?,
             Element::FnDef(fn_def) => {
@@ -245,22 +246,19 @@ impl OrgHandler<Error> for DefaultOrgHandler {
                 writeln!(&mut w)?;
                 if let Some(planning) = &title.planning {
                     if let Some(scheduled) = &planning.scheduled {
-                        write!(&mut w, "SCHEDULED: ")?;
-                        write_timestamp(&mut w, &scheduled)?;
+                        write!(&mut w, "SCHEDULED: {}", &scheduled)?;
                     }
                     if let Some(deadline) = &planning.deadline {
                         if planning.scheduled.is_some() {
                             write!(&mut w, " ")?;
                         }
-                        write!(&mut w, "DEADLINE: ")?;
-                        write_timestamp(&mut w, &deadline)?;
+                        write!(&mut w, "DEADLINE: {}", &deadline)?;
                     }
                     if let Some(closed) = &planning.closed {
                         if planning.deadline.is_some() {
                             write!(&mut w, " ")?;
                         }
-                        write!(&mut w, "CLOSED: ")?;
-                        write_timestamp(&mut w, &closed)?;
+                        write!(&mut w, "CLOSED: {}", &closed)?;
                     }
                     writeln!(&mut w)?;
                 }
@@ -292,25 +290,6 @@ impl OrgHandler<Error> for DefaultOrgHandler {
 fn write_blank_lines<W: Write>(mut w: W, count: usize) -> Result<(), Error> {
     for _ in 0..count {
         writeln!(w)?;
-    }
-    Ok(())
-}
-
-fn write_timestamp<W: Write>(mut w: W, timestamp: &Timestamp) -> Result<(), Error> {
-    match timestamp {
-        Timestamp::Active { start, .. } => {
-            write!(w, "<{}>", start)?;
-        }
-        Timestamp::Inactive { start, .. } => {
-            write!(w, "[{}]", start)?;
-        }
-        Timestamp::ActiveRange { start, end, .. } => {
-            write!(w, "<{}>--<{}>", start, end)?;
-        }
-        Timestamp::InactiveRange { start, end, .. } => {
-            write!(w, "<{}>--<{}>", start, end)?;
-        }
-        Timestamp::Diary { value } => write!(w, "<%%({})>", value)?,
     }
     Ok(())
 }

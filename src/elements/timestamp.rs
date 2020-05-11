@@ -151,6 +151,27 @@ pub enum Timestamp<'a> {
     },
 }
 
+impl fmt::Display for Timestamp<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Timestamp::Active { start, .. } => {
+                write!(f, "<{}>", start)?;
+            }
+            Timestamp::Inactive { start, .. } => {
+                write!(f, "[{}]", start)?;
+            }
+            Timestamp::ActiveRange { start, end, .. } => {
+                write!(f, "<{}>--<{}>", start, end)?;
+            }
+            Timestamp::InactiveRange { start, end, .. } => {
+                write!(f, "<{}>--<{}>", start, end)?;
+            }
+            Timestamp::Diary { value } => write!(f, "<%%({})>", value)?,
+        }
+        Ok(())
+    }
+}
+
 impl Timestamp<'_> {
     pub(crate) fn parse_active(input: &str) -> Option<(&str, Timestamp)> {
         parse_active(input).ok()
