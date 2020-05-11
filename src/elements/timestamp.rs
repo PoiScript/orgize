@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt;
 
 use nom::{
     bytes::complete::{tag, take, take_till, take_while, take_while_m_n},
@@ -21,6 +22,20 @@ pub struct Datetime<'a> {
     pub hour: Option<u8>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub minute: Option<u8>,
+}
+
+impl fmt::Display for Datetime<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{:04}-{:02}-{:02} {}",
+            self.year, self.month, self.day, self.dayname
+        )?;
+        if let (Some(hour), Some(minute)) = (self.hour, self.minute) {
+            write!(f, " {:02}:{:02}", hour, minute)?;
+        }
+        Ok(())
+    }
 }
 
 impl Datetime<'_> {

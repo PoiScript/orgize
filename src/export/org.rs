@@ -1,7 +1,6 @@
 use std::io::{Error, Result as IOResult, Write};
 
 use crate::elements::{Clock, Element, Table, Timestamp};
-use crate::export::write_datetime;
 
 pub trait OrgHandler<E: From<Error>>: Default {
     fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
@@ -143,15 +142,13 @@ impl OrgHandler<Error> for DefaultOrgHandler {
                         post_blank,
                         ..
                     } => {
-                        write_datetime(&mut w, "[", &start, "]--")?;
-                        write_datetime(&mut w, "[", &end, "]")?;
-                        writeln!(&mut w, " => {}", duration)?;
+                        writeln!(&mut w, "[{}]--[{}] => {}", &start, &end, duration)?;
                         write_blank_lines(&mut w, *post_blank)?;
                     }
                     Clock::Running {
                         start, post_blank, ..
                     } => {
-                        write_datetime(&mut w, "[", &start, "]\n")?;
+                        write!(&mut w, "[{}]\n", &start)?;
                         write_blank_lines(&mut w, *post_blank)?;
                     }
                 }
@@ -302,18 +299,16 @@ fn write_blank_lines<W: Write>(mut w: W, count: usize) -> Result<(), Error> {
 fn write_timestamp<W: Write>(mut w: W, timestamp: &Timestamp) -> Result<(), Error> {
     match timestamp {
         Timestamp::Active { start, .. } => {
-            write_datetime(w, "<", start, ">")?;
+            write!(w, "<{}>", start)?;
         }
         Timestamp::Inactive { start, .. } => {
-            write_datetime(w, "[", start, "]")?;
+            write!(w, "[{}]", start)?;
         }
         Timestamp::ActiveRange { start, end, .. } => {
-            write_datetime(&mut w, "<", start, ">--")?;
-            write_datetime(&mut w, "<", end, ">")?;
+            write!(w, "<{}>--<{}>", start, end)?;
         }
         Timestamp::InactiveRange { start, end, .. } => {
-            write_datetime(&mut w, "[", start, "]--")?;
-            write_datetime(&mut w, "[", end, "]")?;
+            write!(w, "<{}>--<{}>", start, end)?;
         }
         Timestamp::Diary { value } => write!(w, "<%%({})>", value)?,
     }
