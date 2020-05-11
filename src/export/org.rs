@@ -1,7 +1,6 @@
-use std::fmt::Display;
 use std::io::{Error, Result as IOResult, Write};
 
-use crate::elements::{Clock, Element, Table, Timestamp};
+use crate::elements::{Clock, Element, Table};
 
 pub trait OrgHandler<E: From<Error>>: Default {
     fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
@@ -149,7 +148,7 @@ impl OrgHandler<Error> for DefaultOrgHandler {
                     Clock::Running {
                         start, post_blank, ..
                     } => {
-                        write!(&mut w, "[{}]\n", &start)?;
+                        writeln!(&mut w, "[{}]", &start)?;
                         write_blank_lines(&mut w, *post_blank)?;
                     }
                 }

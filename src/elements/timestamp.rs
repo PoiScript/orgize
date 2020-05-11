@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt;
+use std::fmt::{self, Write};
 
 use nom::{
     bytes::complete::{tag, take, take_till, take_while, take_while_m_n},
@@ -22,6 +22,119 @@ pub struct Datetime<'a> {
     pub hour: Option<u8>,
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
     pub minute: Option<u8>,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
+#[derive(Debug, Copy, Clone)]
+pub enum TimeUnit {
+    Hour,
+    Day,
+    Week,
+    Month,
+    Year,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
+#[derive(Debug, Copy, Clone)]
+pub struct Repeater {
+    pub mark: RepeaterMark,
+    pub value: usize,
+    pub unit: TimeUnit,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
+#[derive(Debug, Copy, Clone)]
+pub struct Delay {
+    pub mark: DelayMark,
+    pub value: usize,
+    pub unit: TimeUnit,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
+#[derive(Debug, Copy, Clone)]
+pub enum RepeaterMark {
+    Cumulate,
+    CatchUp,
+    Restart,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
+#[derive(Clone, Copy, Debug)]
+pub enum DelayMark {
+    All,
+    First,
+}
+
+impl AsRef<str> for RepeaterMark {
+    fn as_ref(&self) -> &str {
+        match self {
+            RepeaterMark::CatchUp => "++",
+            RepeaterMark::Cumulate => "+",
+            RepeaterMark::Restart => ".+",
+        }
+    }
+}
+
+impl fmt::Display for RepeaterMark {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(self.as_ref())
+    }
+}
+
+impl AsRef<str> for DelayMark {
+    fn as_ref(&self) -> &str {
+        match self {
+            DelayMark::All => "-",
+            DelayMark::First => "--",
+        }
+    }
+}
+
+impl fmt::Display for DelayMark {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(self.as_ref())
+    }
+}
+
+impl AsRef<str> for TimeUnit {
+    fn as_ref(&self) -> &str {
+        match self {
+            TimeUnit::Hour => "h",
+            TimeUnit::Day => "d",
+            TimeUnit::Week => "w",
+            TimeUnit::Month => "m",
+            TimeUnit::Year => "y",
+        }
+    }
+}
+
+impl Into<char> for TimeUnit {
+    fn into(self) -> char {
+        self.as_ref().chars().next().unwrap()
+    }
+}
+
+impl fmt::Display for TimeUnit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_char((*self).into())
+    }
+}
+
+impl fmt::Display for Repeater {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}{}", self.mark, self.value, self.unit)
+    }
+}
+
+impl fmt::Display for Delay {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}{}", self.mark, self.value, self.unit)
+    }
 }
 
 impl fmt::Display for Datetime<'_> {
@@ -119,32 +232,32 @@ pub enum Timestamp<'a> {
     Active {
         start: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<Cow<'a, str>>,
+        repeater: Option<Repeater>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<Cow<'a, str>>,
+        delay: Option<Delay>,
     },
     Inactive {
         start: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<Cow<'a, str>>,
+        repeater: Option<Repeater>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<Cow<'a, str>>,
+        delay: Option<Delay>,
     },
     ActiveRange {
         start: Datetime<'a>,
         end: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<Cow<'a, str>>,
+        repeater: Option<Repeater>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<Cow<'a, str>>,
+        delay: Option<Delay>,
     },
     InactiveRange {
         start: Datetime<'a>,
         end: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<Cow<'a, str>>,
+        repeater: Option<Repeater>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<Cow<'a, str>>,
+        delay: Option<Delay>,
     },
     Diary {
         value: Cow<'a, str>,
@@ -193,8 +306,8 @@ impl Timestamp<'_> {
                 delay,
             } => Timestamp::Active {
                 start: start.into_owned(),
-                repeater: repeater.map(Into::into).map(Cow::Owned),
-                delay: delay.map(Into::into).map(Cow::Owned),
+                repeater,
+                delay,
             },
             Timestamp::Inactive {
                 start,
@@ -202,8 +315,8 @@ impl Timestamp<'_> {
                 delay,
             } => Timestamp::Inactive {
                 start: start.into_owned(),
-                repeater: repeater.map(Into::into).map(Cow::Owned),
-                delay: delay.map(Into::into).map(Cow::Owned),
+                repeater,
+                delay,
             },
             Timestamp::ActiveRange {
                 start,
@@ -213,8 +326,8 @@ impl Timestamp<'_> {
             } => Timestamp::ActiveRange {
                 start: start.into_owned(),
                 end: end.into_owned(),
-                repeater: repeater.map(Into::into).map(Cow::Owned),
-                delay: delay.map(Into::into).map(Cow::Owned),
+                repeater,
+                delay,
             },
             Timestamp::InactiveRange {
                 start,
@@ -224,8 +337,8 @@ impl Timestamp<'_> {
             } => Timestamp::InactiveRange {
                 start: start.into_owned(),
                 end: end.into_owned(),
-                repeater: repeater.map(Into::into).map(Cow::Owned),
-                delay: delay.map(Into::into).map(Cow::Owned),
+                repeater,
+                delay,
             },
             Timestamp::Diary { value } => Timestamp::Diary {
                 value: value.into_owned().into(),
@@ -241,6 +354,7 @@ pub fn parse_active(input: &str) -> IResult<&str, Timestamp, ()> {
     if input.starts_with('-') {
         let (input, (hour, minute)) = parse_time(&input[1..])?;
         let (input, _) = space0(input)?;
+
         // TODO: delay-or-repeater
         let (input, _) = tag(">")(input)?;
         let mut end = start.clone();
@@ -395,53 +509,6 @@ fn parse_datetime(input: &str) -> IResult<&str, Datetime, ()> {
         },
     ))
 }
-
-// TODO
-// #[cfg_attr(test, derive(PartialEq))]
-// #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-// #[derive(Debug, Copy, Clone)]
-// pub enum RepeaterType {
-//     Cumulate,
-//     CatchUp,
-//     Restart,
-// }
-
-// #[cfg_attr(test, derive(PartialEq))]
-// #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-// #[derive(Debug, Copy, Clone)]
-// pub enum DelayType {
-//     All,
-//     First,
-// }
-
-// #[cfg_attr(test, derive(PartialEq))]
-// #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-// #[derive(Debug, Copy, Clone)]
-// pub enum TimeUnit {
-//     Hour,
-//     Day,
-//     Week,
-//     Month,
-//     Year,
-// }
-
-// #[cfg_attr(test, derive(PartialEq))]
-// #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-// #[derive(Debug, Copy, Clone)]
-// pub struct Repeater {
-//     pub ty: RepeaterType,
-//     pub value: usize,
-//     pub unit: TimeUnit,
-// }
-
-// #[cfg_attr(test, derive(PartialEq))]
-// #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-// #[derive(Debug, Copy, Clone)]
-// pub struct Delay {
-//     pub ty: DelayType,
-//     pub value: usize,
-//     pub unit: TimeUnit,
-// }
 
 #[test]
 fn parse() {

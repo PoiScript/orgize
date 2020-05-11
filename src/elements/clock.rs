@@ -8,7 +8,7 @@ use nom::{
     IResult,
 };
 
-use crate::elements::timestamp::{parse_inactive, Datetime, Timestamp};
+use crate::elements::timestamp::{parse_inactive, Datetime, Delay, Repeater, Timestamp};
 use crate::parse::combinators::{blank_lines_count, eol};
 
 /// Clock Element
@@ -24,9 +24,9 @@ pub enum Clock<'a> {
         /// Time end
         end: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<Cow<'a, str>>,
+        repeater: Option<Repeater>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<Cow<'a, str>>,
+        delay: Option<Delay>,
         /// Clock duration
         duration: Cow<'a, str>,
         /// Numbers of blank lines between the clock line and next non-blank
@@ -38,9 +38,9 @@ pub enum Clock<'a> {
         /// Time start
         start: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<Cow<'a, str>>,
+        repeater: Option<Repeater>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<Cow<'a, str>>,
+        delay: Option<Delay>,
         /// Numbers of blank lines between the clock line and next non-blank
         /// line or buffer's end
         post_blank: usize,
@@ -64,8 +64,8 @@ impl Clock<'_> {
             } => Clock::Closed {
                 start: start.into_owned(),
                 end: end.into_owned(),
-                repeater: repeater.map(Into::into).map(Cow::Owned),
-                delay: delay.map(Into::into).map(Cow::Owned),
+                repeater,
+                delay,
                 duration: duration.into_owned().into(),
                 post_blank,
             },
@@ -76,8 +76,8 @@ impl Clock<'_> {
                 post_blank,
             } => Clock::Running {
                 start: start.into_owned(),
-                repeater: repeater.map(Into::into).map(Cow::Owned),
-                delay: delay.map(Into::into).map(Cow::Owned),
+                repeater,
+                delay,
                 post_blank,
             },
         }
@@ -119,8 +119,8 @@ impl Clock<'_> {
             } => Timestamp::InactiveRange {
                 start: start.clone(),
                 end: end.clone(),
-                repeater: repeater.clone(),
-                delay: delay.clone(),
+                repeater: *repeater,
+                delay: *delay,
             },
             Clock::Running {
                 start,
@@ -129,8 +129,8 @@ impl Clock<'_> {
                 ..
             } => Timestamp::Inactive {
                 start: start.clone(),
-                repeater: repeater.clone(),
-                delay: delay.clone(),
+                repeater: *repeater,
+                delay: *delay,
             },
         }
     }
