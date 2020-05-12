@@ -28,9 +28,8 @@ pub struct Datetime<'a> {
     pub minute: Option<u8>,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TimeUnit {
     Hour,
     Day,
@@ -39,36 +38,32 @@ pub enum TimeUnit {
     Year,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Repeater {
     pub mark: RepeaterMark,
     pub value: usize,
     pub unit: TimeUnit,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Delay {
     pub mark: DelayMark,
     pub value: usize,
     pub unit: TimeUnit,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum RepeaterMark {
     Cumulate,
     CatchUp,
     Restart,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DelayMark {
     All,
     First,
@@ -178,11 +173,10 @@ impl TryFrom<&str> for Delay {
 
 impl fmt::Display for Datetime<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{:04}-{:02}-{:02} {}",
-            self.year, self.month, self.day, self.dayname,
-        )?;
+        write!(f, "{:04}-{:02}-{:02}", self.year, self.month, self.day,)?;
+        if !self.dayname.is_empty() {
+            write!(f, " {}", self.dayname)?;
+        }
         if let (Some(hour), Some(minute)) = (self.hour, self.minute) {
             write!(f, " {:02}:{:02}", hour, minute)?;
         }
@@ -319,18 +313,118 @@ pub enum Timestamp<'a> {
 
 impl fmt::Display for Timestamp<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn write_parts(
+            f: &mut fmt::Formatter,
+            repeater: &Option<Repeater>,
+            delay: &Option<Delay>,
+        ) -> fmt::Result {
+            if let Some(repeater) = repeater {
+                write!(f, " {}", repeater)?;
+            }
+            if let Some(delay) = delay {
+                write!(f, " {}", delay)?;
+            }
+            Ok(())
+        }
+
+        fn write_range(
+            f: &mut fmt::Formatter,
+            open: char,
+            close: char,
+            start: &Datetime,
+            end: &Datetime,
+            start_repeater: &Option<Repeater>,
+            start_delay: &Option<Delay>,
+            end_repeater: &Option<Repeater>,
+            end_delay: &Option<Delay>,
+        ) -> fmt::Result {
+            if start.year == end.year
+                && start.month == end.month
+                && start.day == end.day
+                && start.dayname == end.dayname
+                && start_repeater == end_repeater
+                && start_delay == end_delay
+                && start.hour.is_some()
+                && start.minute.is_some()
+                && end.hour.is_some()
+                && end.minute.is_some()
+            {
+                write!(
+                    f,
+                    "{}{}-{:02}:{:02}",
+                    open,
+                    start,
+                    end.hour.unwrap(),
+                    end.minute.unwrap()
+                )?;
+                write_parts(f, start_repeater, start_delay)?;
+            } else {
+                write!(f, "{}{}", open, start)?;
+                write_parts(f, start_repeater, start_delay)?;
+                write!(f, "{}--{}{}", close, open, end)?;
+                write_parts(f, end_repeater, end_delay)?;
+            }
+            f.write_char(close)
+        }
+
         match self {
-            Timestamp::Active { start, .. } => {
-                write!(f, "<{}>", start)?;
+            Timestamp::Active {
+                start,
+                repeater,
+                delay,
+            } => {
+                write!(f, "<{}", start)?;
+                write_parts(f, repeater, delay)?;
+                f.write_char('>')?;
             }
-            Timestamp::Inactive { start, .. } => {
-                write!(f, "[{}]", start)?;
+            Timestamp::Inactive {
+                start,
+                repeater,
+                delay,
+            } => {
+                write!(f, "[{}", start)?;
+                write_parts(f, repeater, delay)?;
+                f.write_char(']')?;
             }
-            Timestamp::ActiveRange { start, end, .. } => {
-                write!(f, "<{}>--<{}>", start, end)?;
+            Timestamp::ActiveRange {
+                start,
+                end,
+                start_repeater,
+                start_delay,
+                end_repeater,
+                end_delay,
+            } => {
+                write_range(
+                    f,
+                    '<',
+                    '>',
+                    start,
+                    end,
+                    start_repeater,
+                    start_delay,
+                    end_repeater,
+                    end_delay,
+                )?;
             }
-            Timestamp::InactiveRange { start, end, .. } => {
-                write!(f, "<{}>--<{}>", start, end)?;
+            Timestamp::InactiveRange {
+                start,
+                end,
+                start_repeater,
+                start_delay,
+                end_repeater,
+                end_delay,
+            } => {
+                write_range(
+                    f,
+                    '[',
+                    ']',
+                    start,
+                    end,
+                    start_repeater,
+                    start_delay,
+                    end_repeater,
+                    end_delay,
+                )?;
             }
             Timestamp::Diary { value } => write!(f, "<%%({})>", value)?,
         }
@@ -501,9 +595,11 @@ fn parse_datetime<'a>(input: &'a str) -> IResult<&str, Datetime<'a>, ()> {
     let (input, day) =
         map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), parse_u8)(input)?;
     let (input, dayname) = opt(preceded(space1, parse_dayname))(input)?;
-    let (input, (hour, minute)) = map(opt(preceded(space1, parse_time)), |time| {
-        (time.map(|t| t.0), time.map(|t| t.1))
-    })(input)?;
+    let (input, time) = opt(preceded(space1, parse_time))(input)?;
+    let (hour, minute) = match time {
+        Some((hour, minute)) => (Some(hour), Some(minute)),
+        None => (None, None),
+    };
     Ok((
         input,
         Datetime {
@@ -600,10 +696,25 @@ pub(crate) fn parse_timestamp<'a>(input: &'a str) -> IResult<&str, Timestamp<'a>
         ),
         map(
             delimited(tag("["), parse_timestamp_parts, tag("]")),
-            |parts| Timestamp::Inactive {
-                start: parts.datetime,
-                delay: parts.delay,
-                repeater: parts.repeater,
+            |parts| match parts.end_time {
+                Some((hour, minute)) => {
+                    let mut end = parts.datetime.clone();
+                    end.hour = Some(hour);
+                    end.minute = Some(minute);
+                    Timestamp::InactiveRange {
+                        start: parts.datetime,
+                        end,
+                        start_repeater: parts.repeater,
+                        end_repeater: parts.repeater,
+                        start_delay: parts.delay,
+                        end_delay: parts.delay,
+                    }
+                }
+                None => Timestamp::Inactive {
+                    start: parts.datetime,
+                    delay: parts.delay,
+                    repeater: parts.repeater,
+                },
             },
         ),
         map(
@@ -1169,5 +1280,92 @@ fn test_parse_timestamp_parts() {
     assert_eq!(
         parse_timestamp_parts("2020-01-01 Mon 03:14 ++2w -3d hello"),
         Ok(("hello", parts.clone()))
+    );
+}
+
+#[test]
+fn test_format_repeater() {
+    for s in &["+5d", "+1w", ".+9h", "++7m", "+9y", "++0d"] {
+        assert_eq!(*s, Repeater::try_from(*s).unwrap().to_string());
+    }
+
+    assert_eq!("+9d", Repeater::try_from("+09d").unwrap().to_string());
+
+    for s in &["++", "", "+", ".+", "++5", "+6", "-1d", "6d", "5w"] {
+        assert_eq!(None, Repeater::try_from(*s).ok())
+    }
+}
+
+#[test]
+fn test_format_delay() {
+    for s in &["-5d", "-1w", "--9h", "--7m", "--9y", "--0w"] {
+        assert_eq!(*s, Delay::try_from(*s).unwrap().to_string());
+    }
+
+    assert_eq!("--9d", Delay::try_from("--09d").unwrap().to_string());
+
+    for s in &["--", "", "-", "--5", "-6", ".+1d", "+1d", "6d", "5w"] {
+        assert_eq!(None, Delay::try_from(*s).ok())
+    }
+}
+
+#[test]
+fn test_format_datetime() {
+    for s in &[
+        "2020-01-01",
+        "2019-05-09 Zeepsday",
+        "2025-09-09 Mon 03:05",
+        "2025-09-09 03:05",
+    ] {
+        assert_eq!(*s, Datetime::parse(*s).unwrap().to_string());
+    }
+}
+
+#[test]
+fn test_format_timestamp() {
+    for s in &[
+        "<2017-02-23>",
+        "[2017-02-23]",
+        "<2016-05-29 Mon>",
+        "[2016-05-29 Mon]",
+        "<2020-03-05 .+1w -1d>",
+        "[2020-03-05 .+1w -1d]",
+        "<1990-01-01 Fri 03:55>",
+        "[1990-01-01 Fri 03:55]",
+        "<1991-01-01 Mon 03:55-04:00>",
+        "[1991-01-01 Mon 03:55-04:00]",
+        "<1991-01-01 Mon 03:55>--<1992-02-03 Tue 05:59>",
+        "[1991-01-01 Mon 03:55]--[1992-02-03 Tue 05:59]",
+        "[1991-01-01 Mon]--[1992-02-03 Tue 05:59]",
+        "[1991-01-01 Mon 03:55]--[1992-02-03 Tue]",
+        "<1991-01-01 Mon 03:55 +1d -1w>--<1992-02-03 Tue +2w -2d>",
+    ] {
+        assert_eq!(*s, Timestamp::parse(s).unwrap().to_string());
+    }
+
+    assert_eq!(
+        "<1991-01-01 Mon 03:55-04:00>",
+        Timestamp::parse("<1991-01-01 Mon 03:55>--<1991-01-01 Mon 04:00>")
+            .unwrap()
+            .to_string()
+    );
+
+    assert_eq!(
+        "<1991-01-01 +1d -1w>",
+        Timestamp::parse("<1991-01-01 -1w +1d>")
+            .unwrap()
+            .to_string()
+    );
+
+    assert_eq!(
+        "<1991-01-01 05:05>",
+        Timestamp::parse("<1991-01-01 5:05>").unwrap().to_string()
+    );
+
+    assert_eq!(
+        "<1991-01-01 05:05-07:09>",
+        Timestamp::parse("<1991-1-1 5:05-7:09>")
+            .unwrap()
+            .to_string()
     );
 }
