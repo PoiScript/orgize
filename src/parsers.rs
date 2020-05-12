@@ -9,9 +9,9 @@ use nom::bytes::complete::take_while1;
 use crate::config::ParseConfig;
 use crate::elements::{
     block::RawBlock, emphasis::Emphasis, keyword::RawKeyword, radio_target::parse_radio_target,
-    Clock, Comment, Cookie, Drawer, DynBlock, Element, FixedWidth, FnDef, FnRef, InlineCall,
-    InlineSrc, Link, List, ListItem, Macros, Rule, Snippet, Table, TableCell, TableRow, Target,
-    Timestamp, Title,
+    timestamp::parse_timestamp, Clock, Comment, Cookie, Drawer, DynBlock, Element, FixedWidth,
+    FnDef, FnRef, InlineCall, InlineSrc, Link, List, ListItem, Macros, Rule, Snippet, Table,
+    TableCell, TableRow, Target, Title,
 };
 use crate::parse::combinators::lines_while;
 
@@ -461,11 +461,8 @@ pub fn parse_inline<'a, T: ElementArena<'a>>(
             } else if let Some((tail, target)) = Target::parse(contents) {
                 arena.append(target, parent);
                 Some(tail)
-            } else if let Some((tail, timestamp)) = Timestamp::parse_active(contents) {
-                arena.append(timestamp, parent);
-                Some(tail)
             } else {
-                let (tail, timestamp) = Timestamp::parse_diary(contents)?;
+                let (tail, timestamp) = parse_timestamp(contents).ok()?;
                 arena.append(timestamp, parent);
                 Some(tail)
             }
@@ -481,7 +478,7 @@ pub fn parse_inline<'a, T: ElementArena<'a>>(
                 arena.append(cookie, parent);
                 Some(tail)
             } else {
-                let (tail, timestamp) = Timestamp::parse_inactive(contents)?;
+                let (tail, timestamp) = parse_timestamp(contents).ok()?;
                 arena.append(timestamp, parent);
                 Some(tail)
             }

@@ -8,7 +8,7 @@ use nom::{
     IResult,
 };
 
-use crate::elements::timestamp::{parse_inactive, Datetime, Delay, Repeater, Timestamp};
+use crate::elements::timestamp::{parse_timestamp, Datetime, Delay, Repeater, Timestamp};
 use crate::parse::combinators::{blank_lines_count, eol};
 
 /// Clock Element
@@ -24,9 +24,13 @@ pub enum Clock<'a> {
         /// Time end
         end: Datetime<'a>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        repeater: Option<Repeater>,
+        start_repeater: Option<Repeater>,
         #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
-        delay: Option<Delay>,
+        end_repeater: Option<Repeater>,
+        #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
+        start_delay: Option<Delay>,
+        #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
+        end_delay: Option<Delay>,
         /// Clock duration
         duration: Cow<'a, str>,
         /// Numbers of blank lines between the clock line and next non-blank
@@ -57,15 +61,19 @@ impl Clock<'_> {
             Clock::Closed {
                 start,
                 end,
-                repeater,
-                delay,
+                start_repeater,
+                end_repeater,
+                start_delay,
+                end_delay,
                 duration,
                 post_blank,
             } => Clock::Closed {
                 start: start.into_owned(),
                 end: end.into_owned(),
-                repeater,
-                delay,
+                start_repeater,
+                end_repeater,
+                start_delay,
+                end_delay,
                 duration: duration.into_owned().into(),
                 post_blank,
             },
@@ -113,14 +121,18 @@ impl Clock<'_> {
             Clock::Closed {
                 start,
                 end,
-                repeater,
-                delay,
+                start_repeater,
+                end_repeater,
+                start_delay,
+                end_delay,
                 ..
             } => Timestamp::InactiveRange {
                 start: start.clone(),
                 end: end.clone(),
-                repeater: *repeater,
-                delay: *delay,
+                start_repeater: *start_repeater,
+                end_repeater: *end_repeater,
+                start_delay: *start_delay,
+                end_delay: *end_delay,
             },
             Clock::Running {
                 start,
@@ -140,14 +152,16 @@ fn parse_internal(input: &str) -> IResult<&str, Clock, ()> {
     let (input, _) = space0(input)?;
     let (input, _) = tag("CLOCK:")(input)?;
     let (input, _) = space0(input)?;
-    let (input, timestamp) = parse_inactive(input)?;
+    let (input, timestamp) = parse_timestamp(input)?;
 
     match timestamp {
         Timestamp::InactiveRange {
             start,
             end,
-            repeater,
-            delay,
+            start_repeater,
+            end_repeater,
+            start_delay,
+            end_delay,
         } => {
             let (input, _) = space0(input)?;
             let (input, _) = tag("=>")(input)?;
@@ -160,8 +174,10 @@ fn parse_internal(input: &str) -> IResult<&str, Clock, ()> {
                 Clock::Closed {
                     start,
                     end,
-                    repeater,
-                    delay,
+                    start_repeater,
+                    end_repeater,
+                    start_delay,
+                    end_delay,
                     duration: duration.into(),
                     post_blank: blank,
                 },
@@ -232,8 +248,10 @@ fn parse() {
                     hour: Some(10),
                     minute: Some(39)
                 },
-                repeater: None,
-                delay: None,
+                start_repeater: None,
+                end_repeater: None,
+                start_delay: None,
+                end_delay: None,
                 duration: "1:00".into(),
                 post_blank: 1,
             }
