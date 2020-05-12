@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::convert::TryFrom;
 use std::fmt::{self, Write};
 
 use nom::{
@@ -9,6 +10,8 @@ use nom::{
     sequence::{delimited, preceded, separated_pair},
     IResult,
 };
+
+use crate::parsers::{helper_for_parse_element, Parse};
 
 /// Datetime Struct
 #[cfg_attr(test, derive(PartialEq))]
@@ -87,6 +90,13 @@ impl fmt::Display for RepeaterMark {
     }
 }
 
+impl TryFrom<&str> for RepeaterMark {
+    type Error = ();
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        helper_for_parse_element(parse_repeater_mark(s)).ok_or(())
+    }
+}
+
 impl AsRef<str> for DelayMark {
     fn as_ref(&self) -> &str {
         match self {
@@ -99,6 +109,13 @@ impl AsRef<str> for DelayMark {
 impl fmt::Display for DelayMark {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(self.as_ref())
+    }
+}
+
+impl TryFrom<&str> for DelayMark {
+    type Error = ();
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        helper_for_parse_element(parse_delay_mark(s)).ok_or(())
     }
 }
 
@@ -126,15 +143,36 @@ impl fmt::Display for TimeUnit {
     }
 }
 
+impl TryFrom<&str> for TimeUnit {
+    type Error = ();
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        helper_for_parse_element(parse_time_unit(s)).ok_or(())
+    }
+}
+
 impl fmt::Display for Repeater {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}{}", self.mark, self.value, self.unit)
     }
 }
 
+impl TryFrom<&str> for Repeater {
+    type Error = ();
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        helper_for_parse_element(parse_repeater(s)).ok_or(())
+    }
+}
+
 impl fmt::Display for Delay {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}{}", self.mark, self.value, self.unit)
+    }
+}
+
+impl TryFrom<&str> for Delay {
+    type Error = ();
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        helper_for_parse_element(parse_delay(s)).ok_or(())
     }
 }
 
@@ -149,6 +187,12 @@ impl fmt::Display for Datetime<'_> {
             write!(f, " {:02}:{:02}", hour, minute)?;
         }
         Ok(())
+    }
+}
+
+impl<'a> Parse<'a> for Datetime<'a> {
+    fn parse(s: &'a str) -> Option<Datetime<'a>> {
+        helper_for_parse_element(parse_datetime(s))
     }
 }
 
@@ -349,6 +393,12 @@ impl Timestamp<'_> {
                 value: value.into_owned().into(),
             },
         }
+    }
+}
+
+impl<'a> Parse<'a> for Timestamp<'a> {
+    fn parse(s: &'a str) -> Option<Timestamp<'a>> {
+        helper_for_parse_element(parse_timestamp(s))
     }
 }
 

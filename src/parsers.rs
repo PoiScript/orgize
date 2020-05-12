@@ -1,10 +1,11 @@
+use std::convert::TryFrom;
 use std::iter::once;
 use std::marker::PhantomData;
 
 use indextree::{Arena, NodeId};
 use jetscii::{bytes, BytesConst};
 use memchr::{memchr, memchr_iter};
-use nom::bytes::complete::take_while1;
+use nom::{bytes::complete::take_while1, IResult};
 
 use crate::config::ParseConfig;
 use crate::elements::{
@@ -14,6 +15,22 @@ use crate::elements::{
     TableCell, TableRow, Target, Title,
 };
 use crate::parse::combinators::lines_while;
+
+// Trait for elements which can be parsed from a string, but retain a lifetime
+// dependence on the string, precluding the use of FromStr or TryFrom.
+pub trait Parse<'a> {
+    fn parse(s: &'a str) -> Option<Self>
+    where
+        Self: Sized + 'a;
+}
+
+// Convenience implementation of Parse for any type which implements
+// TryFrom<&str> without a lifetime dependence on the string.
+impl<T: TryFrom<&'static str>> Parse<'static> for T {
+    fn parse(s: &'static str) -> Option<T> {
+        T::try_from(s).ok()
+    }
+}
 
 pub trait ElementArena<'a> {
     fn append<T>(&mut self, element: T, parent: NodeId) -> NodeId
@@ -648,6 +665,18 @@ pub fn parse_headline_level(input: &str) -> Option<(&str, usize)> {
 
     if input.starts_with(' ') || input.starts_with('\n') || input.is_empty() {
         Some((input, stars.len()))
+    } else {
+        None
+    }
+}
+
+// Helper to cut down on boilerplate that converts from nom parsing to a
+// user-friendly conversion function, and fails the parse if any characters are
+// left over at the end.
+pub(crate) fn helper_for_parse_element<T>(parsed: IResult<&str, T, ()>) -> Option<T> {
+    let (input, element) = parsed.ok()?;
+    if input.is_empty() {
+        Some(element)
     } else {
         None
     }
