@@ -728,24 +728,29 @@ pub(crate) fn parse_timestamp<'a>(input: &'a str) -> IResult<&str, Timestamp<'a>
 
 #[test]
 fn parse() {
+    let timestamp = Timestamp::Active {
+        start: Datetime {
+            year: 2019,
+            month: 3,
+            day: 26,
+            dayname: "Fri".into(),
+            hour: Some(3),
+            minute: Some(33),
+        },
+        repeater: None,
+        delay: None,
+    };
     assert_eq!(
         parse_timestamp("<2019-03-26 Fri 03:33>"),
-        Ok((
-            "",
-            Timestamp::Active {
-                start: Datetime {
-                    year: 2019,
-                    month: 3,
-                    day: 26,
-                    dayname: "Fri".into(),
-                    hour: Some(3),
-                    minute: Some(33),
-                },
-                repeater: None,
-                delay: None,
-            },
-        ))
+        Ok(("", timestamp.clone()))
     );
+    assert_eq!(
+        parse_timestamp("<2019-03-26  Fri   03:33   >"),
+        Ok(("", timestamp))
+    );
+    // Org can't recognize leading space after the <.
+    assert_eq!(parse_timestamp("< 2019-03-26  Fri   03:33   >").ok(), None,);
+
     assert_eq!(
         parse_timestamp("[2003-09-16 Tue]"),
         Ok((
@@ -922,33 +927,35 @@ fn parse() {
         value: 2,
         unit: TimeUnit::Day,
     });
+    let timestamp = Timestamp::ActiveRange {
+        start: Datetime {
+            year: 2003,
+            month: 9,
+            day: 16,
+            dayname: "Tue".into(),
+            hour: Some(9),
+            minute: Some(39),
+        },
+        end: Datetime {
+            year: 2003,
+            month: 9,
+            day: 16,
+            dayname: "Tue".into(),
+            hour: Some(10),
+            minute: Some(39),
+        },
+        start_repeater: repeater,
+        end_repeater: repeater,
+        start_delay: delay,
+        end_delay: delay,
+    };
     assert_eq!(
         parse_timestamp("<2003-09-16 Tue 09:39-10:39 +1w --2d>"),
-        Ok((
-            "",
-            Timestamp::ActiveRange {
-                start: Datetime {
-                    year: 2003,
-                    month: 9,
-                    day: 16,
-                    dayname: "Tue".into(),
-                    hour: Some(9),
-                    minute: Some(39),
-                },
-                end: Datetime {
-                    year: 2003,
-                    month: 9,
-                    day: 16,
-                    dayname: "Tue".into(),
-                    hour: Some(10),
-                    minute: Some(39),
-                },
-                start_repeater: repeater,
-                end_repeater: repeater,
-                start_delay: delay,
-                end_delay: delay,
-            },
-        ))
+        Ok(("", timestamp.clone()))
+    );
+    assert_eq!(
+        parse_timestamp("<2003-09-16 Tue 09:39-10:39 --2d +1w>"),
+        Ok(("", timestamp.clone()))
     );
 
     let repeater2 = Some(Repeater {
