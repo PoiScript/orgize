@@ -178,6 +178,7 @@
 //! use serde_json::{json, to_string};
 //!
 //! let org = Org::parse("I 'm *bold*.");
+//! #[cfg(feature = "ser")]
 //! println!("{}", to_string(&org).unwrap());
 //!
 //! // {
