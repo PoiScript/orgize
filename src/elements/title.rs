@@ -5,9 +5,8 @@ use std::collections::HashMap;
 
 use memchr::memrchr2;
 use nom::{
-    branch::alt,
     bytes::complete::{tag, take_until, take_while},
-    character::complete::{anychar, line_ending, space1},
+    character::complete::{anychar, space1},
     combinator::{map, opt, verify},
     error::{make_error, ErrorKind},
     multi::fold_many0,
@@ -124,10 +123,6 @@ impl Default for Title<'_> {
     }
 }
 
-fn white_spaces_or_eol(input: &str) -> IResult<&str, &str, ()> {
-    alt((space1, line_ending))(input)
-}
-
 #[inline]
 fn parse_title<'a>(
     input: &'a str,
@@ -145,14 +140,13 @@ fn parse_title<'a>(
         }),
     ))(input)?;
 
-    let (input, priority) = opt(delimited(
+    let (input, priority) = opt(preceded(
         space1,
         delimited(
             tag("[#"),
             verify(anychar, |c: &char| c.is_ascii_uppercase()),
             tag("]"),
         ),
-        white_spaces_or_eol,
     ))(input)?;
     let (input, tail) = line(input)?;
     let tail = tail.trim();
@@ -332,25 +326,55 @@ fn parse_title_() {
     );
 
     // https://github.com/PoiScript/orgize/issues/20
-    assert_eq!(
-        parse_title("** DONE [#B]::", &DEFAULT_CONFIG),
-        Ok((
-            "",
-            (
-                Title {
-                    level: 2,
-                    keyword: Some("DONE".into()),
-                    priority: None,
-                    raw: "[#B]::".into(),
-                    tags: vec![],
-                    planning: None,
-                    properties: HashMap::new(),
-                    post_blank: 0,
-                },
-                "[#B]::"
-            )
-        ))
-    );
+    for raw in &["", "::", " ::", "hello", " hello"] {
+        for keyword in &[Some(Cow::Borrowed("DONE")), None] {
+            for raw_tags in &["", " :test:", "\t:a:b:"] {
+                let mut s = String::from("** ");
+                if let Some(keyword) = keyword {
+                    s += keyword;
+                    s.push(' ');
+                }
+                s += "[#B]";
+                s += &raw;
+                s += &raw_tags;
+
+                // A title with an empty (or whitespace only) raw will have its
+                // tags interpreted as the title, rather than as tags. This is
+                // intended behavior, and consistent with org-element.
+                let mut raw = raw.to_string();
+                let tags: Vec<_> = if raw.trim().is_empty() {
+                    raw += raw_tags;
+                    Vec::new()
+                } else {
+                    raw_tags
+                        .trim()
+                        .split(':')
+                        .filter_map(|t| if !t.is_empty() { Some(t.into()) } else { None })
+                        .collect()
+                };
+
+                assert_eq!(
+                    parse_title(&s, &DEFAULT_CONFIG),
+                    Ok((
+                        "",
+                        (
+                            Title {
+                                level: 2,
+                                keyword: keyword.clone(),
+                                priority: Some('B'),
+                                raw: Cow::Borrowed(raw.trim()),
+                                tags,
+                                planning: None,
+                                properties: HashMap::new(),
+                                post_blank: 0,
+                            },
+                            raw.trim(),
+                        )
+                    ))
+                );
+            }
+        }
+    }
 
     assert_eq!(
         parse_title("**** Title :tag:a2%", &DEFAULT_CONFIG),
