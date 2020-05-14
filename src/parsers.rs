@@ -4,7 +4,12 @@ use std::marker::PhantomData;
 use indextree::{Arena, NodeId};
 use jetscii::{bytes, BytesConst};
 use memchr::{memchr, memchr_iter};
-use nom::bytes::complete::take_while1;
+use nom::{
+    bytes::complete::is_a,
+    character::complete::one_of,
+    combinator::{map, verify},
+    IResult,
+};
 
 use crate::config::ParseConfig;
 use crate::elements::{
@@ -635,23 +640,114 @@ pub fn blank_lines_count(input: &str) -> (&str, usize) {
     crate::parse::combinators::blank_lines_count(input).unwrap_or((input, 0))
 }
 
-pub fn parse_headline(input: &str) -> Option<(&str, (&str, usize))> {
-    let (input_, level) = parse_headline_level(input)?;
-    let (input_, content) = lines_while(move |line| {
-        parse_headline_level(line)
-            .map(|(_, l)| l > level)
-            .unwrap_or(true)
-    })(input_)
-    .unwrap_or((input_, ""));
-    Some((input_, (&input[0..level + content.len()], level)))
+// Matches a headline of level <= max_level. This will always be exactly one
+// line, including the terminal \n if one is present. Unlike org-mode (but like
+// org-element), we accept '\n' and EOF to terminate the stars. Returns the
+// number of stars. Must only be called at the start of a line.
+fn parse_headline_level_le(input: &str, max_level: usize) -> IResult<&str, usize, ()> {
+    let (input, level) = verify(
+        map(is_a("*"), |s: &str| s.chars().count()),
+        |level: &usize| *level <= max_level,
+    )(input)?;
+    if !input.is_empty() {
+        one_of("\n ")(input)?;
+        let (input, _) = line_length(input)?;
+        Ok((input, level))
+    } else {
+        Ok((input, level))
+    }
 }
 
-pub fn parse_headline_level(input: &str) -> Option<(&str, usize)> {
-    let (input, stars) = take_while1::<_, _, ()>(|c: char| c == '*')(input).ok()?;
+// Recognizes until end-of-line or end-of-input and returns the length of the
+// line, including the terminal \n (or \r\n) if present.
+fn line_length(input: &str) -> IResult<&str, usize, ()> {
+    match memchr(b'\n', input.as_bytes()) {
+        Some(index) => Ok((&input[index + 1..], index + 1)),
+        None => Ok(("", input.len())),
+    }
+}
 
-    if input.starts_with(' ') || input.starts_with('\n') || input.is_empty() {
-        Some((input, stars.len()))
+pub fn parse_headline(input: &str) -> Option<(&str, (&str, usize))> {
+    // Consume the headline.
+    let (text, level) = parse_headline_level_le(input, std::usize::MAX).ok()?;
+
+    // Collect lines until EOF or a headline.
+    let mut last = 0;
+    for i in memchr_iter(b'\n', text.as_bytes()) {
+        if parse_headline_level_le(&text[last..], level).is_ok() {
+            break;
+        }
+
+        last = i + 1;
+    }
+
+    if last < text.len() && parse_headline_level_le(&text[last..], level).is_err() {
+        Some(("", (input, level)))
     } else {
-        None
+        Some((
+            &text[last..],
+            (&input[..(input.len() - text.len()) + last], level),
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_headline() {
+        assert_eq!(parse_headline("*"), Some(("", ("*", 1))));
+        assert_eq!(parse_headline("* "), Some(("", ("* ", 1))));
+        assert_eq!(parse_headline("* \r"), Some(("", ("* \r", 1))));
+        assert_eq!(parse_headline("*\t"), None);
+        assert_eq!(parse_headline("*\t\n"), None);
+        assert_eq!(parse_headline("* \n"), Some(("", ("* \n", 1))));
+        assert_eq!(parse_headline("* \n\r*"), Some(("", ("* \n\r*", 1))));
+        assert_eq!(parse_headline("* \n\r**"), Some(("", ("* \n\r**", 1))));
+        assert_eq!(parse_headline("*\n*"), Some(("*", ("*\n", 1))));
+        assert_eq!(parse_headline("*\n\n*"), Some(("*", ("*\n\n", 1))));
+        assert_eq!(parse_headline("*\r"), None);
+        assert_eq!(parse_headline("* *"), Some(("", ("* *", 1))));
+        assert_eq!(parse_headline("***\r** Hello\n"), None);
+        assert_eq!(
+            parse_headline("*** ** Hello\n"),
+            Some(("", ("*** ** Hello\n", 3)))
+        );
+        assert_eq!(parse_headline("* Hello"), Some(("", ("* Hello", 1))));
+        assert_eq!(
+            parse_headline("*** Hi\nWorld"),
+            Some(("", ("*** Hi\nWorld", 3)))
+        );
+
+        assert_eq!(
+            parse_headline("* Hello\nText\n** Test\n ** More text\n* World\n"),
+            Some(("* World\n", ("* Hello\nText\n** Test\n ** More text\n", 1)))
+        );
+
+        // We can parse a headline that contains the *\r\n. It is treated as
+        // text in the section.
+        assert_eq!(
+            parse_headline("* \n*\r\n* \n"),
+            Some(("* \n", ("* \n*\r\n", 1)))
+        );
+
+        // We can't parse a headline starting at *\r\n, thus ensuring that each
+        // line either is or is not a headline.
+        assert_eq!(parse_headline("*\r\n* \n"), None);
+
+        assert_eq!(parse_headline("* \n"), Some(("", ("* \n", 1))));
+
+        assert_eq!(
+            parse_headline("* \n**\r\n* \n"),
+            Some(("* \n", ("* \n**\r\n", 1)))
+        );
+
+        assert_eq!(parse_headline("* a\n*"), Some(("*", ("* a\n", 1))));
+        assert_eq!(parse_headline("* a\r\n*"), Some(("*", ("* a\r\n", 1))));
+        assert_eq!(parse_headline("* a\r\n* b"), Some(("* b", ("* a\r\n", 1))));
+        assert_eq!(parse_headline("* a\n* "), Some(("* ", ("* a\n", 1))));
+        assert_eq!(parse_headline("* a\n* \n"), Some(("* \n", ("* a\n", 1))));
+        assert_eq!(parse_headline("* a\n* \n"), Some(("* \n", ("* a\n", 1))));
     }
 }
