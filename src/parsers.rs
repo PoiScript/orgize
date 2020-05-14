@@ -674,7 +674,8 @@ pub fn parse_headline(input: &str) -> Option<(&str, (&str, usize))> {
     // Collect lines until EOF or a headline.
     let mut last = 0;
     for i in memchr_iter(b'\n', text.as_bytes()) {
-        if parse_headline_level_le(&text[last..], level).is_ok() {
+        // Check the first byte after the newline to skip parsing unnecessarily.
+        if text.as_bytes()[last] == b'*' && parse_headline_level_le(&text[last..], level).is_ok() {
             break;
         }
 
@@ -697,11 +698,26 @@ mod tests {
 
     #[test]
     fn test_parse_headline() {
+        assert_eq!(parse_headline(""), None);
+        assert_eq!(parse_headline("\n"), None);
+        assert_eq!(parse_headline("Hello"), None);
+        assert_eq!(parse_headline("Hello\n"), None);
+        assert_eq!(parse_headline("Hello\r"), None);
+        assert_eq!(parse_headline("Hello\n\r"), None);
+        assert_eq!(parse_headline("Hello\r\n"), None);
+        assert_eq!(parse_headline("Hello\n*"), None);
+        assert_eq!(parse_headline("Hello\n\n*"), None);
+        assert_eq!(parse_headline("Hello\r\n*"), None);
+        assert_eq!(parse_headline("Hello\n\r\n*"), None);
+        assert_eq!(parse_headline("Hello\r\n\n*"), None);
         assert_eq!(parse_headline("*"), Some(("", ("*", 1))));
+        assert_eq!(parse_headline("*\n"), Some(("", ("*\n", 1))));
+        assert_eq!(parse_headline("*\n\r"), Some(("", ("*\n\r", 1))));
         assert_eq!(parse_headline("* "), Some(("", ("* ", 1))));
         assert_eq!(parse_headline("* \r"), Some(("", ("* \r", 1))));
         assert_eq!(parse_headline("*\t"), None);
         assert_eq!(parse_headline("*\t\n"), None);
+        assert_eq!(parse_headline("*\r\n"), None);
         assert_eq!(parse_headline("* \n"), Some(("", ("* \n", 1))));
         assert_eq!(parse_headline("* \n\r*"), Some(("", ("* \n\r*", 1))));
         assert_eq!(parse_headline("* \n\r**"), Some(("", ("* \n\r**", 1))));
