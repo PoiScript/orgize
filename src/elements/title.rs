@@ -453,5 +453,5 @@ fn parse_properties_drawer_() {
                 .into_iter()
                 .collect::<HashMap<_, _>>()
         ))
-    )
+    );
 }

@@ -644,7 +644,7 @@ pub fn blank_lines_count(input: &str) -> (&str, usize) {
 // line, including the terminal \n if one is present. Unlike org-mode (but like
 // org-element), we accept '\n' and EOF to terminate the stars. Returns the
 // number of stars. Must only be called at the start of a line.
-fn parse_headline_level_le(input: &str, max_level: usize) -> IResult<&str, usize, ()> {
+pub(crate) fn parse_headline_level_le(input: &str, max_level: usize) -> IResult<&str, usize, ()> {
     let (input, level) = verify(
         map(is_a("*"), |s: &str| s.chars().count()),
         |level: &usize| *level <= max_level,
@@ -667,29 +667,42 @@ fn line_length(input: &str) -> IResult<&str, usize, ()> {
     }
 }
 
-pub fn parse_headline(input: &str) -> Option<(&str, (&str, usize))> {
-    // Consume the headline.
-    let (text, level) = parse_headline_level_le(input, std::usize::MAX).ok()?;
-
+// Returns all text until a headline with level <= max_level is found. Must
+// start at the start of the line. Can return nothing if immediately at a
+// headline.
+//
+// This is a separate function from lines_while/lines_until because we need to
+// treat EOF differently from EOL when the file ends with \r.
+pub fn lines_until_headline_at_level_le(
+    input: &str,
+    max_level: usize,
+) -> IResult<&str, (&str, usize), ()> {
     // Collect lines until EOF or a headline.
     let mut last = 0;
-    for i in memchr_iter(b'\n', text.as_bytes()) {
+    for i in memchr_iter(b'\n', input.as_bytes()) {
         // Check the first byte after the newline to skip parsing unnecessarily.
-        if text.as_bytes()[last] == b'*' && parse_headline_level_le(&text[last..], level).is_ok() {
+        if input.as_bytes()[last] == b'*'
+            && parse_headline_level_le(&input[last..], max_level).is_ok()
+        {
             break;
         }
 
         last = i + 1;
     }
 
-    if last < text.len() && parse_headline_level_le(&text[last..], level).is_err() {
-        Some(("", (input, level)))
+    if last < input.len() && parse_headline_level_le(&input[last..], max_level).is_err() {
+        Ok(("", (input, max_level)))
     } else {
-        Some((
-            &text[last..],
-            (&input[..(input.len() - text.len()) + last], level),
-        ))
+        Ok((&input[last..], (&input[..last], max_level)))
     }
+}
+
+pub fn parse_headline(input: &str) -> Option<(&str, (&str, usize))> {
+    // Consume the headline.
+    let (text, level) = parse_headline_level_le(input, std::usize::MAX).ok()?;
+    let (text, _content) = lines_until_headline_at_level_le(text, level).ok()?;
+    let split = input.len() - text.len();
+    Some((&input[split..], (&input[..split], level)))
 }
 
 #[cfg(test)]
