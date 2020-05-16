@@ -17,8 +17,7 @@ travis-ci = { repository = "PoiScript/orgize" }
 
 [features]
 default = ["ser"]
-ser = ["serde", "serde_indextree"]
-preserve-property-order = ["indexmap"]
+ser = ["serde", "serde_indextree", "indexmap/serde-1"]
 
 [dependencies]
 bytecount = "0.6.0"

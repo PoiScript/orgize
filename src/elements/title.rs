@@ -1,10 +1,10 @@
 //! Headline Title
 
-#[cfg(not(feature = "preserve-property-order"))]
-type PropertiesMap<K, V> = std::collections::HashMap<K, V>;
+#[cfg(not(feature = "indexmap"))]
+pub type PropertiesMap<K, V> = std::collections::HashMap<K, V>;
 
-#[cfg(feature = "preserve-property-order")]
-type PropertiesMap<K, V> = indexmap::IndexMap<K, V>;
+#[cfg(feature = "indexmap")]
+pub type PropertiesMap<K, V> = indexmap::IndexMap<K, V>;
 
 use std::borrow::Cow;
 
@@ -501,9 +501,9 @@ fn preserve_properties_drawer_order() {
         .into_iter()
         .collect();
 
-    #[cfg(not(feature = "preserve-property-order"))]
+    #[cfg(not(feature = "indexmap"))]
     parsed.sort();
-    #[cfg(not(feature = "preserve-property-order"))]
+    #[cfg(not(feature = "indexmap"))]
     properties.sort();
 
     assert_eq!(parsed, properties);

@@ -203,7 +203,7 @@ By now, orgize provides four features:
 
 + `syntect`: provides `SyntectHtmlHandler` for highlighting code block, disabled by default.
 
-+ `preserve-property-order`: Uses `IndexMap` instead of `HashMap` to represent properties, disabled by default.
++ `indexmap`: Uses `IndexMap` instead of `HashMap` for properties to preserve their order, disabled by default.
 
 ## License
 
