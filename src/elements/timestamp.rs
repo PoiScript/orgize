@@ -5,8 +5,8 @@ use std::fmt::{self, Write};
 use nom::{
     branch::{alt, permutation},
     bytes::complete::{tag, take, take_until, take_while1, take_while_m_n},
-    character::complete::{digit1, one_of, space0, space1},
-    combinator::{map, map_res, opt, verify},
+    character::complete::{char, digit1, space0, space1},
+    combinator::{map, map_res, opt, value, verify},
     sequence::{delimited, preceded, separated_pair},
     IResult,
 };
@@ -506,43 +506,28 @@ fn parse_time(input: &str) -> IResult<&str, (u8, u8), ()> {
 }
 
 fn parse_repeater_mark(input: &str) -> IResult<&str, RepeaterMark, ()> {
-    let (input, mark) = alt((tag("++"), tag("+"), tag(".+")))(input)?;
-    Ok((
-        input,
-        match mark {
-            "++" => RepeaterMark::CatchUp,
-            "+" => RepeaterMark::Cumulate,
-            ".+" => RepeaterMark::Restart,
-            _ => unreachable!(),
-        },
-    ))
+    alt((
+        value(RepeaterMark::CatchUp, tag("++")),
+        value(RepeaterMark::Cumulate, tag("+")),
+        value(RepeaterMark::Restart, tag(".+")),
+    ))(input)
 }
 
 fn parse_delay_mark(input: &str) -> IResult<&str, DelayMark, ()> {
-    let (input, mark) = alt((tag("--"), tag("-")))(input)?;
-    Ok((
-        input,
-        match mark {
-            "--" => DelayMark::First,
-            "-" => DelayMark::All,
-            _ => unreachable!(),
-        },
-    ))
+    alt((
+        value(DelayMark::First, tag("--")),
+        value(DelayMark::All, tag("-")),
+    ))(input)
 }
 
 fn parse_time_unit(input: &str) -> IResult<&str, TimeUnit, ()> {
-    let (input, unit) = one_of("hdwmy")(input)?;
-    Ok((
-        input,
-        match unit {
-            'h' => TimeUnit::Hour,
-            'd' => TimeUnit::Day,
-            'w' => TimeUnit::Week,
-            'm' => TimeUnit::Month,
-            'y' => TimeUnit::Year,
-            _ => unreachable!(),
-        },
-    ))
+    alt((
+        value(TimeUnit::Hour, char('h')),
+        value(TimeUnit::Day, char('d')),
+        value(TimeUnit::Week, char('w')),
+        value(TimeUnit::Month, char('m')),
+        value(TimeUnit::Year, char('y')),
+    ))(input)
 }
 
 fn parse_interval(input: &str) -> IResult<&str, (usize, TimeUnit), ()> {
