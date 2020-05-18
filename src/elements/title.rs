@@ -463,7 +463,7 @@ fn parse_properties_drawer_() {
                 .into_iter()
                 .collect::<PropertiesMap<_, _>>()
         ))
-    )
+    );
 }
 
 #[test]

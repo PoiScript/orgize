@@ -7,7 +7,10 @@ use nom::{
     IResult,
 };
 
-use crate::parse::combinators::{blank_lines_count, eol, lines_till};
+use crate::{
+    parse::combinators::{blank_lines_count, eol, lines_till},
+    parsers::lines_until_headline_at_level_le,
+};
 
 /// Drawer Element
 #[derive(Debug, Default, Clone)]
@@ -59,7 +62,18 @@ pub fn parse_drawer_without_blank(input: &str) -> IResult<&str, (Drawer, &str), 
         tag(":"),
     )(input)?;
     let (input, _) = eol(input)?;
-    let (input, contents) = lines_till(|line| line.trim().eq_ignore_ascii_case(":END:"))(input)?;
+
+    // Restrict the search for the end of the drawer to the current headline.
+    let (_input_after_headline, (input_until_headline, _level)) =
+        lines_until_headline_at_level_le(input, std::usize::MAX)?;
+
+    // tail is the remaining not used for the drawer out of
+    // input_until_headline.
+    let (tail, contents) =
+        lines_till(|line| line.trim().eq_ignore_ascii_case(":END:"))(input_until_headline)?;
+
+    // Skip over the amount used by the drawer.
+    let input = &input[input_until_headline.len() - tail.len()..];
 
     Ok((
         input,
@@ -118,4 +132,30 @@ fn parse() {
 
     // https://github.com/PoiScript/orgize/issues/9
     assert!(parse_drawer(":SPAGHETTI:\n").is_err());
+
+    // https://github.com/PoiScript/orgize/issues/24
+    // A drawer may not contain a headline.
+    assert!(parse_drawer(
+        r#":MYDRAWER:
+* Node
+  :END:"#
+    )
+    .is_err(),);
+
+    // A drawer may not contain another drawer. An attempt to do so will result
+    // in the drawer ending at the first end line.
+    assert_eq!(
+        parse_drawer(":OUTER:\nOuter Text\n:INNER:\nInner Text\n:END:\n:END:"),
+        Ok((
+            ":END:",
+            (
+                Drawer {
+                    name: "OUTER".into(),
+                    pre_blank: 0,
+                    post_blank: 0
+                },
+                "Outer Text\n:INNER:\nInner Text\n"
+            )
+        ))
+    );
 }
