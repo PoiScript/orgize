@@ -6,12 +6,10 @@ use nom::{
     branch::{alt, permutation},
     bytes::complete::{tag, take, take_until, take_while1, take_while_m_n},
     character::complete::{char, digit1, space0, space1},
-    combinator::{map, map_res, opt, value, verify},
+    combinator::{all_consuming, map, map_res, opt, value, verify},
     sequence::{delimited, preceded, separated_pair},
     IResult,
 };
-
-use crate::parsers::{helper_for_parse_element, Parse};
 
 /// Datetime Struct
 #[cfg_attr(test, derive(PartialEq))]
@@ -88,7 +86,18 @@ impl fmt::Display for RepeaterMark {
 impl TryFrom<&str> for RepeaterMark {
     type Error = ();
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        helper_for_parse_element(parse_repeater_mark(s)).ok_or(())
+        all_consuming(parse_repeater_mark)(s)
+            .map(|e| e.1)
+            .map_err(|_| ())
+    }
+}
+
+impl TryFrom<String> for RepeaterMark {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        all_consuming(parse_repeater_mark)(&s)
+            .map(|e| e.1)
+            .map_err(|_| ())
     }
 }
 
@@ -110,7 +119,18 @@ impl fmt::Display for DelayMark {
 impl TryFrom<&str> for DelayMark {
     type Error = ();
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        helper_for_parse_element(parse_delay_mark(s)).ok_or(())
+        all_consuming(parse_delay_mark)(s)
+            .map(|e| e.1)
+            .map_err(|_| ())
+    }
+}
+
+impl TryFrom<String> for DelayMark {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        all_consuming(parse_delay_mark)(&s)
+            .map(|e| e.1)
+            .map_err(|_| ())
     }
 }
 
@@ -141,7 +161,18 @@ impl fmt::Display for TimeUnit {
 impl TryFrom<&str> for TimeUnit {
     type Error = ();
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        helper_for_parse_element(parse_time_unit(s)).ok_or(())
+        all_consuming(parse_time_unit)(s)
+            .map(|e| e.1)
+            .map_err(|_| ())
+    }
+}
+
+impl TryFrom<String> for TimeUnit {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        all_consuming(parse_time_unit)(&s)
+            .map(|e| e.1)
+            .map_err(|_| ())
     }
 }
 
@@ -154,7 +185,18 @@ impl fmt::Display for Repeater {
 impl TryFrom<&str> for Repeater {
     type Error = ();
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        helper_for_parse_element(parse_repeater(s)).ok_or(())
+        all_consuming(parse_repeater)(s)
+            .map(|e| e.1)
+            .map_err(|_| ())
+    }
+}
+
+impl TryFrom<String> for Repeater {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        all_consuming(parse_repeater)(&s)
+            .map(|e| e.1)
+            .map_err(|_| ())
     }
 }
 
@@ -167,7 +209,14 @@ impl fmt::Display for Delay {
 impl TryFrom<&str> for Delay {
     type Error = ();
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        helper_for_parse_element(parse_delay(s)).ok_or(())
+        all_consuming(parse_delay)(s).map(|e| e.1).map_err(|_| ())
+    }
+}
+
+impl TryFrom<String> for Delay {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        all_consuming(parse_delay)(&s).map(|e| e.1).map_err(|_| ())
     }
 }
 
@@ -184,9 +233,21 @@ impl fmt::Display for Datetime<'_> {
     }
 }
 
-impl<'a> Parse<'a> for Datetime<'a> {
-    fn parse(s: &'a str) -> Option<Datetime<'a>> {
-        helper_for_parse_element(parse_datetime(s))
+impl<'a> TryFrom<&'a str> for Datetime<'a> {
+    type Error = ();
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        all_consuming(parse_datetime)(s)
+            .map(|e| e.1)
+            .map_err(|_| ())
+    }
+}
+
+impl<'a> TryFrom<String> for Datetime<'static> {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        all_consuming(parse_datetime)(&s)
+            .map(|e| e.1.into_owned())
+            .map_err(|_| ())
     }
 }
 
@@ -490,9 +551,21 @@ impl Timestamp<'_> {
     }
 }
 
-impl<'a> Parse<'a> for Timestamp<'a> {
-    fn parse(s: &'a str) -> Option<Timestamp<'a>> {
-        helper_for_parse_element(parse_timestamp(s))
+impl<'a> TryFrom<&'a str> for Timestamp<'a> {
+    type Error = ();
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        all_consuming(parse_timestamp)(s)
+            .map(|e| e.1)
+            .map_err(|_| ())
+    }
+}
+
+impl<'a> TryFrom<String> for Timestamp<'static> {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        all_consuming(parse_timestamp)(&s)
+            .map(|e| e.1.into_owned())
+            .map_err(|_| ())
     }
 }
 
@@ -1309,7 +1382,7 @@ fn test_format_datetime() {
         "2025-09-09 Mon 03:05",
         "2025-09-09 03:05",
     ] {
-        assert_eq!(*s, Datetime::parse(*s).unwrap().to_string());
+        assert_eq!(*s, Datetime::try_from(*s).unwrap().to_string());
     }
 }
 
@@ -1332,31 +1405,33 @@ fn test_format_timestamp() {
         "[1991-01-01 Mon 03:55]--[1992-02-03 Tue]",
         "<1991-01-01 Mon 03:55 +1d -1w>--<1992-02-03 Tue +2w -2d>",
     ] {
-        assert_eq!(*s, Timestamp::parse(s).unwrap().to_string());
+        assert_eq!(*s, Timestamp::try_from(*s).unwrap().to_string());
     }
 
     assert_eq!(
         "<1991-01-01 Mon 03:55-04:00>",
-        Timestamp::parse("<1991-01-01 Mon 03:55>--<1991-01-01 Mon 04:00>")
+        Timestamp::try_from("<1991-01-01 Mon 03:55>--<1991-01-01 Mon 04:00>")
             .unwrap()
             .to_string()
     );
 
     assert_eq!(
         "<1991-01-01 +1d -1w>",
-        Timestamp::parse("<1991-01-01 -1w +1d>")
+        Timestamp::try_from("<1991-01-01 -1w +1d>")
             .unwrap()
             .to_string()
     );
 
     assert_eq!(
         "<1991-01-01 05:05>",
-        Timestamp::parse("<1991-01-01 5:05>").unwrap().to_string()
+        Timestamp::try_from("<1991-01-01 5:05>")
+            .unwrap()
+            .to_string()
     );
 
     assert_eq!(
         "<1991-01-01 05:05-07:09>",
-        Timestamp::parse("<1991-1-1 5:05-7:09>")
+        Timestamp::try_from("<1991-1-1 5:05-7:09>")
             .unwrap()
             .to_string()
     );

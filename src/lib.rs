@@ -238,5 +238,4 @@ pub use config::ParseConfig;
 pub use elements::Element;
 pub use headline::{Document, Headline};
 pub use org::{Event, Org};
-pub use parsers::Parse;
 pub use validate::ValidationError;
