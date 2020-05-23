@@ -11,7 +11,7 @@ CONTENTS
 #+END_QUOTE
 
 * Headline 1
-SCHEDULED: <2019-10-28 Mon>
+SCHEDULED: <2019-10-28 Mon +1w -1d>
 :PROPERTIES:
 :ID: headline-1
 :END:

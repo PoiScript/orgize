@@ -1,7 +1,6 @@
 use std::io::{Error, Result as IOResult, Write};
 
-use crate::elements::{Clock, Element, Table, Timestamp};
-use crate::export::write_datetime;
+use crate::elements::{Clock, Element, Table};
 
 pub trait OrgHandler<E: From<Error>>: Default {
     fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
@@ -126,7 +125,7 @@ impl OrgHandler<Error> for DefaultOrgHandler {
             Element::Target(_target) => (),
             Element::Text { value } => write!(w, "{}", value)?,
             Element::Timestamp(timestamp) => {
-                write_timestamp(&mut w, &timestamp)?;
+                write!(&mut w, "{}", timestamp)?;
             }
             Element::Verbatim { value } => write!(w, "={}=", value)?,
             Element::FnDef(fn_def) => {
@@ -143,15 +142,13 @@ impl OrgHandler<Error> for DefaultOrgHandler {
                         post_blank,
                         ..
                     } => {
-                        write_datetime(&mut w, "[", &start, "]--")?;
-                        write_datetime(&mut w, "[", &end, "]")?;
-                        writeln!(&mut w, " => {}", duration)?;
+                        writeln!(&mut w, "[{}]--[{}] => {}", &start, &end, duration)?;
                         write_blank_lines(&mut w, *post_blank)?;
                     }
                     Clock::Running {
                         start, post_blank, ..
                     } => {
-                        write_datetime(&mut w, "[", &start, "]\n")?;
+                        writeln!(&mut w, "[{}]", &start)?;
                         write_blank_lines(&mut w, *post_blank)?;
                     }
                 }
@@ -248,22 +245,19 @@ impl OrgHandler<Error> for DefaultOrgHandler {
                 writeln!(&mut w)?;
                 if let Some(planning) = &title.planning {
                     if let Some(scheduled) = &planning.scheduled {
-                        write!(&mut w, "SCHEDULED: ")?;
-                        write_timestamp(&mut w, &scheduled)?;
+                        write!(&mut w, "SCHEDULED: {}", &scheduled)?;
                     }
                     if let Some(deadline) = &planning.deadline {
                         if planning.scheduled.is_some() {
                             write!(&mut w, " ")?;
                         }
-                        write!(&mut w, "DEADLINE: ")?;
-                        write_timestamp(&mut w, &deadline)?;
+                        write!(&mut w, "DEADLINE: {}", &deadline)?;
                     }
                     if let Some(closed) = &planning.closed {
                         if planning.deadline.is_some() {
                             write!(&mut w, " ")?;
                         }
-                        write!(&mut w, "CLOSED: ")?;
-                        write_timestamp(&mut w, &closed)?;
+                        write!(&mut w, "CLOSED: {}", &closed)?;
                     }
                     writeln!(&mut w)?;
                 }
@@ -295,27 +289,6 @@ impl OrgHandler<Error> for DefaultOrgHandler {
 fn write_blank_lines<W: Write>(mut w: W, count: usize) -> Result<(), Error> {
     for _ in 0..count {
         writeln!(w)?;
-    }
-    Ok(())
-}
-
-fn write_timestamp<W: Write>(mut w: W, timestamp: &Timestamp) -> Result<(), Error> {
-    match timestamp {
-        Timestamp::Active { start, .. } => {
-            write_datetime(w, "<", start, ">")?;
-        }
-        Timestamp::Inactive { start, .. } => {
-            write_datetime(w, "[", start, "]")?;
-        }
-        Timestamp::ActiveRange { start, end, .. } => {
-            write_datetime(&mut w, "<", start, ">--")?;
-            write_datetime(&mut w, "<", end, ">")?;
-        }
-        Timestamp::InactiveRange { start, end, .. } => {
-            write_datetime(&mut w, "[", start, "]--")?;
-            write_datetime(&mut w, "[", end, "]")?;
-        }
-        Timestamp::Diary { value } => write!(w, "<%%({})>", value)?,
     }
     Ok(())
 }

@@ -4,7 +4,6 @@ use std::io::{Error, Result as IOResult, Write};
 use jetscii::{bytes, BytesConst};
 
 use crate::elements::{Element, Table, TableCell, TableRow, Timestamp};
-use crate::export::write_datetime;
 
 /// A wrapper for escaping sensitive characters in html.
 ///
@@ -144,18 +143,16 @@ impl HtmlHandler<Error> for DefaultHtmlHandler {
 
                 match timestamp {
                     Timestamp::Active { start, .. } => {
-                        write_datetime(&mut w, "&lt;", start, "&gt;")?;
+                        write!(&mut w, "&lt;{}&gt;", start)?;
                     }
                     Timestamp::Inactive { start, .. } => {
-                        write_datetime(&mut w, "[", start, "]")?;
+                        write!(&mut w, "[{}]", start)?;
                     }
                     Timestamp::ActiveRange { start, end, .. } => {
-                        write_datetime(&mut w, "&lt;", start, "&gt;&#x2013;")?;
-                        write_datetime(&mut w, "&lt;", end, "&gt;")?;
+                        write!(&mut w, "&lt;{}&gt;&#<2013;&lt;{}&gt;", start, end)?;
                     }
                     Timestamp::InactiveRange { start, end, .. } => {
-                        write_datetime(&mut w, "[", start, "]&#x2013;")?;
-                        write_datetime(&mut w, "[", end, "]")?;
+                        write!(&mut w, "&lt;{}&gt;&#<2013;&lt;{}&gt;", start, end)?;
                     }
                     Timestamp::Diary { value } => {
                         write!(&mut w, "&lt;%%({})&gt;", HtmlEscape(value))?

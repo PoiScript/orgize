@@ -1,6 +1,6 @@
 use memchr::memchr;
 
-use crate::elements::Timestamp;
+use crate::elements::{timestamp::parse_timestamp, Timestamp};
 
 /// Planning element
 #[cfg_attr(test, derive(PartialEq))]
@@ -31,8 +31,7 @@ impl Planning<'_> {
 
             macro_rules! set_timestamp {
                 ($timestamp:expr) => {{
-                    let (new_tail, timestamp) =
-                        Timestamp::parse_active(next).or(Timestamp::parse_inactive(next))?;
+                    let (new_tail, timestamp) = parse_timestamp(next).ok()?;
                     $timestamp = Some(timestamp);
                     tail = new_tail.trim_start();
                 }};
