@@ -51,6 +51,19 @@ impl OrgHandler<Error> for DefaultOrgHandler {
                 }
                 write!(&mut w, "{}", list_item.bullet)?;
             }
+            Element::LatexEnvironment(latex_inline) => {
+                if latex_inline.inline {
+                    write!(&mut w, "${}$", latex_inline.contents)?
+                } else if latex_inline.argument == "" {
+                    write!(&mut w, "\\[{}\\]", latex_inline.contents)?
+                } else {
+                    write!(
+                        &mut w,
+                        "\\begin{{{0}}}{1}\\end{{{0}}}",
+                        latex_inline.argument, latex_inline.contents
+                    )?
+                }
+            }
             Element::Paragraph { .. } => (),
             Element::Section => (),
             Element::Strike => write!(w, "+")?,

@@ -13,6 +13,7 @@ pub(crate) mod fn_ref;
 pub(crate) mod inline_call;
 pub(crate) mod inline_src;
 pub(crate) mod keyword;
+pub(crate) mod latex;
 pub(crate) mod link;
 pub(crate) mod list;
 pub(crate) mod macros;
@@ -41,6 +42,7 @@ pub use self::{
     inline_call::InlineCall,
     inline_src::InlineSrc,
     keyword::{BabelCall, Keyword},
+    latex::LatexEnvironment,
     link::Link,
     list::{List, ListItem},
     macros::Macros,
@@ -85,6 +87,7 @@ pub enum Element<'a> {
     Link(Link<'a>),
     List(List),
     ListItem(ListItem<'a>),
+    LatexEnvironment(LatexEnvironment<'a>),
     Macros(Macros<'a>),
     Snippet(Snippet<'a>),
     Text { value: Cow<'a, str> },
@@ -137,6 +140,7 @@ impl Element<'_> {
         use Element::*;
 
         match self {
+            LatexEnvironment(e) => LatexEnvironment(e.into_owned()),
             SpecialBlock(e) => SpecialBlock(e.into_owned()),
             QuoteBlock(e) => QuoteBlock(e.into_owned()),
             CenterBlock(e) => CenterBlock(e.into_owned()),
