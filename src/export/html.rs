@@ -77,6 +77,19 @@ impl HtmlHandler<Error> for DefaultHtmlHandler {
                     write!(w, "<ul>")?;
                 }
             }
+            Element::LatexEnvironment(latex_inline) => {
+                if latex_inline.inline {
+                    write!(&mut w, "\\({}\\)", latex_inline.contents)?
+                } else if latex_inline.argument == "" {
+                    write!(&mut w, "\n\\[{}\\]\n", latex_inline.contents)?
+                } else {
+                    write!(
+                        &mut w,
+                        "\n\\begin{{{0}}}{1}\\end{{{0}}}\n",
+                        latex_inline.argument, latex_inline.contents
+                    )?
+                }
+            }
             Element::Italic => write!(w, "<i>")?,
             Element::ListItem(_) => write!(w, "<li>")?,
             Element::Paragraph { .. } => write!(w, "<p>")?,

@@ -10,8 +10,8 @@ use crate::config::ParseConfig;
 use crate::elements::{
     block::RawBlock, emphasis::Emphasis, keyword::RawKeyword, radio_target::parse_radio_target,
     Clock, Comment, Cookie, Drawer, DynBlock, Element, FixedWidth, FnDef, FnRef, InlineCall,
-    InlineSrc, Link, List, ListItem, Macros, Rule, Snippet, Table, TableCell, TableRow, Target,
-    Timestamp, Title,
+    InlineSrc, LatexEnvironment, Link, List, ListItem, Macros, Rule, Snippet, Table, TableCell,
+    TableRow, Target, Timestamp, Title,
 };
 use crate::parse::combinators::lines_while;
 
@@ -287,10 +287,7 @@ pub fn parse_block<'a, T: ElementArena<'a>>(
             arena.append(clock, parent);
             Some(tail)
         }
-        b'\'' => {
-            // TODO: LaTeX environment
-            None
-        }
+        b'\'' => None,
         b'-' => {
             if let Some((tail, rule)) = Rule::parse(contents) {
                 arena.append(rule, parent);
@@ -485,6 +482,11 @@ pub fn parse_inline<'a, T: ElementArena<'a>>(
                 arena.append(timestamp, parent);
                 Some(tail)
             }
+        }
+        b'$' | b'\\' => {
+            let (tail, latex) = LatexEnvironment::parse(contents)?;
+            arena.append(Element::LatexEnvironment(latex), parent);
+            Some(tail)
         }
         b'*' | b'+' | b'/' | b'_' | b'=' | b'~' => {
             let (tail, emphasis) = Emphasis::parse(contents, byte)?;

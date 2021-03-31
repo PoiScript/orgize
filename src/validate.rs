@@ -83,11 +83,7 @@ impl Org<'_> {
                     }
 
                     for child in children {
-                        expect_element!(
-                            child,
-                            "Headline",
-                            Element::Headline { .. }
-                        );
+                        expect_element!(child, "Headline", Element::Headline { .. });
                     }
                 }
                 Element::Headline { .. } => {
@@ -107,11 +103,7 @@ impl Org<'_> {
                     }
 
                     for child in children {
-                        expect_element!(
-                            child,
-                            "Headline",
-                            Element::Headline { .. }
-                        );
+                        expect_element!(child, "Headline", Element::Headline { .. });
                     }
                 }
                 Element::Title(title) => {
@@ -191,7 +183,8 @@ impl Org<'_> {
                 | Element::DynBlock(_) => {
                     expect_children!(node_id);
                 }
-                Element::ListItem(_)
+                Element::LatexEnvironment(_)
+                | Element::ListItem(_)
                 | Element::Drawer(_)
                 | Element::TableCell(_)
                 | Element::Table(_) => (),
