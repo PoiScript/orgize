@@ -495,7 +495,7 @@ fn preserve_properties_drawer_order() {
         s += &format!("   :{}: {}\n", k, v);
     }
     let drawer = format!("   :PROPERTIES:\n{}:END:\n", &s);
-    let mut parsed: Vec<(_, _)> = parse_properties_drawer(&drawer)
+    let parsed: Vec<(_, _)> = parse_properties_drawer(&drawer)
         .unwrap()
         .1
         .into_iter()
