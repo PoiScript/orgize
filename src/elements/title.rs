@@ -221,7 +221,7 @@ fn parse_properties_drawer(
     }
     let (_, map) = fold_many0(
         parse_node_property,
-        PropertiesMap::new(),
+        PropertiesMap::new,
         |mut acc: PropertiesMap<_, _>, (name, value)| {
             acc.insert(name.into(), value.into());
             acc
