@@ -83,11 +83,7 @@ impl Org<'_> {
                     }
 
                     for child in children {
-                        expect_element!(
-                            child,
-                            "Headline",
-                            Element::Headline { .. }
-                        );
+                        expect_element!(child, "Headline", Element::Headline { .. });
                     }
                 }
                 Element::Headline { .. } => {
@@ -107,11 +103,7 @@ impl Org<'_> {
                     }
 
                     for child in children {
-                        expect_element!(
-                            child,
-                            "Headline",
-                            Element::Headline { .. }
-                        );
+                        expect_element!(child, "Headline", Element::Headline { .. });
                     }
                 }
                 Element::Title(title) => {
