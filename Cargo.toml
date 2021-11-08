@@ -8,6 +8,7 @@ readme = "README.md"
 edition = "2018"
 license = "MIT"
 keywords = ["orgmode", "emacs", "parser"]
+exclude = ["/wasm", "/.github"]
 
 [package.metadata.docs.rs]
 all-features = true
