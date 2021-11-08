@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Orgize wasm demo</title>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.0/beautify-html.js"></script>
+
+    <script src="./orgize.umd.js"></script>
+    <style>
+      h3 {
+        margin: 0;
+      }
+
+      body > * {
+        margin-bottom: 16px;
+      }
+    </style>
+  </head>
+  <body
+    x-data="{ loaded: false, org: '* Hello, /world/!', type: 'json' }"
+    x-init="orgize.init('./orgize_bg.wasm').then(() => loaded = true)"
+  >
+    <h2>Orgize wasm demo</h2>
+
+    <div>
+      <a href="https://github.com/PoiScript/orgize">GitHub</a>
+      <a href="https://www.npmjs.com/package/orgize">NPM</a>
+      <a href="https://crates.io/crates/orgize">crates.io</a>
+    </div>
+
+    <div>Input:</div>
+
+    <textarea
+      x-model="org"
+      style="width: 100%; height: 100px; margin-bottom: 16px"
+    ></textarea>
+
+    <div>Type:</div>
+
+    <div>
+      <button @click="type = 'json'">JSON</button>
+      <button @click="type = 'html'">HTML</button>
+      <button @click="type = 'html-rendered'">HTML (Rendered)</button>
+    </div>
+
+    <div>Output:</div>
+
+    <noscript>
+      <p style="color: red">JavaScript is required.</p>
+    </noscript>
+
+    <pre
+      x-show="type === 'json'"
+      x-transition
+      x-text="loaded ? JSON.stringify(orgize.Org.parse(org).toJson(), null, 2) : 'Loading...'"
+    ></pre>
+    <pre
+      x-show="type === 'html'"
+      x-transition
+      x-text="loaded ? html_beautify(orgize.renderHtml(org), { indent_size: 2 }) : 'Loading...'"
+    ></pre>
+    <div
+      x-show="type === 'html-rendered'"
+      x-transition
+      x-html="loaded ? orgize.renderHtml(org) : 'Loading...'"
+    ></div>
+  </body>
+</html>

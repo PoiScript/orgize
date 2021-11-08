@@ -1,17 +1,13 @@
 name: Rust
 
-on:
-  pull_request:
-  push:
-    branches:
-      - master
+on: [push, pull_request]
 
 jobs:
   format:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Run rustfmt
         run: cargo fmt -- --check
@@ -20,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1

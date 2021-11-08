@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "WebWorker"],
+    "strict": true,
+    "outDir": "out-tsc",
+    "rootDir": "./src",
+    "declaration": true
+  },
+  "include": ["./src"]
+}

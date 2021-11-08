@@ -240,3 +240,6 @@ pub use elements::Element;
 pub use headline::{Document, Headline};
 pub use org::{Event, Org};
 pub use validate::ValidationError;
+
+#[cfg(feature = "wasm")]
+mod wasm;

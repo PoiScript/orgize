@@ -15,8 +15,16 @@ all-features = true
 [badges]
 travis-ci = { repository = "PoiScript/orgize" }
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+
 [features]
 default = ["ser"]
+wasm = ["serde-wasm-bindgen", "wasm-bindgen", "wee_alloc"]
 ser = ["serde", "serde_indextree", "indexmap/serde-1"]
 
 [dependencies]
@@ -31,6 +39,10 @@ serde = { version = "1.0", optional = true, features = ["derive"] }
 serde_indextree = { version = "0.2", optional = true }
 syntect = { version = "4.6", optional = true }
 indexmap = { version = "1.7", features = ["serde-1"], optional = true }
+# wasm stuff
+serde-wasm-bindgen = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wee_alloc = { version = "0.4", optional = true }
 
 [dev-dependencies]
 pretty_assertions = "1.0"
