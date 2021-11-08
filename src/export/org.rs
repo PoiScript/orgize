@@ -269,7 +269,7 @@ impl OrgHandler<Error> for DefaultOrgHandler {
                 }
                 if !title.properties.is_empty() {
                     writeln!(&mut w, ":PROPERTIES:")?;
-                    for (key, value) in &title.properties {
+                    for (key, value) in title.properties.iter() {
                         writeln!(&mut w, ":{}: {}", key, value)?;
                     }
                     writeln!(&mut w, ":END:")?;

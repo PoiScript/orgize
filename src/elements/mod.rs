@@ -50,7 +50,7 @@ pub use self::{
     table::{Table, TableCell, TableRow},
     target::Target,
     timestamp::{Datetime, Timestamp},
-    title::Title,
+    title::{PropertiesMap, Title},
 };
 
 use std::borrow::Cow;

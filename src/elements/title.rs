@@ -1,12 +1,7 @@
 //! Headline Title
 
-#[cfg(not(feature = "indexmap"))]
-pub type PropertiesMap<K, V> = std::collections::HashMap<K, V>;
-
-#[cfg(feature = "indexmap")]
-pub type PropertiesMap<K, V> = indexmap::IndexMap<K, V>;
-
-use std::borrow::Cow;
+use std::collections::HashMap;
+use std::{borrow::Cow, iter::FromIterator};
 
 use memchr::memrchr2;
 use nom::{
@@ -52,7 +47,7 @@ pub struct Title<'a> {
         feature = "ser",
         serde(skip_serializing_if = "PropertiesMap::is_empty")
     )]
-    pub properties: PropertiesMap<Cow<'a, str>, Cow<'a, str>>,
+    pub properties: PropertiesMap<'a>,
     /// Numbers of blank lines between last title's line and next non-blank line
     /// or buffer's end
     pub post_blank: usize,
@@ -107,11 +102,7 @@ impl Title<'_> {
             keyword: self.keyword.map(Into::into).map(Cow::Owned),
             raw: self.raw.into_owned().into(),
             planning: self.planning.map(|p| Box::new(p.into_owned())),
-            properties: self
-                .properties
-                .into_iter()
-                .map(|(k, v)| (k.into_owned().into(), v.into_owned().into()))
-                .collect(),
+            properties: self.properties.into_owned(),
             post_blank: self.post_blank,
         }
     }
@@ -129,6 +120,60 @@ impl Default for Title<'_> {
             properties: PropertiesMap::new(),
             post_blank: 0,
         }
+    }
+}
+
+/// Properties
+#[derive(Default, Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "ser", derive(serde::Serialize))]
+pub struct PropertiesMap<'a> {
+    pub pairs: Vec<(Cow<'a, str>, Cow<'a, str>)>,
+}
+
+impl<'a> PropertiesMap<'a> {
+    pub fn new() -> Self {
+        PropertiesMap { pairs: Vec::new() }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.pairs.is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(Cow<'a, str>, Cow<'a, str>)> {
+        self.pairs.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut (Cow<'a, str>, Cow<'a, str>)> {
+        self.pairs.iter_mut()
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item = (Cow<'a, str>, Cow<'a, str>)> {
+        self.pairs.into_iter()
+    }
+
+    pub fn into_hash_map(self) -> HashMap<Cow<'a, str>, Cow<'a, str>> {
+        self.pairs.into_iter().collect()
+    }
+
+    #[cfg(feature = "indexmap")]
+    pub fn into_index_map(self) -> indexmap::IndexMap<Cow<'a, str>, Cow<'a, str>> {
+        self.pairs.into_iter().collect()
+    }
+
+    pub fn into_owned(self) -> PropertiesMap<'static> {
+        self.pairs
+            .into_iter()
+            .map(|(k, v)| (k.into_owned().into(), v.into_owned().into()))
+            .collect()
+    }
+}
+
+impl<'a> FromIterator<(Cow<'a, str>, Cow<'a, str>)> for PropertiesMap<'a> {
+    fn from_iter<T: IntoIterator<Item = (Cow<'a, str>, Cow<'a, str>)>>(iter: T) -> Self {
+        let mut map = PropertiesMap::new();
+        map.pairs.extend(iter);
+        map
     }
 }
 
@@ -212,18 +257,16 @@ fn is_tag_line(input: &str) -> bool {
 }
 
 #[inline]
-fn parse_properties_drawer(
-    input: &str,
-) -> IResult<&str, PropertiesMap<Cow<'_, str>, Cow<'_, str>>, ()> {
+fn parse_properties_drawer(input: &str) -> IResult<&str, PropertiesMap<'_>, ()> {
     let (input, (drawer, content)) = parse_drawer_without_blank(input.trim_start())?;
     if drawer.name != "PROPERTIES" {
         return Err(Err::Error(make_error(input, ErrorKind::Tag)));
     }
     let (_, map) = fold_many0(
         parse_node_property,
-        || PropertiesMap::new(),
-        |mut acc: PropertiesMap<_, _>, (name, value)| {
-            acc.insert(name.into(), value.into());
+        PropertiesMap::new,
+        |mut acc: PropertiesMap, (name, value)| {
+            acc.pairs.push((name.into(), value.into()));
             acc
         },
     )(content)?;
@@ -461,20 +504,21 @@ fn parse_properties_drawer_() {
             "",
             vec![("CUSTOM_ID".into(), "id".into())]
                 .into_iter()
-                .collect::<PropertiesMap<_, _>>()
+                .collect::<PropertiesMap>()
         ))
     )
 }
 
 #[test]
+#[cfg(feature = "indexmap")]
 fn preserve_properties_drawer_order() {
-    let mut properties = Vec::default();
+    let mut vec = Vec::default();
     // Use a large number of properties to reduce false pass rate, since HashMap
     // is non-deterministic. There are roughly 10^18 possible derangements of this sequence.
     for i in 0..20 {
         // Avoid alphabetic or numeric order.
         let j = (i + 7) % 20;
-        properties.push((
+        vec.push((
             Cow::Owned(format!(
                 "{}{}",
                 if i % 3 == 0 {
@@ -491,20 +535,17 @@ fn preserve_properties_drawer_order() {
     }
 
     let mut s = String::default();
-    for (k, v) in &properties {
+
+    for (k, v) in &vec {
         s += &format!("   :{}: {}\n", k, v);
     }
+
     let drawer = format!("   :PROPERTIES:\n{}:END:\n", &s);
-    let mut parsed: Vec<(_, _)> = parse_properties_drawer(&drawer)
-        .unwrap()
-        .1
-        .into_iter()
-        .collect();
 
-    #[cfg(not(feature = "indexmap"))]
-    parsed.sort();
-    #[cfg(not(feature = "indexmap"))]
-    properties.sort();
+    let map = parse_properties_drawer(&drawer).unwrap().1.into_index_map();
 
-    assert_eq!(parsed, properties);
+    // indexmap should be in the same order as vector
+    for (left, right) in vec.iter().zip(map) {
+        assert_eq!(left, &right);
+    }
 }
