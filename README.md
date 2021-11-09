@@ -1,210 +1,66 @@
-# Orgize
+A Rust library for parsing org-mode files.
 
-[![Build Status](https://travis-ci.org/PoiScript/orgize.svg?branch=master)](https://travis-ci.org/PoiScript/orgize)
 [![Crates.io](https://img.shields.io/crates/v/orgize.svg)](https://crates.io/crates/orgize)
-[![Document](https://docs.rs/orgize/badge.svg)](https://docs.rs/orgize)
+[![Documentation](https://docs.rs/orgize/badge.svg)](https://docs.rs/orgize)
+![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)
 
-A Rust library for parsing orgmode files.
+# Parse
 
-[Live demo](https://orgize.herokuapp.com/)
+To parse a org-mode string, simply invoking the `Org::parse` function:
 
-## Parse
+```rust
+use orgize::{Org, rowan::ast::AstNode};
 
-To parse a orgmode string, simply invoking the `Org::parse` function:
+let org = Org::parse("* DONE Title :tag:");
+assert_eq!(
+    format!("{:#?}", org.document().syntax()),
+    r#"DOCUMENT@0..18
+  HEADLINE@0..18
+    HEADLINE_STARS@0..1 "*"
+    WHITESPACE@1..2 " "
+    HEADLINE_KEYWORD@2..6 "DONE"
+    WHITESPACE@6..7 " "
+    HEADLINE_TITLE@7..13
+      TEXT@7..13 "Title "
+    HEADLINE_TAGS@13..18
+      COLON@13..14 ":"
+      TEXT@14..17 "tag"
+      COLON@17..18 ":"
+"#);
+```
+
+use `ParseConfig::parse` to specific a custom parse config
+
+```rust
+use orgize::{Org, ParseConfig, ast::Headline};
+
+let config = ParseConfig {
+    // custom todo keywords
+    todo_keywords: (vec!["TASK".to_string()], vec![]),
+    ..Default::default()
+};
+let org = config.parse("* TASK Title 1");
+let hdl = org.first_node::<Headline>().unwrap();
+assert_eq!(hdl.keyword().unwrap().text(), "TASK");
+```
+
+# Render to html
+
+Call the `Org::to_html` function to export org element tree to html:
 
 ```rust
 use orgize::Org;
-
-Org::parse("* DONE Title :tag:");
-```
-
-or `Org::parse_custom`:
-
-``` rust
-use orgize::{Org, ParseConfig};
-
-Org::parse_custom(
-    "* TASK Title 1",
-    &ParseConfig {
-        // custom todo keywords
-        todo_keywords: (vec!["TASK".to_string()], vec![]),
-        ..Default::default()
-    },
-);
-```
-
-## Iter
-
-`Org::iter` function will returns an iterator of `Event`s, which is
-a simple wrapper of `Element`.
-
-```rust
-use orgize::Org;
-
-for event in Org::parse("* DONE Title :tag:").iter() {
-    // handling the event
-}
-```
-
-**Note**: whether an element is container or not, it will appears twice in one loop.
-One as `Event::Start(element)`, one as `Event::End(element)`.
-
-## Render html
-
-You can call the `Org::write_html` function to generate html directly, which
-uses the `DefaultHtmlHandler` internally:
-
-```rust
-use orgize::Org;
-
-let mut writer = Vec::new();
-Org::parse("* title\n*section*").write_html(&mut writer).unwrap();
 
 assert_eq!(
-    String::from_utf8(writer).unwrap(),
+    Org::parse("* title\n*section*").to_html(),
     "<main><h1>title</h1><section><p><b>section</b></p></section></main>"
 );
 ```
 
-## Render html with custom `HtmlHandler`
+Checkout `examples/html-slugify.rs` on how to customizing html export process.
 
-To customize html rendering, simply implementing `HtmlHandler` trait and passing
-it to the `Org::wirte_html_custom` function.
+# Features
 
-The following code demonstrates how to add a id for every headline and return
-own error type while rendering.
+- `chrono`: adds the ability to convert `Timestamp` into `chrono::NaiveDateTime`, disabled by default.
 
-```rust
-use std::convert::From;
-use std::io::{Error as IOError, Write};
-use std::string::FromUtf8Error;
-
-use orgize::export::{DefaultHtmlHandler, HtmlHandler};
-use orgize::{Element, Org};
-use slugify::slugify;
-
-#[derive(Debug)]
-enum MyError {
-    IO(IOError),
-    Heading,
-    Utf8(FromUtf8Error),
-}
-
-// From<std::io::Error> trait is required for custom error type
-impl From<IOError> for MyError {
-    fn from(err: IOError) -> Self {
-        MyError::IO(err)
-    }
-}
-
-impl From<FromUtf8Error> for MyError {
-    fn from(err: FromUtf8Error) -> Self {
-        MyError::Utf8(err)
-    }
-}
-
-#[derive(Default)]
-struct MyHtmlHandler(DefaultHtmlHandler);
-
-impl HtmlHandler<MyError> for MyHtmlHandler {
-    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), MyError> {
-        if let Element::Title(title) = element {
-            if title.level > 6 {
-                return Err(MyError::Heading);
-            } else {
-                write!(
-                    w,
-                    "<h{0}><a id=\"{1}\" href=\"#{1}\">",
-                    title.level,
-                    slugify!(&title.raw),
-                )?;
-            }
-        } else {
-            // fallthrough to default handler
-            self.0.start(w, element)?;
-        }
-        Ok(())
-    }
-
-    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), MyError> {
-        if let Element::Title(title) = element {
-            write!(w, "</a></h{}>", title.level)?;
-        } else {
-            self.0.end(w, element)?;
-        }
-        Ok(())
-    }
-}
-
-fn main() -> Result<(), MyError> {
-    let mut writer = Vec::new();
-    let mut handler = MyHtmlHandler::default();
-    Org::parse("* title\n*section*").wirte_html_custom(&mut writer, &mut handler)?;
-
-    assert_eq!(
-        String::from_utf8(writer)?,
-        "<main><h1><a id=\"title\" href=\"#title\">title</a></h1>\
-         <section><p><b>section</b></p></section></main>"
-    );
-
-    Ok(())
-}
-```
-
-**Note**: as I mentioned above, each element will appears two times while iterating.
-And handler will silently ignores all end events from non-container elements.
-
-So if you want to change how a non-container element renders, just redefine the `start`
-function and leave the `end` function unchanged.
-
-## Serde
-
-`Org` struct have already implemented serde's `Serialize` trait. It means you can
-serialize it into any format supported by serde, such as json:
-
-```rust
-use orgize::Org;
-use serde_json::{json, to_string};
-
-let org = Org::parse("I 'm *bold*.");
-println!("{}", to_string(&org).unwrap());
-
-// {
-//     "type": "document",
-//     "children": [{
-//         "type": "section",
-//         "children": [{
-//             "type": "paragraph",
-//             "children":[{
-//                 "type": "text",
-//                 "value":"I 'm "
-//             }, {
-//                 "type": "bold",
-//                 "children":[{
-//                     "type": "text",
-//                     "value": "bold"
-//                 }]
-//             }, {
-//                 "type":"text",
-//                 "value":"."
-//             }]
-//         }]
-//     }]
-// }
-```
-
-## Features
-
-By now, orgize provides four features:
-
-+ `ser`: adds the ability to serialize `Org` and other elements using `serde`, enabled by default.
-
-+ `chrono`: adds the ability to convert `Datetime` into `chrono` structs, disabled by default.
-
-+ `syntect`: provides `SyntectHtmlHandler` for highlighting code block, disabled by default.
-
-+ `indexmap`: Uses `IndexMap` instead of `HashMap` for properties to preserve their order, disabled by default.
-
-## License
-
-MIT
+- `indexmap`: adds the ability to convert `PropertyDrawer` properties into `IndexMap`, disabled by default.

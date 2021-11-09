@@ -3,25 +3,27 @@
   "version": "0.0.3",
   "license": "MIT",
   "author": "PoiScript <poiscript@gmail.com>",
-  "main": "lib/orgize.umd.js",
-  "module": "lib/orgize.es.js",
-  "typings": "lib/orgize.d.ts",
+  "scripts": {
+    "build": "rm -rf dist && wasm-pack build -t web -d dist --out-name orgize"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/PoiScript/orgize"
   },
-  "scripts": {
-    "prebuild": "rm -rf out-tsc/ lib/",
-    "build": "tsc && rollup -c rollup.js && cp pkg/orgize_bg.wasm lib/"
-  },
-  "devDependencies": {
-    "rollup": "^2.56.3",
-    "rollup-plugin-copy": "^3.4.0",
-    "rollup-plugin-dts": "^4.0.0",
-    "typescript": "^4.4.2"
+  "module": "orgize.js",
+  "typings": "orgize.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/orgize.d.ts",
+      "import": "./dist/orgize.js"
+    },
+    "./wasm": "./dist/orgize_bg.wasm"
   },
   "files": [
-    "lib",
+    "dist/orgize_bg.wasm",
+    "dist/orgize.js",
+    "dist/orgize.d.ts",
+    "index.html",
     "README.md"
   ]
 }

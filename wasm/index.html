@@ -1,71 +1,274 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Orgize wasm demo</title>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
+    <title>Orgize</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown-light.min.css"
+    />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.22.0/ace.min.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.0/beautify-html.js"></script>
 
-    <script src="./orgize.umd.js"></script>
     <style>
-      h3 {
+      body,
+      html {
+        height: 100%;
         margin: 0;
       }
 
-      body > * {
-        margin-bottom: 16px;
+      .bordered {
+        overflow: auto;
+        width: 50%;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #dbdbdb;
+        border-radius: 4px;
+      }
+
+      #took {
+        color: #808080;
+        font-size: 14px;
+        padding: 0.5em 1em;
+      }
+
+      #tabsList {
+        align-items: center;
+        border-bottom-color: #dbdbdb;
+        border-bottom-style: solid;
+        border-bottom-width: 1px;
+        display: flex;
+        flex-grow: 0;
+        flex-shrink: 0;
+        justify-content: flex-start;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      #tabsList span {
+        text-align: center;
+        color: #4a4a4a;
+        padding: 0.5em 1em;
+        user-select: none;
+        cursor: pointer;
+      }
+
+      #spacer {
+        flex: 1;
+      }
+
+      #tabsList span.is-active {
+        color: #485fc7;
+      }
+
+      .markdown-body a[data-range] {
+        color: #485fc7;
+        cursor: pointer;
       }
     </style>
   </head>
-  <body
-    x-data="{ loaded: false, org: '* Hello, /world/!', type: 'json' }"
-    x-init="orgize.init('./orgize_bg.wasm').then(() => loaded = true)"
-  >
-    <h2>Orgize wasm demo</h2>
-
-    <div>
-      <a href="https://github.com/PoiScript/orgize">GitHub</a>
-      <a href="https://www.npmjs.com/package/orgize">NPM</a>
-      <a href="https://crates.io/crates/orgize">crates.io</a>
-    </div>
-
-    <div>Input:</div>
-
-    <textarea
-      x-model="org"
-      style="width: 100%; height: 100px; margin-bottom: 16px"
-    ></textarea>
-
-    <div>Type:</div>
-
-    <div>
-      <button @click="type = 'json'">JSON</button>
-      <button @click="type = 'html'">HTML</button>
-      <button @click="type = 'html-rendered'">HTML (Rendered)</button>
-    </div>
-
-    <div>Output:</div>
-
-    <noscript>
-      <p style="color: red">JavaScript is required.</p>
-    </noscript>
-
-    <pre
-      x-show="type === 'json'"
-      x-transition
-      x-text="loaded ? JSON.stringify(orgize.Org.parse(org).toJson(), null, 2) : 'Loading...'"
-    ></pre>
-    <pre
-      x-show="type === 'html'"
-      x-transition
-      x-text="loaded ? html_beautify(orgize.renderHtml(org), { indent_size: 2 }) : 'Loading...'"
-    ></pre>
+  <body style="height: 100%; display: flex">
     <div
-      x-show="type === 'html-rendered'"
-      x-transition
-      x-html="loaded ? orgize.renderHtml(org) : 'Loading...'"
-    ></div>
+      style="
+        margin: 16px;
+        display: flex;
+        flex-direction: row;
+        flex: 1;
+        min-height: 0;
+        gap: 16px;
+      "
+    >
+      <div class="bordered">
+        <div style="height: 100%" id="editor"></div>
+      </div>
+
+      <div class="bordered markdown-body">
+        <div id="tabsList">
+          <span class="is-active" data-value="html-rendered">
+            HTML (rendered)
+          </span>
+          <span data-value="html">HTML</span>
+          <span data-value="syntax">Syntax</span>
+          <div id="spacer"></div>
+          <div id="took"></div>
+        </div>
+
+        <div style="flex: 1; overflow: auto">
+          <div id="result"></div>
+        </div>
+      </div>
+    </div>
   </body>
+
+  <script type="module">
+    import init, { Org } from "./dist/orgize.js";
+
+    let org;
+    const result = document.getElementById("result");
+    const took = document.getElementById("took");
+
+    let type = "html-rendered";
+
+    const editor = ace.edit("editor");
+    editor.setTheme("ace/theme/tomorrow");
+
+    // render by type
+
+    const render = () => {
+      const startTime = performance.now();
+
+      org.update(editor.session.getValue());
+
+      switch (type) {
+        case "html-rendered": {
+          const html = injectHeadingClass(org.html());
+          result.innerHTML =
+            "<div style='padding:1.25rem 1.5rem'>" + html + "</div>";
+          break;
+        }
+
+        case "html": {
+          const html = html_beautify(org.html(), { indent_size: 2 });
+          result.innerHTML = "<pre>" + escapeHtml(html) + "</pre>";
+          break;
+        }
+
+        case "syntax": {
+          const syntax = escapeHtml(org.syntax())
+            .split("\n")
+            .map((line) =>
+              line.replace(
+                /([A-Z0-9_-]*)\@(\d+)\.\.(\d+)/,
+                (text, name, start, end) =>
+                  `<b>${name}</b><a data-range="${start}-${end}">@${start}..${end}</a>`
+              )
+            )
+            .join("\n");
+
+          result.innerHTML = "<pre>" + syntax + "</pre>";
+          break;
+        }
+      }
+
+      const finishTime = performance.now();
+
+      took.innerText = "took " + (finishTime - startTime).toFixed(2) + "ms";
+    };
+
+    // select token or node range by click
+
+    result.addEventListener("click", (ev) => {
+      if (!ev.target.dataset.range) return;
+
+      const [start, end] = ev.target.dataset.range.split("-");
+
+      const startPos = editor.session.doc.indexToPosition(parseInt(start));
+      const endPos = editor.session.doc.indexToPosition(parseInt(end));
+      const range = new ace.Range(
+        startPos.row,
+        startPos.column,
+        endPos.row,
+        endPos.column
+      );
+      editor.selection.setRange(range);
+    });
+
+    // switch render type
+
+    document.getElementById("tabsList").addEventListener("click", (ev) => {
+      const clicked = event.target.closest("span");
+
+      if (!clicked) return;
+
+      type = clicked.dataset.value;
+
+      document.querySelectorAll("#tabsList span").forEach((el) => {
+        if (el === clicked) {
+          el.classList.add("is-active");
+        } else {
+          el.classList.remove("is-active");
+        }
+      });
+
+      render();
+    });
+
+    // utils
+
+    const escapeHtml = (html) =>
+      html
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    const injectHeadingClass = (html) =>
+      html.replace(/<h(\d)>/g, (_, l) => `<h${l} class="title is-${l}">`);
+
+    // init
+
+    init().then(() => {
+      org = new Org("");
+
+      editor.session.setValue(`# git hash: ${Org.gitHash}
+# build time: ${Org.buildTime}
+
+*Orgize*, a /pure/ =Rust= library for
+parsing +Emacs+ _org-mode_ files.
+
+See also:
+[[https://github.com/PoiScript/orgize][GitHub]] |
+[[https://crates.io/crates/orgize][crates.io]] |
+[[https://www.npmjs.com/package/orgize][NPM]]
+
+-----
+
+* Heading 1 *bold*
+** Heading 2 =verbatim=
+*** Heading 3 ~code~
+**** Heading 4 /italic/
+***** Heading 5 +strike+
+****** Heading 6 _underline_
+
+This's section
+
+#+begin_quote
+This is a quote
+#+end_quote
+
+#+begin_example
+This is an example block
+#+end_example
+
+1. First item
+2. Second item
+3. Third item
+    * Indented item
+    * Indented item
+4. Fourth item
+
+Table:
+|Syntax     |Description|
+|-----------|-----------|
+|Header     |Title      |
+|Paragraph  |Text       |
+
+Image:
+
+[[https://www.rust-lang.org/static/images/rust-logo-blk.svg]]
+`);
+
+      editor.session.on("change", () => render());
+
+      render();
+    });
+  </script>
 </html>

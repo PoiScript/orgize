@@ -1,14 +1,11 @@
 #![no_main]
 
-#[macro_use]
-extern crate libfuzzer_sys;
-extern crate orgize;
+use libfuzzer_sys::fuzz_target;
+use orgize::syntax::{HtmlHandler, Org};
+use std::str;
 
-use orgize::Org;
-
-#[cfg_attr(rustfmt, rustfmt_skip)]
-libfuzzer_sys::fuzz_target!(|data: &[u8]| {
-    if let Ok(s) = std::str::from_utf8(data) {
-        let _ = Org::parse(s);
+fuzz_target!(|data: &[u8]| {
+    if let Ok(utf8) = str::from_utf8(data) {
+        let _ = Org::parse(utf8);
     }
 });

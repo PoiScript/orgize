@@ -1,10 +1,10 @@
+use rowan::WalkEvent;
 use std::fmt;
-use std::io::{Error, Result as IOResult, Write};
 
-use jetscii::{bytes, BytesConst};
-
-use crate::elements::{Element, Table, TableCell, TableRow, Timestamp};
-use crate::export::write_datetime;
+use super::TraversalContext;
+use super::Traverser;
+use crate::ast::*;
+use crate::syntax::SyntaxToken;
 
 /// A wrapper for escaping sensitive characters in html.
 ///
@@ -26,11 +26,7 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
         let content = self.0.as_ref();
         let bytes = content.as_bytes();
 
-        lazy_static::lazy_static! {
-            static ref ESCAPE_BYTES: BytesConst = bytes!(b'<', b'>', b'&', b'\'', b'"');
-        }
-
-        while let Some(off) = ESCAPE_BYTES.find(&bytes[pos..]) {
+        while let Some(off) = jetscii::bytes!(b'<', b'>', b'&', b'\'', b'"').find(&bytes[pos..]) {
             write!(f, "{}", &content[pos..pos + off])?;
 
             pos += off + 1;
@@ -49,349 +45,359 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
     }
 }
 
-pub trait HtmlHandler<E: From<Error>>: Default {
-    fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
-    fn end<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
-}
-
-/// Default Html Handler
 #[derive(Default)]
-pub struct DefaultHtmlHandler;
+pub struct HtmlExport {
+    pub output: String,
+    in_descriptive_list: Vec<bool>,
+}
 
-impl HtmlHandler<Error> for DefaultHtmlHandler {
-    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
-        match element {
-            // container elements
-            Element::SpecialBlock(_) => (),
-            Element::QuoteBlock(_) => write!(w, "<blockquote>")?,
-            Element::CenterBlock(_) => write!(w, "<div class=\"center\">")?,
-            Element::VerseBlock(_) => write!(w, "<p class=\"verse\">")?,
-            Element::Bold => write!(w, "<b>")?,
-            Element::Document { .. } => write!(w, "<main>")?,
-            Element::DynBlock(_dyn_block) => (),
-            Element::Headline { .. } => (),
-            Element::List(list) => {
-                if list.ordered {
-                    write!(w, "<ol>")?;
-                } else {
-                    write!(w, "<ul>")?;
-                }
-            }
-            Element::Italic => write!(w, "<i>")?,
-            Element::ListItem(_) => write!(w, "<li>")?,
-            Element::Paragraph { .. } => write!(w, "<p>")?,
-            Element::Section => write!(w, "<section>")?,
-            Element::Strike => write!(w, "<s>")?,
-            Element::Underline => write!(w, "<u>")?,
-            // non-container elements
-            Element::CommentBlock(_) => (),
-            Element::ExampleBlock(block) => write!(
-                w,
-                "<pre class=\"example\">{}</pre>",
-                HtmlEscape(&block.contents)
-            )?,
-            Element::ExportBlock(block) => {
-                if block.data.eq_ignore_ascii_case("HTML") {
-                    write!(w, "{}", block.contents)?
-                }
-            }
-            Element::SourceBlock(block) => {
-                if block.language.is_empty() {
-                    write!(
-                        w,
-                        "<pre class=\"example\">{}</pre>",
-                        HtmlEscape(&block.contents)
-                    )?;
-                } else {
-                    write!(
-                        w,
-                        "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
-                        block.language,
-                        HtmlEscape(&block.contents)
-                    )?;
-                }
-            }
-            Element::BabelCall(_) => (),
-            Element::InlineSrc(inline_src) => write!(
-                w,
-                "<code class=\"src src-{}\">{}</code>",
-                inline_src.lang,
-                HtmlEscape(&inline_src.body)
-            )?,
-            Element::Code { value } => write!(w, "<code>{}</code>", HtmlEscape(value))?,
-            Element::FnRef(_fn_ref) => (),
-            Element::InlineCall(_) => (),
-            Element::Link(link) => write!(
-                w,
-                "<a href=\"{}\">{}</a>",
-                HtmlEscape(&link.path),
-                HtmlEscape(link.desc.as_ref().unwrap_or(&link.path)),
-            )?,
-            Element::Macros(_macros) => (),
-            Element::RadioTarget => (),
-            Element::Snippet(snippet) => {
-                if snippet.name.eq_ignore_ascii_case("HTML") {
-                    write!(w, "{}", snippet.value)?;
-                }
-            }
-            Element::Target(_target) => (),
-            Element::Text { value } => write!(w, "{}", HtmlEscape(value))?,
-            Element::Timestamp(timestamp) => {
-                write!(
-                    &mut w,
-                    "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">"
-                )?;
-
-                match timestamp {
-                    Timestamp::Active { start, .. } => {
-                        write_datetime(&mut w, "&lt;", start, "&gt;")?;
-                    }
-                    Timestamp::Inactive { start, .. } => {
-                        write_datetime(&mut w, "[", start, "]")?;
-                    }
-                    Timestamp::ActiveRange { start, end, .. } => {
-                        write_datetime(&mut w, "&lt;", start, "&gt;&#x2013;")?;
-                        write_datetime(&mut w, "&lt;", end, "&gt;")?;
-                    }
-                    Timestamp::InactiveRange { start, end, .. } => {
-                        write_datetime(&mut w, "[", start, "]&#x2013;")?;
-                        write_datetime(&mut w, "[", end, "]")?;
-                    }
-                    Timestamp::Diary { value } => {
-                        write!(&mut w, "&lt;%%({})&gt;", HtmlEscape(value))?
-                    }
-                }
-
-                write!(&mut w, "</span></span>")?;
-            }
-            Element::Verbatim { value } => write!(&mut w, "<code>{}</code>", HtmlEscape(value))?,
-            Element::FnDef(_fn_def) => (),
-            Element::Clock(_clock) => (),
-            Element::Comment(_) => (),
-            Element::FixedWidth(fixed_width) => write!(
-                w,
-                "<pre class=\"example\">{}</pre>",
-                HtmlEscape(&fixed_width.value)
-            )?,
-            Element::Keyword(_keyword) => (),
-            Element::Drawer(_drawer) => (),
-            Element::Rule(_) => write!(w, "<hr>")?,
-            Element::Cookie(cookie) => write!(w, "<code>{}</code>", cookie.value)?,
-            Element::Title(title) => {
-                write!(w, "<h{}>", if title.level <= 6 { title.level } else { 6 })?;
-            }
-            Element::Table(Table::TableEl { .. }) => (),
-            Element::Table(Table::Org { has_header, .. }) => {
-                write!(w, "<table>")?;
-                if *has_header {
-                    write!(w, "<thead>")?;
-                } else {
-                    write!(w, "<tbody>")?;
-                }
-            }
-            Element::TableRow(row) => match row {
-                TableRow::Body => write!(w, "<tr>")?,
-                TableRow::BodyRule => write!(w, "</tbody><tbody>")?,
-                TableRow::Header => write!(w, "<tr>")?,
-                TableRow::HeaderRule => write!(w, "</thead><tbody>")?,
-            },
-            Element::TableCell(cell) => match cell {
-                TableCell::Body => write!(w, "<td>")?,
-                TableCell::Header => write!(w, "<th>")?,
-            },
-        }
-
-        Ok(())
-    }
-
-    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
-        match element {
-            // container elements
-            Element::SpecialBlock(_) => (),
-            Element::QuoteBlock(_) => write!(w, "</blockquote>")?,
-            Element::CenterBlock(_) => write!(w, "</div>")?,
-            Element::VerseBlock(_) => write!(w, "</p>")?,
-            Element::Bold => write!(w, "</b>")?,
-            Element::Document { .. } => write!(w, "</main>")?,
-            Element::DynBlock(_dyn_block) => (),
-            Element::Headline { .. } => (),
-            Element::List(list) => {
-                if list.ordered {
-                    write!(w, "</ol>")?;
-                } else {
-                    write!(w, "</ul>")?;
-                }
-            }
-            Element::Italic => write!(w, "</i>")?,
-            Element::ListItem(_) => write!(w, "</li>")?,
-            Element::Paragraph { .. } => write!(w, "</p>")?,
-            Element::Section => write!(w, "</section>")?,
-            Element::Strike => write!(w, "</s>")?,
-            Element::Underline => write!(w, "</u>")?,
-            Element::Title(title) => {
-                write!(w, "</h{}>", if title.level <= 6 { title.level } else { 6 })?
-            }
-            Element::Table(Table::TableEl { .. }) => (),
-            Element::Table(Table::Org { .. }) => {
-                write!(w, "</tbody></table>")?;
-            }
-            Element::TableRow(TableRow::Body) | Element::TableRow(TableRow::Header) => {
-                write!(w, "</tr>")?;
-            }
-            Element::TableCell(cell) => match cell {
-                TableCell::Body => write!(w, "</td>")?,
-                TableCell::Header => write!(w, "</th>")?,
-            },
-            // non-container elements
-            _ => debug_assert!(!element.is_container()),
-        }
-
-        Ok(())
+impl HtmlExport {
+    pub fn finish(self) -> String {
+        self.output
     }
 }
 
-#[cfg(feature = "syntect")]
-mod syntect_handler {
-    use super::*;
-    use std::marker::PhantomData;
-
-    use syntect::{
-        easy::HighlightLines,
-        highlighting::ThemeSet,
-        html::{styled_line_to_highlighted_html, IncludeBackground},
-        parsing::SyntaxSet,
-    };
-
-    /// Syntect Html Handler
-    ///
-    /// Simple Usage:
-    ///
-    /// ```rust
-    /// use orgize::Org;
-    /// use orgize::export::{DefaultHtmlHandler, SyntectHtmlHandler};
-    ///
-    /// let mut handler = SyntectHtmlHandler::new(DefaultHtmlHandler);
-    /// let org = Org::parse("src_rust{println!(\"Hello\")}");
-    ///
-    /// let mut vec = vec![];
-    ///
-    /// org.write_html_custom(&mut vec, &mut handler).unwrap();
-    /// ```
-    ///
-    /// Customize:
-    ///
-    /// ```rust,no_run
-    /// // orgize has re-exported the whole syntect crate
-    /// use orgize::syntect::parsing::SyntaxSet;
-    /// use orgize::export::{DefaultHtmlHandler, SyntectHtmlHandler};
-    ///
-    /// let mut handler = SyntectHtmlHandler {
-    ///     syntax_set: {
-    ///         let set = SyntaxSet::load_defaults_newlines();
-    ///         let mut builder = set.into_builder();
-    ///         // add extra language syntax
-    ///         builder.add_from_folder("path/to/syntax/dir", true).unwrap();
-    ///         builder.build()
-    ///     },
-    ///     // specify theme
-    ///     theme: String::from("Solarized (dark)"),
-    ///     inner: DefaultHtmlHandler,
-    ///     ..Default::default()
-    /// };
-    ///
-    /// // Make sure to check if theme presents or it will panic at runtime
-    /// if handler.theme_set.themes.contains_key("dont-exists") {
-    ///
-    /// }
-    /// ```
-    pub struct SyntectHtmlHandler<E: From<Error>, H: HtmlHandler<E>> {
-        /// syntax set, default is `SyntaxSet::load_defaults_newlines()`
-        pub syntax_set: SyntaxSet,
-        /// theme set, default is `ThemeSet::load_defaults()`
-        pub theme_set: ThemeSet,
-        /// theme used for highlighting, default is `"InspiredGitHub"`
-        pub theme: String,
-        /// inner html handler
-        pub inner: H,
-        /// background color, default is `IncludeBackground::No`
-        pub background: IncludeBackground,
-        /// handler error type
-        pub error_type: PhantomData<E>,
+impl Traverser for HtmlExport {
+    #[tracing::instrument(skip(self, _ctx))]
+    fn text(&mut self, token: SyntaxToken, _ctx: &mut TraversalContext) {
+        self.output += &HtmlEscape(token.text()).to_string();
     }
 
-    impl<E: From<Error>, H: HtmlHandler<E>> SyntectHtmlHandler<E, H> {
-        pub fn new(inner: H) -> Self {
-            SyntectHtmlHandler {
-                inner,
-                ..Default::default()
+    #[tracing::instrument(skip(self, _ctx))]
+    fn document(&mut self, event: WalkEvent<&Document>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<main>",
+            WalkEvent::Leave(_) => "</main>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn list(&mut self, event: WalkEvent<&List>, _ctx: &mut TraversalContext) {
+        match event {
+            WalkEvent::Enter(list) => {
+                self.output += if list.is_ordered() {
+                    self.in_descriptive_list.push(false);
+                    "<ol>"
+                } else if list.is_descriptive() {
+                    self.in_descriptive_list.push(true);
+                    "<dl>"
+                } else {
+                    self.in_descriptive_list.push(false);
+                    "<ul>"
+                };
             }
-        }
-
-        fn highlight(&self, language: Option<&str>, content: &str) -> String {
-            let mut highlighter = HighlightLines::new(
-                language
-                    .and_then(|lang| self.syntax_set.find_syntax_by_token(lang))
-                    .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text()),
-                &self.theme_set.themes[&self.theme],
-            );
-            let regions = highlighter.highlight(content, &self.syntax_set);
-            styled_line_to_highlighted_html(&regions[..], self.background)
-        }
-    }
-
-    impl<E: From<Error>, H: HtmlHandler<E>> Default for SyntectHtmlHandler<E, H> {
-        fn default() -> Self {
-            SyntectHtmlHandler {
-                syntax_set: SyntaxSet::load_defaults_newlines(),
-                theme_set: ThemeSet::load_defaults(),
-                theme: String::from("InspiredGitHub"),
-                inner: H::default(),
-                background: IncludeBackground::No,
-                error_type: PhantomData,
+            WalkEvent::Leave(list) => {
+                self.output += if list.is_ordered() {
+                    "</ol>"
+                } else if let Some(true) = self.in_descriptive_list.last() {
+                    "</dl>"
+                } else {
+                    "</ul>"
+                };
+                self.in_descriptive_list.pop();
             }
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn list_item(&mut self, event: WalkEvent<&ListItem>, _ctx: &mut TraversalContext) {
+        if !self.in_descriptive_list.last().copied().unwrap_or_default() {
+            self.output += match event {
+                WalkEvent::Enter(_) => "<li>",
+                WalkEvent::Leave(_) => "</li>",
+            };
         }
     }
 
-    impl<E: From<Error>, H: HtmlHandler<E>> HtmlHandler<E> for SyntectHtmlHandler<E, H> {
-        fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
-            match element {
-                Element::InlineSrc(inline_src) => write!(
-                    w,
-                    "<code>{}</code>",
-                    self.highlight(Some(&inline_src.lang), &inline_src.body)
-                )?,
-                Element::SourceBlock(block) => {
-                    if block.language.is_empty() {
-                        write!(w, "<pre class=\"example\">{}</pre>", block.contents)?;
-                    } else {
-                        write!(
-                            w,
-                            "<div class=\"org-src-container\"><pre class=\"src src-{}\">{}</pre></div>",
-                            block.language,
-                            self.highlight(Some(&block.language), &block.contents)
-                        )?;
-                    }
+    #[tracing::instrument(skip(self, _ctx))]
+    fn list_item_content(
+        &mut self,
+        event: WalkEvent<&ListItemContent>,
+        _ctx: &mut TraversalContext,
+    ) {
+        if self.in_descriptive_list.last().copied().unwrap_or_default() {
+            self.output += match event {
+                WalkEvent::Enter(_) => "<dd>",
+                WalkEvent::Leave(_) => "</dd>",
+            };
+        }
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn list_item_tag(&mut self, event: WalkEvent<&ListItemTag>, _ctx: &mut TraversalContext) {
+        if self.in_descriptive_list.last().copied().unwrap_or_default() {
+            self.output += match event {
+                WalkEvent::Enter(_) => "<dt>",
+                WalkEvent::Leave(_) => "</dt>",
+            };
+        }
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn paragraph(&mut self, event: WalkEvent<&Paragraph>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<p>",
+            WalkEvent::Leave(_) => "</p>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn section(&mut self, event: WalkEvent<&Section>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<section>",
+            WalkEvent::Leave(_) => "</section>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn fixed_width(&mut self, event: WalkEvent<&FixedWidth>, _ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(_f) = event {
+            // self.output += f.text();
+        };
+    }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn snippet(&mut self, event: WalkEvent<&Snippet>, ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(snippet) = event {
+            if matches!(snippet.name(), Some(name) if name.text().eq_ignore_ascii_case("html")) {
+                if let Some(value) = snippet.value() {
+                    self.output += value.text()
                 }
-                Element::FixedWidth(fixed_width) => write!(
-                    w,
-                    "<pre class=\"example\">{}</pre>",
-                    self.highlight(None, &fixed_width.value)
-                )?,
-                Element::ExampleBlock(block) => write!(
-                    w,
-                    "<pre class=\"example\">{}</pre>",
-                    self.highlight(None, &block.contents)
-                )?,
-                _ => self.inner.start(w, element)?,
             }
-            Ok(())
-        }
+            return ctx.skip();
+        };
+    }
 
-        fn end<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E> {
-            self.inner.end(w, element)
+    #[tracing::instrument(skip(self, _ctx))]
+    fn headline_title(&mut self, event: WalkEvent<&HeadlineTitle>, _ctx: &mut TraversalContext) {
+        self.output += &match event {
+            WalkEvent::Enter(title) => {
+                let level = title
+                    .headline()
+                    .and_then(|hdl| hdl.level())
+                    .map(|lvl| std::cmp::min(lvl, 6))
+                    .unwrap_or(1);
+                format!("<h{level}>")
+            }
+            WalkEvent::Leave(title) => {
+                let level = title
+                    .headline()
+                    .and_then(|hdl| hdl.level())
+                    .map(|lvl| std::cmp::min(lvl, 6))
+                    .unwrap_or(1);
+                format!("</h{level}>")
+            }
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn italic(&mut self, event: WalkEvent<&Italic>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<i>",
+            WalkEvent::Leave(_) => "</i>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn bold(&mut self, event: WalkEvent<&Bold>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<b>",
+            WalkEvent::Leave(_) => "</b>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn strike(&mut self, event: WalkEvent<&Strike>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<s>",
+            WalkEvent::Leave(_) => "</s>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn underline(&mut self, event: WalkEvent<&Underline>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<u>",
+            WalkEvent::Leave(_) => "</u>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn verbatim(&mut self, event: WalkEvent<&Verbatim>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<code>",
+            WalkEvent::Leave(_) => "</code>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn code(&mut self, event: WalkEvent<&Code>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<code>",
+            WalkEvent::Leave(_) => "</code>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn rule(&mut self, event: WalkEvent<&Rule>, ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(_) = event {
+            self.output += "<hr/>"
+        };
+        ctx.skip()
+    }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn link(&mut self, event: WalkEvent<&Link>, ctx: &mut TraversalContext) {
+        match event {
+            WalkEvent::Enter(link) => {
+                let path = link.path();
+                let path = path.as_ref().map(|path| path.text()).unwrap_or_default();
+
+                if link.is_image() {
+                    self.output += &format!(r#"<img src="{}">"#, HtmlEscape(path));
+                    return ctx.skip();
+                }
+
+                self.output += &format!(r#"<a href="{}">"#, HtmlEscape(path));
+
+                if !link.has_description() {
+                    self.output += &HtmlEscape(path).to_string();
+                    self.output += "</a>";
+                    return ctx.skip();
+                }
+            }
+            WalkEvent::Leave(_) => {
+                self.output += "</a>";
+            }
         }
     }
-}
 
-#[cfg(feature = "syntect")]
-pub use syntect_handler::SyntectHtmlHandler;
+    #[tracing::instrument(skip(self, _ctx))]
+    fn quote_block(&mut self, event: WalkEvent<&QuoteBlock>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<blockquote>",
+            WalkEvent::Leave(_) => "</blockquote>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn verse_block(&mut self, event: WalkEvent<&VerseBlock>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<p class=\"verse\">",
+            WalkEvent::Leave(_) => "</p>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn example_block(&mut self, event: WalkEvent<&ExampleBlock>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<pre class=\"example\">",
+            WalkEvent::Leave(_) => "</pre>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn center_block(&mut self, event: WalkEvent<&CenterBlock>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<div class=\"center\">",
+            WalkEvent::Leave(_) => "</div>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn org_table(&mut self, event: WalkEvent<&OrgTable>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<table><tbody>",
+            WalkEvent::Leave(_) => "</tbody></table>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn org_table_row(&mut self, event: WalkEvent<&OrgTableRow>, ctx: &mut TraversalContext) {
+        if match event {
+            WalkEvent::Enter(n) | WalkEvent::Leave(n) => n.is_rule(),
+        } {
+            return ctx.skip();
+        }
+
+        self.output += match event {
+            WalkEvent::Enter(_) => "<tr>",
+            WalkEvent::Leave(_) => "</tr>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn org_table_cell(&mut self, event: WalkEvent<&OrgTableCell>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<td>",
+            WalkEvent::Leave(_) => "</td>",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn comment(&mut self, event: WalkEvent<&Comment>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<!--",
+            WalkEvent::Leave(_) => "-->",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn comment_block(&mut self, event: WalkEvent<&CommentBlock>, _ctx: &mut TraversalContext) {
+        self.output += match event {
+            WalkEvent::Enter(_) => "<!--",
+            WalkEvent::Leave(_) => "-->",
+        };
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn headline(&mut self, _event: WalkEvent<&Headline>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn inline_src(&mut self, _event: WalkEvent<&InlineSrc>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn inline_call(&mut self, _event: WalkEvent<&InlineCall>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn special_block(&mut self, _event: WalkEvent<&SpecialBlock>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn export_block(&mut self, _event: WalkEvent<&ExportBlock>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn source_block(&mut self, _event: WalkEvent<&SourceBlock>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn babel_call(&mut self, _event: WalkEvent<&BabelCall>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn clock(&mut self, _event: WalkEvent<&Clock>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn cookie(&mut self, _event: WalkEvent<&Cookie>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn radio_target(&mut self, _event: WalkEvent<&RadioTarget>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn drawer(&mut self, _event: WalkEvent<&Drawer>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn dyn_block(&mut self, _event: WalkEvent<&DynBlock>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn fn_def(&mut self, _event: WalkEvent<&FnDef>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn fn_ref(&mut self, _event: WalkEvent<&FnRef>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn macros(&mut self, _event: WalkEvent<&Macros>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn timestamp(&mut self, _event: WalkEvent<&Timestamp>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn target(&mut self, _event: WalkEvent<&Target>, _ctx: &mut TraversalContext) {}
+}

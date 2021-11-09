@@ -5,11 +5,7 @@ macro_rules! test_suite {
     ($name:ident, $content:expr, $expected:expr) => {
         #[test]
         fn $name() {
-            let mut writer = Vec::new();
-            let org = Org::parse($content);
-            org.write_html(&mut writer).unwrap();
-            let string = String::from_utf8(writer).unwrap();
-            assert_eq!(string, $expected);
+            assert_eq!(Org::parse($content).to_html(), $expected);
         }
     };
 }

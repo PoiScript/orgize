@@ -1,30 +1,24 @@
-#![feature(test)]
-
-extern crate test;
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 use orgize::Org;
-use test::Bencher;
 
-#[bench]
-fn org_syntax(b: &mut Bencher) {
-    // wget https://orgmode.org/worg/sources/dev/org-syntax.org
-    b.iter(|| {
-        Org::parse(include_str!("org-syntax.org"));
-    })
+const INPUT: &[(&str, &str)] = &[
+    // ("org-syntax.org", include_str!("./org-syntax.org")),
+    ("doc.org", include_str!("./doc.org")),
+    ("org-faq.org", include_str!("./org-faq.org")),
+];
+
+pub fn bench_parse(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Parse");
+
+    for (id, json) in INPUT.iter() {
+        group.bench_with_input(BenchmarkId::new("Rowan", id), json, |b, i| {
+            b.iter(|| Org::parse(i))
+        });
+    }
+
+    group.finish();
 }
 
-#[bench]
-fn doc(b: &mut Bencher) {
-    // wget https://orgmode.org/worg/sources/doc.org
-    b.iter(|| {
-        Org::parse(include_str!("doc.org"));
-    })
-}
-
-#[bench]
-fn org_faq(b: &mut Bencher) {
-    // wget https://orgmode.org/worg/sources/org-faq.org
-    b.iter(|| {
-        Org::parse(include_str!("org-faq.org"));
-    })
-}
+criterion_group!(benches, bench_parse);
+criterion_main!(benches);

@@ -1,20 +1,27 @@
 [package]
 name = "orgize-fuzz"
-version = "0.0.1"
-authors = ["Automatically generated"]
+version = "0.0.0"
 publish = false
+edition = "2018"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = { git = "https://github.com/rust-fuzz/libfuzzer-sys.git" }
-orgize = { path = ".." }
+libfuzzer-sys = "0.4"
+
+[dependencies.orgize]
+path = ".."
 
 # Prevent this from interfering with workspaces
 [workspace]
 members = ["."]
 
+[profile.release]
+debug = 1
+
 [[bin]]
 name = "fuzz_target_1"
 path = "fuzz_targets/fuzz_target_1.rs"
+test = false
+doc = false
