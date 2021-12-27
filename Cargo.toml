@@ -41,7 +41,7 @@ serde_indextree = { version = "0.2", optional = true }
 syntect = { version = "4.6", optional = true }
 indexmap = { version = "1.7", features = ["serde-1"], optional = true }
 # wasm stuff
-serde-wasm-bindgen = { version = "0.3", optional = true }
+serde-wasm-bindgen = { version = "0.4", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 wee_alloc = { version = "0.4", optional = true }
 
