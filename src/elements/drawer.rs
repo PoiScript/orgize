@@ -10,8 +10,7 @@ use nom::{
 use crate::parse::combinators::{blank_lines_count, eol, lines_till};
 
 /// Drawer Element
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct Drawer<'a> {
     /// Drawer name

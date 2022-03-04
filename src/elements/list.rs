@@ -12,9 +12,8 @@ use nom::{
 };
 
 /// Plain List Element
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct List {
     /// List indent, number of whitespaces
     pub indent: usize,
@@ -26,9 +25,8 @@ pub struct List {
 }
 
 /// List Item Element
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ListItem<'a> {
     /// List item bullet
     pub bullet: Cow<'a, str>,

@@ -8,9 +8,8 @@ use nom::{
 };
 
 /// Link Object
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Link<'a> {
     /// Link destination
     pub path: Cow<'a, str>,

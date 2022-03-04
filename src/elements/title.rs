@@ -22,9 +22,8 @@ use crate::{
 };
 
 /// Title Element
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Title<'a> {
     /// Headline level, number of stars
     pub level: usize,
@@ -124,8 +123,7 @@ impl Default for Title<'_> {
 }
 
 /// Properties
-#[derive(Default, Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Default, Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct PropertiesMap<'a> {
     pub pairs: Vec<(Cow<'a, str>, Cow<'a, str>)>,

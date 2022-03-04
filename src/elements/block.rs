@@ -11,8 +11,7 @@ use crate::elements::Element;
 use crate::parse::combinators::{blank_lines_count, line, lines_till};
 
 /// Special Block Element
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SpecialBlock<'a> {
     /// Block parameters
@@ -40,8 +39,7 @@ impl SpecialBlock<'_> {
 }
 
 /// Quote Block Element
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct QuoteBlock<'a> {
     /// Optional block parameters
@@ -66,8 +64,7 @@ impl QuoteBlock<'_> {
 }
 
 /// Center Block Element
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CenterBlock<'a> {
     /// Optional block parameters
@@ -92,8 +89,7 @@ impl CenterBlock<'_> {
 }
 
 /// Verse Block Element
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct VerseBlock<'a> {
     /// Optional block parameters
@@ -118,8 +114,7 @@ impl VerseBlock<'_> {
 }
 
 /// Comment Block Element
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct CommentBlock<'a> {
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
@@ -142,8 +137,7 @@ impl CommentBlock<'_> {
 }
 
 /// Example Block Element
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExampleBlock<'a> {
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]
@@ -166,8 +160,7 @@ impl ExampleBlock<'_> {
 }
 
 /// Export Block Element
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct ExportBlock<'a> {
     pub data: Cow<'a, str>,
@@ -189,8 +182,7 @@ impl ExportBlock<'_> {
 }
 
 /// Src Block Element
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Default, PartialEq, Clone)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct SourceBlock<'a> {
     ///  Block contents
@@ -220,8 +212,7 @@ impl SourceBlock<'_> {
     // TODO: fn retain_labels() -> bool {  }
 }
 
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, PartialEq)]
 pub(crate) struct RawBlock<'a> {
     pub name: &'a str,
     pub arguments: &'a str,

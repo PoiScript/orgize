@@ -3,8 +3,7 @@ use memchr::memchr_iter;
 
 use crate::elements::Element;
 
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Emphasis<'a> {
     marker: u8,
     contents: &'a str,

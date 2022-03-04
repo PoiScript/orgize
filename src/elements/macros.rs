@@ -8,9 +8,8 @@ use nom::{
 };
 
 /// Macro Object
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Macros<'a> {
     /// Macro name
     pub name: Cow<'a, str>,

@@ -7,9 +7,8 @@ use nom::{
 };
 
 /// Export Snippet Object
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Snippet<'a> {
     /// Back-end name
     pub name: Cow<'a, str>,

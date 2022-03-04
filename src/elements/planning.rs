@@ -3,9 +3,8 @@ use memchr::memchr;
 use crate::elements::Timestamp;
 
 /// Planning element
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Planning<'a> {
     /// Timestamp associated to deadline keyword
     #[cfg_attr(feature = "ser", serde(skip_serializing_if = "Option::is_none"))]

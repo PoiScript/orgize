@@ -12,9 +12,8 @@ use crate::elements::Element;
 use crate::parse::combinators::{blank_lines_count, line};
 
 /// Keyword Element
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Keyword<'a> {
     /// Keyword name
     pub key: Cow<'a, str>,
@@ -39,8 +38,7 @@ impl Keyword<'_> {
 }
 
 /// Babel Call Element
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct BabelCall<'a> {
     /// Babel call value
@@ -59,8 +57,7 @@ impl BabelCall<'_> {
     }
 }
 
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, PartialEq)]
 pub(crate) struct RawKeyword<'a> {
     pub key: &'a str,
     pub value: &'a str,

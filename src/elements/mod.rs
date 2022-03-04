@@ -56,7 +56,7 @@ pub use self::{
 use std::borrow::Cow;
 
 /// Element Enum
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 #[cfg_attr(feature = "ser", serde(tag = "type", rename_all = "kebab-case"))]
 pub enum Element<'a> {

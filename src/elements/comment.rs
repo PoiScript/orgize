@@ -7,7 +7,7 @@ use nom::{
 
 use crate::parse::combinators::{blank_lines_count, lines_while};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct Comment<'a> {
     /// Comments value, with pound signs

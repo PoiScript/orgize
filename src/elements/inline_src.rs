@@ -8,9 +8,8 @@ use nom::{
 };
 
 /// Inline Src Block Object
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InlineSrc<'a> {
     /// Language of the code
     pub lang: Cow<'a, str>,

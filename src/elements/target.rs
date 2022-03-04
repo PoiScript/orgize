@@ -8,9 +8,8 @@ use nom::{
 };
 
 /// Target Object
-#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Target<'a> {
     /// Target ID
     pub target: Cow<'a, str>,

@@ -9,8 +9,7 @@ use nom::{
 use crate::parse::combinators::{blank_lines_count, line, lines_till};
 
 /// Dynamic Block Element
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Default, PartialEq, Clone)]
 #[cfg_attr(feature = "ser", derive(serde::Serialize))]
 pub struct DynBlock<'a> {
     /// Block name
