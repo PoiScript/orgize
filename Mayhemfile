@@ -1,8 +1,8 @@
 # Namespaced project name that the target belongs to
-project: prateekvishnu/orgize
+project: orgize
 
 # Target name (should be unique within the project)
-target: prateekvishnu
+target: orgize
 
 # Base image to run the binary in.
 image: ghcr.io/prateekvishnu/orgize:latest
