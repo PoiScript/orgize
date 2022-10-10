@@ -69,7 +69,7 @@ assert_eq!(
 ## Render html with custom `HtmlHandler`
 
 To customize html rendering, simply implementing `HtmlHandler` trait and passing
-it to the `Org::wirte_html_custom` function.
+it to the `Org::write_html_custom` function.
 
 The following code demonstrates how to add a id for every headline and return
 own error type while rendering.
