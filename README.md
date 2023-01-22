@@ -139,7 +139,7 @@ impl HtmlHandler<MyError> for MyHtmlHandler {
 fn main() -> Result<(), MyError> {
     let mut writer = Vec::new();
     let mut handler = MyHtmlHandler::default();
-    Org::parse("* title\n*section*").wirte_html_custom(&mut writer, &mut handler)?;
+    Org::parse("* title\n*section*").write_html_custom(&mut writer, &mut handler)?;
 
     assert_eq!(
         String::from_utf8(writer)?,
