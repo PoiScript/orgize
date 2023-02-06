@@ -49,7 +49,7 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
     }
 }
 
-pub trait HtmlHandler<E: From<Error>>: Default {
+pub trait HtmlHandler<E: From<Error>> {
     fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
     fn end<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
 }
