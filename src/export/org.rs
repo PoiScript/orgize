@@ -1,17 +1,12 @@
 use std::io::{Error, Result as IOResult, Write};
 
 use crate::elements::{Clock, Element, Table, Timestamp};
-use crate::export::write_datetime;
-
-pub trait OrgHandler<E: From<Error>>: Default {
-    fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
-    fn end<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
-}
+use crate::export::{write_datetime, ExportHandler};
 
 #[derive(Default)]
 pub struct DefaultOrgHandler;
 
-impl OrgHandler<Error> for DefaultOrgHandler {
+impl ExportHandler<Error> for DefaultOrgHandler {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
         match element {
             // container elements

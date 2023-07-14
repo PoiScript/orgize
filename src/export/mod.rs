@@ -5,12 +5,18 @@ mod org;
 
 #[cfg(feature = "syntect")]
 pub use html::SyntectHtmlHandler;
-pub use html::{DefaultHtmlHandler, HtmlEscape, HtmlHandler};
-pub use org::{DefaultOrgHandler, OrgHandler};
+pub use html::{DefaultHtmlHandler, HtmlEscape};
+pub use org::{DefaultOrgHandler};
 
 use std::io::{Error, Write};
 
-use crate::elements::Datetime;
+use crate::elements::{Datetime, Element};
+
+pub trait ExportHandler<E: From<Error>>: Default {
+    fn start<W: Write>(&mut self, writer: W, element: &Element) -> Result<(), E>;
+    fn end<W: Write>(&mut self, writer: W, element: &Element) -> Result<(), E>;
+}
+
 
 pub(crate) fn write_datetime<W: Write>(
     mut w: W,

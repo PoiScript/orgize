@@ -5,7 +5,7 @@ use std::io::{Error as IOError, Write};
 use std::result::Result;
 use std::string::FromUtf8Error;
 
-use orgize::export::{DefaultHtmlHandler, HtmlHandler};
+use orgize::export::{DefaultHtmlHandler, ExportHandler};
 use orgize::{Element, Org};
 use slugify::slugify;
 
@@ -32,7 +32,7 @@ impl From<FromUtf8Error> for MyError {
 #[derive(Default)]
 struct MyHtmlHandler(DefaultHtmlHandler);
 
-impl HtmlHandler<MyError> for MyHtmlHandler {
+impl ExportHandler<MyError> for MyHtmlHandler {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), MyError> {
         if let Element::Title(title) = element {
             if title.level > 6 {
@@ -72,7 +72,7 @@ fn main() -> Result<(), MyError> {
 
         let mut writer = Vec::new();
         let mut handler = MyHtmlHandler::default();
-        Org::parse(&contents).write_html_custom(&mut writer, &mut handler)?;
+        Org::parse(&contents).write(&mut writer, &mut handler)?;
 
         println!("{}", String::from_utf8(writer)?);
     }

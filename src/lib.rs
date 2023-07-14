@@ -74,13 +74,13 @@
 //! );
 //! ```
 //!
-//! # Render html with custom `HtmlHandler`
+//! # Render html with custom `ExportHandler`
 //!
-//! To customize html rendering, simply implementing [`HtmlHandler`] trait and passing
-//! it to the [`Org::write_html_custom`] function.
+//! To customize html rendering, simply implementing [`ExportHandler`] trait and passing
+//! it to the [`Org::write`] function.
 //!
-//! [`HtmlHandler`]: export/trait.HtmlHandler.html
-//! [`Org::write_html_custom`]: struct.Org.html#method.write_html_custom
+//! [`ExportHandler`]: export/trait.ExportHandler.html
+//! [`Org::write`]: struct.Org.html#method.write
 //!
 //! The following code demonstrates how to add a id for every headline and return
 //! own error type while rendering.
@@ -90,7 +90,7 @@
 //! use std::io::{Error as IOError, Write};
 //! use std::string::FromUtf8Error;
 //!
-//! use orgize::export::{DefaultHtmlHandler, HtmlHandler};
+//! use orgize::export::{DefaultHtmlHandler, ExportHandler};
 //! use orgize::{Element, Org};
 //! use slugify::slugify;
 //!
@@ -117,7 +117,7 @@
 //! #[derive(Default)]
 //! struct MyHtmlHandler(DefaultHtmlHandler);
 //!
-//! impl HtmlHandler<MyError> for MyHtmlHandler {
+//! impl ExportHandler<MyError> for MyHtmlHandler {
 //!     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), MyError> {
 //!         if let Element::Title(title) = element {
 //!             if title.level > 6 {
@@ -150,7 +150,7 @@
 //! fn main() -> Result<(), MyError> {
 //!     let mut writer = Vec::new();
 //!     let mut handler = MyHtmlHandler::default();
-//!     Org::parse("* title\n*section*").write_html_custom(&mut writer, &mut handler)?;
+//!     Org::parse("* title\n*section*").write(&mut writer, &mut handler)?;
 //!
 //!     assert_eq!(
 //!         String::from_utf8(writer)?,

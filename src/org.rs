@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut};
 use crate::{
     config::{ParseConfig, DEFAULT_CONFIG},
     elements::{Element, Keyword},
-    export::{DefaultHtmlHandler, DefaultOrgHandler, HtmlHandler, OrgHandler},
+    export::{DefaultHtmlHandler, DefaultOrgHandler, ExportHandler},
     parsers::{blank_lines_count, parse_container, Container, OwnedArena},
 };
 
@@ -109,20 +109,12 @@ impl<'a> Org<'a> {
             })
     }
 
-    /// Writes an `Org` struct as html format.
-    pub fn write_html<W>(&self, writer: W) -> Result<(), Error>
-    where
-        W: Write,
-    {
-        self.write_html_custom(writer, &mut DefaultHtmlHandler)
-    }
-
-    /// Writes an `Org` struct as html format with custom `HtmlHandler`.
-    pub fn write_html_custom<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
+    /// Writes the document using the given {ExportHandler}
+    pub fn write<W, X, E>(&self, mut writer: W, handler: &mut X) -> Result<(), E>
     where
         W: Write,
         E: From<Error>,
-        H: HtmlHandler<E>,
+        X: ExportHandler<E>,
     {
         for event in self.iter() {
             match event {
@@ -132,6 +124,14 @@ impl<'a> Org<'a> {
         }
 
         Ok(())
+    }
+
+    /// Writes an `Org` struct as html format.
+    pub fn write_html<W>(&self, writer: W) -> Result<(), Error>
+    where
+        W: Write,
+    {
+        self.write(writer, &mut DefaultHtmlHandler)
     }
 
     /// Writes an `Org` struct as org format.
@@ -139,24 +139,7 @@ impl<'a> Org<'a> {
     where
         W: Write,
     {
-        self.write_org_custom(writer, &mut DefaultOrgHandler)
-    }
-
-    /// Writes an `Org` struct as org format with custom `OrgHandler`.
-    pub fn write_org_custom<W, H, E>(&self, mut writer: W, handler: &mut H) -> Result<(), E>
-    where
-        W: Write,
-        E: From<Error>,
-        H: OrgHandler<E>,
-    {
-        for event in self.iter() {
-            match event {
-                Event::Start(element) => handler.start(&mut writer, element)?,
-                Event::End(element) => handler.end(&mut writer, element)?,
-            }
-        }
-
-        Ok(())
+        self.write(writer, &mut DefaultOrgHandler)
     }
 }
 

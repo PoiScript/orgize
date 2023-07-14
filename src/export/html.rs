@@ -4,7 +4,7 @@ use std::io::{Error, Result as IOResult, Write};
 use jetscii::{bytes, BytesConst};
 
 use crate::elements::{Element, Table, TableCell, TableRow, Timestamp};
-use crate::export::write_datetime;
+use crate::export::{write_datetime, ExportHandler};
 
 /// A wrapper for escaping sensitive characters in html.
 ///
@@ -49,16 +49,11 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
     }
 }
 
-pub trait HtmlHandler<E: From<Error>>: Default {
-    fn start<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
-    fn end<W: Write>(&mut self, w: W, element: &Element) -> Result<(), E>;
-}
-
 /// Default Html Handler
 #[derive(Default)]
 pub struct DefaultHtmlHandler;
 
-impl HtmlHandler<Error> for DefaultHtmlHandler {
+impl ExportHandler<Error> for DefaultHtmlHandler {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
         match element {
             // container elements
@@ -304,7 +299,7 @@ mod syntect_handler {
     ///
     /// }
     /// ```
-    pub struct SyntectHtmlHandler<E: From<Error>, H: HtmlHandler<E>> {
+    pub struct SyntectHtmlHandler<E: From<Error>, H: ExportHandler<E>> {
         /// syntax set, default is `SyntaxSet::load_defaults_newlines()`
         pub syntax_set: SyntaxSet,
         /// theme set, default is `ThemeSet::load_defaults()`
@@ -319,7 +314,7 @@ mod syntect_handler {
         pub error_type: PhantomData<E>,
     }
 
-    impl<E: From<Error>, H: HtmlHandler<E>> SyntectHtmlHandler<E, H> {
+    impl<E: From<Error>, H: ExportHandler<E>> SyntectHtmlHandler<E, H> {
         pub fn new(inner: H) -> Self {
             SyntectHtmlHandler {
                 inner,
@@ -339,7 +334,7 @@ mod syntect_handler {
         }
     }
 
-    impl<E: From<Error>, H: HtmlHandler<E>> Default for SyntectHtmlHandler<E, H> {
+    impl<E: From<Error>, H: ExportHandler<E>> Default for SyntectHtmlHandler<E, H> {
         fn default() -> Self {
             SyntectHtmlHandler {
                 syntax_set: SyntaxSet::load_defaults_newlines(),
@@ -352,7 +347,7 @@ mod syntect_handler {
         }
     }
 
-    impl<E: From<Error>, H: HtmlHandler<E>> HtmlHandler<E> for SyntectHtmlHandler<E, H> {
+    impl<E: From<Error>, H: ExportHandler<E>> ExportHandler<E> for SyntectHtmlHandler<E, H> {
         fn start<W: Write>(&mut self, mut w: W, element: &Element) -> Result<(), E> {
             match element {
                 Element::InlineSrc(inline_src) => write!(
