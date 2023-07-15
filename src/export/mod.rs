@@ -12,7 +12,7 @@ use std::io::{Error, Write};
 
 use crate::elements::{Datetime, Element};
 
-pub trait ExportHandler<E: From<Error>>: Default {
+pub trait ExportHandler<E: From<Error>> {
     fn start<W: Write>(&mut self, writer: W, element: &Element) -> Result<(), E>;
     fn end<W: Write>(&mut self, writer: W, element: &Element) -> Result<(), E>;
 }
