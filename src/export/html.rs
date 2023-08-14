@@ -60,6 +60,7 @@ pub struct DefaultHtmlHandler;
 
 impl HtmlHandler<Error> for DefaultHtmlHandler {
     fn start<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
+        let image_pattern = ["png", "jpeg", "jpg", "gif", "tiff", "tif", "xbm", "xpm", "pbm", "pgm", "ppm", "pnm", "svg", "webp"];
         match element {
             // container elements
             Element::SpecialBlock(_) => (),
@@ -121,12 +122,26 @@ impl HtmlHandler<Error> for DefaultHtmlHandler {
             Element::Code { value } => write!(w, "<code>{}</code>", HtmlEscape(value))?,
             Element::FnRef(_fn_ref) => (),
             Element::InlineCall(_) => (),
-            Element::Link(link) => write!(
-                w,
-                "<a href=\"{}\">{}</a>",
-                HtmlEscape(&link.path),
-                HtmlEscape(link.desc.as_ref().unwrap_or(&link.path)),
-            )?,
+            Element::Link(link) => {
+                let link_extension = &link.path.split(".").last().unwrap();
+                // Orgmode considers something an image both if the pattern
+                // matches /and/ the description is empty.
+                if image_pattern.contains(link_extension) && link.desc.is_none() {
+                    write!(
+                        w,
+                        "<img src=\"{}\" alt=\"{}\">",
+                        HtmlEscape(&link.path),
+                        HtmlEscape(link.desc.as_ref().unwrap_or(&link.path)),
+                    )?
+                } else {
+                    write!(
+                        w,
+                        "<a href=\"{}\">{}</a>",
+                        HtmlEscape(&link.path),
+                        HtmlEscape(link.desc.as_ref().unwrap_or(&link.path)),
+                    )?
+                }
+            },
             Element::Macros(_macros) => (),
             Element::RadioTarget => (),
             Element::Snippet(snippet) => {
