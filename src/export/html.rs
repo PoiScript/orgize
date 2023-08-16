@@ -54,7 +54,7 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
 pub struct DefaultHtmlHandler;
 
 impl ExportHandler<Error> for DefaultHtmlHandler {
-    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
+    fn start<W: Write>(&mut self, mut w: W, element: &Element, _ancestors: Vec<&Element>) -> IOResult<()> {
         match element {
             // container elements
             Element::SpecialBlock(_) => (),
@@ -199,7 +199,7 @@ impl ExportHandler<Error> for DefaultHtmlHandler {
         Ok(())
     }
 
-    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
+    fn end<W: Write>(&mut self, mut w: W, element: &Element, _ancestors: Vec<&Element>) -> IOResult<()> {
         match element {
             // container elements
             Element::SpecialBlock(_) => (),

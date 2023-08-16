@@ -7,7 +7,7 @@ use crate::export::{write_datetime, ExportHandler};
 pub struct DefaultOrgHandler;
 
 impl ExportHandler<Error> for DefaultOrgHandler {
-    fn start<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
+    fn start<W: Write>(&mut self, mut w: W, element: &Element, _ancestors: Vec<&Element>) -> IOResult<()> {
         match element {
             // container elements
             Element::SpecialBlock(block) => {
@@ -192,7 +192,7 @@ impl ExportHandler<Error> for DefaultOrgHandler {
         Ok(())
     }
 
-    fn end<W: Write>(&mut self, mut w: W, element: &Element) -> IOResult<()> {
+    fn end<W: Write>(&mut self, mut w: W, element: &Element, _ancestors: Vec<&Element>) -> IOResult<()> {
         match element {
             // container elements
             Element::SpecialBlock(block) => {

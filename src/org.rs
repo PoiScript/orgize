@@ -16,8 +16,8 @@ pub struct Org<'a> {
 
 #[derive(Debug)]
 pub enum Event<'a, 'b> {
-    Start(&'b Element<'a>),
-    End(&'b Element<'a>),
+    Start(&'b Element<'a>, Vec<&'b Element<'a>>),
+    End(&'b Element<'a>, Vec<&'b Element<'a>>),
 }
 
 impl<'a> Org<'a> {
@@ -93,8 +93,15 @@ impl<'a> Org<'a> {
     /// Returns an iterator of `Event`s.
     pub fn iter<'b>(&'b self) -> impl Iterator<Item = Event<'a, 'b>> + 'b {
         self.root.traverse(&self.arena).map(move |edge| match edge {
-            NodeEdge::Start(node) => Event::Start(&self[node]),
-            NodeEdge::End(node) => Event::End(&self[node]),
+            NodeEdge::Start(node) => Event::Start(
+                &self[node],
+                // @@@ this ancestors call and the one below also return the current node
+                node.ancestors(&self.arena).into_iter().map(|x| &self[x]).collect::<Vec<_>>()
+            ),
+            NodeEdge::End(node) => Event::End(
+                &self[node],
+                node.ancestors(&self.arena).into_iter().map(|x| &self[x]).collect::<Vec<_>>()
+            ),
         })
     }
 
@@ -118,8 +125,8 @@ impl<'a> Org<'a> {
     {
         for event in self.iter() {
             match event {
-                Event::Start(element) => handler.start(&mut writer, element)?,
-                Event::End(element) => handler.end(&mut writer, element)?,
+                Event::Start(element, ancestors) => handler.start(&mut writer, element, ancestors)?,
+                Event::End(element, ancestors) => handler.end(&mut writer, element, ancestors)?,
             }
         }
 
