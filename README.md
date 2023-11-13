@@ -2,6 +2,7 @@ A Rust library for parsing org-mode files.
 
 [![Crates.io](https://img.shields.io/crates/v/orgize.svg)](https://crates.io/crates/orgize)
 [![Documentation](https://docs.rs/orgize/badge.svg)](https://docs.rs/orgize)
+[![Build status](https://github.com/PoiScript/orgize/actions/workflows/ci.yml/badge.svg)](https://github.com/PoiScript/orgize/actions/workflows/ci.yml)
 ![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)
 
 # Parse
