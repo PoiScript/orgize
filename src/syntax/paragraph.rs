@@ -65,8 +65,7 @@ fn parse() {
         @r###"
     PARAGRAPH@0..6
       TEXT@0..2 "a\n"
-      BLANK_LINE@2..6
-        WHITESPACE@2..6 "    "
+      BLANK_LINE@2..6 "    "
     "###
     );
 
@@ -89,8 +88,7 @@ c
         @r###"
     PARAGRAPH@0..3
       TEXT@0..2 "a\n"
-      BLANK_LINE@2..3
-        NEW_LINE@2..3 "\n"
+      BLANK_LINE@2..3 "\n"
     "###
     );
 }

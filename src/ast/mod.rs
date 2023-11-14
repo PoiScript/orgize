@@ -19,7 +19,7 @@ use rowan::{ast::AstNode, Language, NodeOrToken};
 
 pub fn blank_lines(parent: &SyntaxNode) -> usize {
     parent
-        .children()
+        .children_with_tokens()
         .filter(|n| n.kind() == SyntaxKind::BLANK_LINE)
         .count()
 }

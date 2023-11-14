@@ -1,11 +1,7 @@
 #![no_main]
 
-use libfuzzer_sys::fuzz_target;
-use orgize::syntax::{HtmlHandler, Org};
-use std::str;
-
-fuzz_target!(|data: &[u8]| {
-    if let Ok(utf8) = str::from_utf8(data) {
-        let _ = Org::parse(utf8);
+libfuzzer_sys::fuzz_target!(|data: &[u8]| {
+    if let Ok(utf8) = std::str::from_utf8(data) {
+        let _ = orgize::Org::parse(utf8);
     }
 });

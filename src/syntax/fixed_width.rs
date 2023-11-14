@@ -55,10 +55,8 @@ fn parse() {
         @r###"
     FIXED_WIDTH@0..19
       TEXT@0..14 ": A\n:\n: B\n: C\n"
-      BLANK_LINE@14..15
-        NEW_LINE@14..15 "\n"
-      BLANK_LINE@15..19
-        WHITESPACE@15..19 "    "
+      BLANK_LINE@14..15 "\n"
+      BLANK_LINE@15..19 "    "
     "###
     );
 }

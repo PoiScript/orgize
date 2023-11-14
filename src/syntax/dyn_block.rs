@@ -99,14 +99,12 @@ CONTENTS
         TEXT@9..19 "clocktable"
         TEXT@19..31 " :scope file"
         NEW_LINE@31..32 "\n"
-      BLANK_LINE@32..33
-        NEW_LINE@32..33 "\n"
+      BLANK_LINE@32..33 "\n"
       TEXT@33..42 "CONTENTS\n"
       DYN_BLOCK_END@42..49
         TEXT@42..48 "#+END:"
         NEW_LINE@48..49 "\n"
-      BLANK_LINE@49..53
-        WHITESPACE@49..53 "    "
+      BLANK_LINE@49..53 "    "
     "###
     );
 }

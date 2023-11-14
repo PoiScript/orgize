@@ -1,13 +1,9 @@
 use std::iter::once;
 
-use memchr::{memchr, memchr_iter};
+use memchr::{memchr, memchr2_iter, memchr_iter};
 use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{line_ending, space0},
-    combinator::eof,
-    sequence::tuple,
-    AsBytes, IResult, InputLength, InputTake, Parser,
+    bytes::complete::tag, character::complete::space0, AsBytes, IResult, InputLength, InputTake,
+    Parser,
 };
 use rowan::{GreenNode, GreenToken, Language, NodeOrToken};
 
@@ -97,23 +93,30 @@ where
 
 /// Takes all blank lines
 pub fn blank_lines(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
-    let mut lines = vec![];
-    let mut i = input;
+    if input.is_empty() {
+        return Ok((input, vec![]));
+    }
 
-    while !i.is_empty() {
-        match tuple::<_, _, (), _>((space0, alt((line_ending, eof))))(i) {
-            Ok((input, (ws, nl))) => {
-                let mut b = NodeBuilder::new();
-                b.ws(ws);
-                b.nl(nl);
-                lines.push(b.finish(BLANK_LINE));
-                i = input;
-            }
-            _ => break,
+    let mut lines = vec![];
+    let mut start = 0;
+    let bytes = input.as_bytes();
+
+    for index in memchr2_iter(b'\r', b'\n', bytes)
+        .map(|i| i + 1)
+        .chain(once(bytes.len()))
+    {
+        if bytes.get(index - 1) == Some(&b'\r') && bytes.get(index) == Some(&b'\n') {
+            continue;
+        }
+        if start != index && bytes[start..index].iter().all(|b| b.is_ascii_whitespace()) {
+            lines.push(token(BLANK_LINE, &input.as_str()[start..index]));
+            start = index;
+        } else {
+            break;
         }
     }
 
-    Ok((i, lines))
+    Ok((input.take_split(start).0, lines))
 }
 
 #[test]
@@ -123,6 +126,11 @@ fn test_blank_lines() {
     let (input, output) = blank_lines(("", config).into()).unwrap();
     assert_eq!(input.as_str(), "");
     assert_eq!(output, vec![]);
+
+    let (input, output) = blank_lines(("\n", config).into()).unwrap();
+    assert_eq!(input.as_str(), "");
+    assert_eq!(output.len(), 1);
+    assert_eq!(output[0].to_string(), "\n");
 
     let (input, output) = blank_lines(("    t", config).into()).unwrap();
     assert_eq!(input.as_str(), "    t");
@@ -138,13 +146,15 @@ fn test_blank_lines() {
     assert_eq!(output[4].to_string(), "  ");
 
     let (input, output) =
-        blank_lines(("  \r\n\n\t\t\r\n  \n   t\n  \r\n\n\t\t\r\n  \n", config).into()).unwrap();
-    assert_eq!(input.as_str(), "   t\n  \r\n\n\t\t\r\n  \n");
-    assert_eq!(output.len(), 4);
-    assert_eq!(output[0].to_string(), "  \r\n");
+        blank_lines(("\r\n\n\t\t\r\n  \n\r   \r   t\n  ", config).into()).unwrap();
+    assert_eq!(input.as_str(), "   t\n  ");
+    assert_eq!(output.len(), 6);
+    assert_eq!(output[0].to_string(), "\r\n");
     assert_eq!(output[1].to_string(), "\n");
     assert_eq!(output[2].to_string(), "\t\t\r\n");
     assert_eq!(output[3].to_string(), "  \n");
+    assert_eq!(output[4].to_string(), "\r");
+    assert_eq!(output[5].to_string(), "   \r");
 }
 
 /// Returns 1. anything before trailing whitespace, 2. whitespace itself, 3. line feeding

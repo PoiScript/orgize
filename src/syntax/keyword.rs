@@ -84,7 +84,6 @@ pub fn affiliated_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement
         // find the first text token in children
         let Some(NodeOrToken::Token(token)) = node
             .children()
-            .into_iter()
             .find(|t| t.kind() == SyntaxKind::TEXT.into())
         else {
             return Err(nom::Err::Error(()));

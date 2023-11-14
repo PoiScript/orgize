@@ -62,10 +62,8 @@ fn parse() {
     RULE@0..8
       TEXT@0..5 "-----"
       NEW_LINE@5..6 "\n"
-      BLANK_LINE@6..7
-        NEW_LINE@6..7 "\n"
-      BLANK_LINE@7..8
-        NEW_LINE@7..8 "\n"
+      BLANK_LINE@6..7 "\n"
+      BLANK_LINE@7..8 "\n"
     "###
     );
 

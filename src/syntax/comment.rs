@@ -70,8 +70,7 @@ fn parse() {
         @r###"
     COMMENT@0..12
       TEXT@0..11 "#\n  # a\n #\n"
-      BLANK_LINE@11..12
-        NEW_LINE@11..12 "\n"
+      BLANK_LINE@11..12 "\n"
     "###
     );
 

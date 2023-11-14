@@ -195,10 +195,8 @@ fn parse_table_el() {
         @r###"
     TABLE_EL@0..37
       TEXT@0..32 "  +---+\n      |   |\n  ..."
-      BLANK_LINE@32..33
-        NEW_LINE@32..33 "\n"
-      BLANK_LINE@33..37
-        WHITESPACE@33..37 "    "
+      BLANK_LINE@32..33 "\n"
+      BLANK_LINE@33..37 "    "
     "###
     );
 

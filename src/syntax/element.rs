@@ -208,8 +208,7 @@ b"#),
     SECTION@0..4
       PARAGRAPH@0..3
         TEXT@0..2 "a\n"
-        BLANK_LINE@2..3
-          NEW_LINE@2..3 "\n"
+        BLANK_LINE@2..3 "\n"
       PARAGRAPH@3..4
         TEXT@3..4 "b"
     "###

@@ -328,8 +328,7 @@ fn parse() {
         LIST_ITEM_CONTENT@7..11
           PARAGRAPH@7..10
             TEXT@7..10 "1\n\n"
-          BLANK_LINE@10..11
-            NEW_LINE@10..11 "\n"
+          BLANK_LINE@10..11 "\n"
       LIST_ITEM@11..14
         LIST_ITEM_INDENT@11..11 ""
         LIST_ITEM_BULLET@11..13 "+ "

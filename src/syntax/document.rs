@@ -53,13 +53,9 @@ fn parse() {
         to_document("\n  \n\n").syntax,
         @r###"
     DOCUMENT@0..5
-      BLANK_LINE@0..1
-        NEW_LINE@0..1 "\n"
-      BLANK_LINE@1..4
-        WHITESPACE@1..3 "  "
-        NEW_LINE@3..4 "\n"
-      BLANK_LINE@4..5
-        NEW_LINE@4..5 "\n"
+      BLANK_LINE@0..1 "\n"
+      BLANK_LINE@1..4 "  \n"
+      BLANK_LINE@4..5 "\n"
     "###
     );
 
@@ -77,8 +73,7 @@ fn parse() {
         to_document("\n* section").syntax,
         @r###"
     DOCUMENT@0..10
-      BLANK_LINE@0..1
-        NEW_LINE@0..1 "\n"
+      BLANK_LINE@0..1 "\n"
       HEADLINE@1..10
         HEADLINE_STARS@1..2 "*"
         WHITESPACE@2..3 " "
@@ -91,8 +86,7 @@ fn parse() {
         to_document("\n** heading 2\n* heading 1").syntax,
         @r###"
     DOCUMENT@0..25
-      BLANK_LINE@0..1
-        NEW_LINE@0..1 "\n"
+      BLANK_LINE@0..1 "\n"
       HEADLINE@1..14
         HEADLINE_STARS@1..3 "**"
         WHITESPACE@3..4 " "

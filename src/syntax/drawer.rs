@@ -179,8 +179,7 @@ fn parse() {
         TEXT@1..7 "DRAWER"
         COLON@7..8 ":"
         NEW_LINE@8..9 "\n"
-      BLANK_LINE@9..10
-        NEW_LINE@9..10 "\n"
+      BLANK_LINE@9..10 "\n"
       TEXT@10..10 ""
       DRAWER_END@10..18
         WHITESPACE@10..12 "  "
@@ -188,8 +187,7 @@ fn parse() {
         TEXT@13..16 "END"
         COLON@16..17 ":"
         NEW_LINE@17..18 "\n"
-      BLANK_LINE@18..19
-        NEW_LINE@18..19 "\n"
+      BLANK_LINE@18..19 "\n"
     "###
     );
 

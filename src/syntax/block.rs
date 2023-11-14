@@ -168,10 +168,8 @@ r#"#+BEGIN_SRC
         TEXT@8..11 "SRC"
         TEXT@11..11 ""
         NEW_LINE@11..12 "\n"
-      BLANK_LINE@12..13
-        NEW_LINE@12..13 "\n"
-      BLANK_LINE@13..14
-        NEW_LINE@13..14 "\n"
+      BLANK_LINE@12..13 "\n"
+      BLANK_LINE@13..14 "\n"
       BLOCK_CONTENT@14..14
       BLOCK_END@14..27
         WHITESPACE@14..18 "    "
@@ -222,10 +220,8 @@ alert('Hello World!');
         TEXT@54..60 "#+END_"
         TEXT@60..63 "SRC"
         NEW_LINE@63..64 "\n"
-      BLANK_LINE@64..65
-        NEW_LINE@64..65 "\n"
-      BLANK_LINE@65..69
-        WHITESPACE@65..69 "    "
+      BLANK_LINE@64..65 "\n"
+      BLANK_LINE@65..69 "    "
     "###
     );
 

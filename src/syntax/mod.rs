@@ -99,10 +99,10 @@ pub enum SyntaxKind {
     DOUBLE_ARROW, // '=>'
     PIPE,         // '|'
     COMMA,        // ','
-    TEXT,
+    NEW_LINE,     // '\n' or '\r\n' or '\r'
+    WHITESPACE,   // ' ' or '\t'
     BLANK_LINE,
-    WHITESPACE,
-    NEW_LINE,
+    TEXT,
 
     DOCUMENT,
     SECTION,

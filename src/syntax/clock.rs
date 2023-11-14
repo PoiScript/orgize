@@ -130,8 +130,7 @@ fn parse() {
       COLON@59..60 ":"
       TEXT@60..62 "00"
       NEW_LINE@62..63 "\n"
-      BLANK_LINE@63..64
-        NEW_LINE@63..64 "\n"
+      BLANK_LINE@63..64 "\n"
     "###
     );
 }

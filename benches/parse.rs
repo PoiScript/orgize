@@ -3,9 +3,9 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use orgize::Org;
 
 const INPUT: &[(&str, &str)] = &[
-    // ("org-syntax.org", include_str!("./org-syntax.org")),
     ("doc.org", include_str!("./doc.org")),
     ("org-faq.org", include_str!("./org-faq.org")),
+    ("org-syntax.org", include_str!("./org-syntax.org")),
 ];
 
 pub fn bench_parse(c: &mut Criterion) {
