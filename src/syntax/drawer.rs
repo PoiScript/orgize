@@ -9,8 +9,8 @@ use nom::{
 
 use super::{
     combinator::{
-        blank_lines, colon_token, debug_assert_lossless, line_starts_iter, node, plus_token,
-        trim_line_end, GreenElement, NodeBuilder,
+        blank_lines, colon_token, line_starts_iter, node, plus_token, trim_line_end, GreenElement,
+        NodeBuilder,
     },
     input::Input,
     SyntaxKind::*,
@@ -126,14 +126,14 @@ fn node_property_node(input: Input) -> IResult<Input, GreenElement, ()> {
     )(input)
 }
 
-#[tracing::instrument(skip(input), fields(input = input.s))]
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn property_drawer_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(property_drawer_node_base)(input)
+    crate::lossless_parser!(property_drawer_node_base, input)
 }
 
-#[tracing::instrument(skip(input), fields(input = input.s))]
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn drawer_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(drawer_node_base)(input)
+    crate::lossless_parser!(drawer_node_base, input)
 }
 
 #[test]

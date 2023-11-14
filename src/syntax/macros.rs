@@ -7,15 +7,15 @@ use nom::{
 
 use super::{
     combinator::{
-        debug_assert_lossless, l_curly3_token, l_parens_token, node, r_curly3_token,
-        r_parens_token, GreenElement,
+        l_curly3_token, l_parens_token, node, r_curly3_token, r_parens_token, GreenElement,
     },
     input::Input,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn macros_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             l_curly3_token,
             verify(
@@ -38,7 +38,8 @@ pub fn macros_node(input: Input) -> IResult<Input, GreenElement, ()> {
             children.push(r_curly3);
             node(MACROS, children)
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

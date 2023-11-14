@@ -6,13 +6,14 @@ use nom::{
 };
 
 use super::{
-    combinator::{debug_assert_lossless, l_angle2_token, node, r_angle2_token, GreenElement},
+    combinator::{l_angle2_token, node, r_angle2_token, GreenElement},
     input::Input,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn target_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             l_angle2_token,
             verify(
@@ -24,7 +25,8 @@ pub fn target_node(input: Input) -> IResult<Input, GreenElement, ()> {
             r_angle2_token,
         )),
         |(l_angle2, target, r_angle2)| node(TARGET, [l_angle2, target.text_token(), r_angle2]),
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

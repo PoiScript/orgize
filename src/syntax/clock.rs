@@ -8,17 +8,15 @@ use nom::{
 };
 
 use super::{
-    combinator::{
-        blank_lines, colon_token, debug_assert_lossless, double_arrow_token, GreenElement,
-        NodeBuilder,
-    },
+    combinator::{blank_lines, colon_token, double_arrow_token, GreenElement, NodeBuilder},
     input::Input,
     timestamp::{timestamp_active_node, timestamp_inactive_node},
     SyntaxKind,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn clock_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             space0,
             tag("CLOCK:"),
@@ -56,7 +54,8 @@ pub fn clock_node(input: Input) -> IResult<Input, GreenElement, ()> {
             b.children.extend(post_blank);
             b.finish(SyntaxKind::CLOCK)
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

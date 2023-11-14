@@ -3,64 +3,76 @@ use memchr::memchr_iter;
 use nom::{combinator::map, AsBytes, IResult, Slice};
 
 use super::{
-    combinator::{debug_assert_lossless, node, token, GreenElement},
+    combinator::{node, token, GreenElement},
     input::Input,
     object::object_nodes,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn bold_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(emphasis(b'*'), |contents| {
+    let mut parser = map(emphasis(b'*'), |contents| {
         let mut children = vec![token(STAR, "*")];
         children.extend(object_nodes(contents));
         children.push(token(STAR, "*"));
         node(BOLD, children)
-    }))(input)
+    });
+    crate::lossless_parser!(parser, input)
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn code_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(emphasis(b'~'), |contents| {
+    let mut parser = map(emphasis(b'~'), |contents| {
         node(
             CODE,
             [token(TILDE, "~"), contents.text_token(), token(TILDE, "~")],
         )
-    }))(input)
+    });
+    crate::lossless_parser!(parser, input)
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn strike_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(emphasis(b'+'), |contents| {
+    let mut parser = map(emphasis(b'+'), |contents| {
         let mut children = vec![token(PLUS, "+")];
         children.extend(object_nodes(contents));
         children.push(token(PLUS, "+"));
         node(STRIKE, children)
-    }))(input)
+    });
+    crate::lossless_parser!(parser, input)
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn verbatim_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(emphasis(b'='), |contents| {
+    let mut parser = map(emphasis(b'='), |contents| {
         node(
             VERBATIM,
             [token(EQUAL, "="), contents.text_token(), token(EQUAL, "=")],
         )
-    }))(input)
+    });
+    crate::lossless_parser!(parser, input)
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn underline_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(emphasis(b'_'), |contents| {
+    let mut parser = map(emphasis(b'_'), |contents| {
         let mut children = vec![token(UNDERSCORE, "_")];
         children.extend(object_nodes(contents));
         children.push(token(UNDERSCORE, "_"));
         node(UNDERLINE, children)
-    }))(input)
+    });
+    crate::lossless_parser!(parser, input)
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn italic_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(emphasis(b'/'), |contents| {
+    let mut parser = map(emphasis(b'/'), |contents| {
         let mut children = vec![token(SLASH, "/")];
         children.extend(object_nodes(contents));
         children.push(token(SLASH, "/"));
         node(ITALIC, children)
-    }))(input)
+    });
+    crate::lossless_parser!(parser, input)
 }
 
 fn emphasis(marker: u8) -> impl Fn(Input) -> IResult<Input, Input, ()> {

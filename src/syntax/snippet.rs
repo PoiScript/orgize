@@ -6,13 +6,13 @@ use nom::{
 };
 
 use super::{
-    combinator::{at2_token, colon_token, debug_assert_lossless, node, GreenElement},
+    combinator::{at2_token, colon_token, node, GreenElement},
     input::Input,
     SyntaxKind::*,
 };
 
 pub fn snippet_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             at2_token,
             take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
@@ -26,7 +26,8 @@ pub fn snippet_node(input: Input) -> IResult<Input, GreenElement, ()> {
                 [at2, name.text_token(), colon, value.text_token(), at2_],
             )
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

@@ -144,6 +144,7 @@ pub enum SyntaxKind {
     DRAWER_END,
     KEYWORD,
     BABEL_CALL,
+    AFFILIATED_KEYWORD,
     TABLE_EL,
     CLOCK,
     FN_DEF,

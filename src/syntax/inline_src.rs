@@ -7,15 +7,15 @@ use nom::{
 
 use super::{
     combinator::{
-        debug_assert_lossless, l_bracket_token, l_curly_token, node, r_bracket_token,
-        r_curly_token, GreenElement,
+        l_bracket_token, l_curly_token, node, r_bracket_token, r_curly_token, GreenElement,
     },
     input::Input,
     SyntaxKind,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn inline_src_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             tag("src_"),
             take_while1(|c: char| !c.is_ascii_whitespace() && c != '[' && c != '{'),
@@ -40,7 +40,8 @@ pub fn inline_src_node(input: Input) -> IResult<Input, GreenElement, ()> {
             children.push(r_curly);
             node(SyntaxKind::INLINE_SRC, children)
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

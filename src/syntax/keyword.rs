@@ -1,104 +1,126 @@
 use nom::{
-    bytes::complete::take_till,
+    branch::alt,
+    bytes::complete::{tag, take_till, take_while1},
     character::complete::space0,
-    combinator::{cond, opt},
+    combinator::{recognize, verify},
     sequence::tuple,
-    IResult,
+    IResult, InputLength, InputTake,
 };
+use rowan::GreenNode;
 
 use super::{
-    combinator::{
-        blank_lines, colon_token, debug_assert_lossless, hash_plus_token, l_bracket_token,
-        r_bracket_token, trim_line_end, GreenElement, NodeBuilder,
-    },
+    combinator::{blank_lines, hash_plus_token, trim_line_end, GreenElement},
     input::Input,
     SyntaxKind,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn keyword_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(keyword_node_base)(input)
-}
-
-fn keyword_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
-    let (input, (ws, hash_plus, key)) = tuple((
-        space0,
-        hash_plus_token,
-        take_till(|c: char| c.is_ascii_whitespace() || c == ':' || c == '['),
-    ))(input)?;
-
-    let is_babel_call = key.s.eq_ignore_ascii_case("CALL");
-
-    let (input, optional) = cond(
-        !is_babel_call,
-        opt(tuple((
-            l_bracket_token,
-            take_till(|c| c == ']' || c == '\n'),
-            r_bracket_token,
-        ))),
-    )(input)?;
-
-    let (input, (colon, (value, ws_, nl), post_blank)) =
-        tuple((colon_token, trim_line_end, blank_lines))(input)?;
-
-    let mut b = NodeBuilder::new();
-
-    b.ws(ws);
-    b.push(hash_plus);
-    b.text(key);
-    if let Some(Some((l_bracket, optional, r_bracket))) = optional {
-        b.children
-            .extend([l_bracket, optional.text_token(), r_bracket]);
+    fn f(input: Input) -> IResult<Input, GreenElement, ()> {
+        let (input, (key, mut nodes, post_blank)) = keyword_node_base(input)?;
+        nodes.extend(post_blank);
+        Ok((
+            input,
+            GreenElement::Node(GreenNode::new(
+                if key == "CALL" {
+                    SyntaxKind::BABEL_CALL.into()
+                } else {
+                    SyntaxKind::KEYWORD.into()
+                },
+                nodes,
+            )),
+        ))
     }
-    b.push(colon);
-    b.ws(ws_);
-    b.text(value);
-    b.nl(nl);
-    b.children.extend(post_blank);
-
-    Ok((
-        input,
-        b.finish(if is_babel_call {
-            SyntaxKind::BABEL_CALL
-        } else {
-            SyntaxKind::KEYWORD
-        }),
-    ))
+    crate::lossless_parser!(f, input)
 }
 
+/// Return empty vector if input doesn't contain affiliated keyword, or affiliated keyword is
+/// followed by blank lines.
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn affiliated_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
-    use rowan::NodeOrToken;
-
     let mut children = vec![];
     let mut i = input;
 
     while !i.is_empty() {
-        let Ok((input, keyword)) = keyword_node(i) else {
+        let Ok((input_, (key, nodes, post_blank))) = keyword_node_base(i) else {
             break;
         };
-        i = input;
 
-        let Some(node) = keyword.as_node() else {
-            return Err(nom::Err::Error(()));
-        };
-
-        // find the first text token in children
-        let Some(NodeOrToken::Token(token)) = node
-            .children()
-            .find(|t| t.kind() == SyntaxKind::TEXT.into())
-        else {
-            return Err(nom::Err::Error(()));
-        };
-
-        let text = token.text();
-
-        if input.c.affiliated_keywords.iter().all(|w| w != text) && !text.starts_with("ATTR_") {
-            return Err(nom::Err::Error(()));
+        // affiliated keyword can not followed by blank lines or eof
+        if !post_blank.is_empty() || input_.is_empty() {
+            return Ok((input, vec![]));
         }
 
-        children.push(keyword);
+        if input_.c.affiliated_keywords.iter().all(|w| w != key) && !key.starts_with("ATTR_") {
+            break;
+        }
+
+        i = input_;
+        children.push(GreenElement::Node(GreenNode::new(
+            SyntaxKind::AFFILIATED_KEYWORD.into(),
+            nodes,
+        )));
     }
 
     Ok((i, children))
+}
+
+fn keyword_node_base(
+    input: Input,
+) -> IResult<Input, (&str, Vec<GreenElement>, Vec<GreenElement>), ()> {
+    let (input, (ws, hash_plus)) = tuple((space0, hash_plus_token))(input)?;
+
+    let (input, (key, optional, colon)) = alt((key_with_optional, key))(input)?;
+
+    let (input, (value, ws_, nl)) = trim_line_end(input)?;
+    let (input, post_blank) = blank_lines(input)?;
+
+    let mut children = vec![];
+    if !ws.is_empty() {
+        children.push(ws.ws_token());
+    }
+    children.push(hash_plus);
+    children.push(key.text_token());
+    if let Some((l_bracket, optional, r_bracket)) = optional {
+        children.push(l_bracket.token(SyntaxKind::L_BRACKET));
+        children.push(optional.text_token());
+        children.push(r_bracket.token(SyntaxKind::R_BRACKET));
+    }
+    children.push(colon.token(SyntaxKind::COLON));
+    children.push(value.text_token());
+    if !ws_.is_empty() {
+        children.push(ws_.ws_token());
+    }
+    if !nl.is_empty() {
+        children.push(nl.nl_token());
+    }
+
+    Ok((input, (key.s, children, post_blank)))
+}
+
+fn key(input: Input) -> IResult<Input, (Input, Option<(Input, Input, Input)>, Input), ()> {
+    let (input, output) = verify(
+        recognize(tuple((
+            take_till(|c: char| c.is_ascii_whitespace() || c == ':'),
+            take_while1(|c: char| c == ':'),
+        ))),
+        |i: &Input| i.input_len() >= 2,
+    )(input)?;
+    let (colon, key) = output.take_split(output.input_len() - 1);
+    Ok((input, (key, None, colon)))
+}
+
+fn key_with_optional(
+    input: Input,
+) -> IResult<Input, (Input, Option<(Input, Input, Input)>, Input), ()> {
+    let (input, (key, r_backer, optional, l_backer, colon)) = tuple((
+        alt((tag("CAPTION"), tag("RESULTS"))),
+        tag("["),
+        take_till(|c| c == '\r' || c == '\n' || c == ']'),
+        tag("]"),
+        tag(":"),
+    ))(input)?;
+    Ok((input, (key, Some((r_backer, optional, l_backer)), colon)))
 }
 
 #[test]
@@ -112,6 +134,13 @@ fn parse() {
     let to_keyword = to_ast::<Keyword>(keyword_node);
 
     let to_babel_call = to_ast::<BabelCall>(keyword_node);
+
+    to_keyword("#+KEY:");
+    to_keyword("#+::");
+    to_keyword("#+::");
+    to_keyword("#+:: ");
+    to_keyword("#+:: \n");
+    to_keyword("#+::\n");
 
     insta::assert_debug_snapshot!(
         to_keyword("#+KEY:").syntax,
@@ -193,22 +222,43 @@ fn parse() {
     );
 
     insta::assert_debug_snapshot!(
-        to_keyword("#+CAPTION[Short caption]: Longer caption.").syntax,
+        to_keyword("#+ABC[OPTIONAL]: Longer value.").syntax,
         @r###"
-    KEYWORD@0..41
+    KEYWORD@0..30
+      HASH_PLUS@0..2 "#+"
+      TEXT@2..15 "ABC[OPTIONAL]"
+      COLON@15..16 ":"
+      TEXT@16..30 " Longer value."
+    "###
+    );
+
+    insta::assert_debug_snapshot!(
+        to_keyword("#+CAPTION: value").syntax,
+        @r###"
+    KEYWORD@0..16
+      HASH_PLUS@0..2 "#+"
+      TEXT@2..9 "CAPTION"
+      COLON@9..10 ":"
+      TEXT@10..16 " value"
+    "###
+    );
+
+    insta::assert_debug_snapshot!(
+        to_keyword("#+CAPTION[caption optional]: value").syntax,
+        @r###"
+    KEYWORD@0..34
       HASH_PLUS@0..2 "#+"
       TEXT@2..9 "CAPTION"
       L_BRACKET@9..10 "["
-      TEXT@10..23 "Short caption"
-      R_BRACKET@23..24 "]"
-      COLON@24..25 ":"
-      TEXT@25..41 " Longer caption."
+      TEXT@10..26 "caption optional"
+      R_BRACKET@26..27 "]"
+      COLON@27..28 ":"
+      TEXT@28..34 " value"
     "###
     );
 
     let config = &ParseConfig::default();
 
     assert!(keyword_node(("#+KE Y: VALUE", config).into()).is_err());
-    assert!(keyword_node(("#+CALL[option]: VALUE", config).into()).is_err());
     assert!(keyword_node(("#+ KEY: VALUE", config).into()).is_err());
 }

@@ -3,7 +3,17 @@
 #![allow(unused)]
 
 use crate::syntax::{OrgLanguage, SyntaxKind, SyntaxKind::*, SyntaxNode, SyntaxToken};
-use rowan::ast::{support::{self, token}, AstChildren, AstNode};
+use rowan::ast::{support, AstChildren, AstNode};
+
+fn affiliated_keyword(
+    node: &SyntaxNode,
+    filter: impl Fn(&str) -> bool,
+) -> Option<AffiliatedKeyword> {
+    node.children()
+        .take_while(|n| n.kind() == SyntaxKind::AFFILIATED_KEYWORD)
+        .filter_map(AffiliatedKeyword::cast)
+        .find(|k| matches!(k.key(), Some(k) if filter(k.text())))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Document {
@@ -80,6 +90,26 @@ impl AstNode for Paragraph {
 impl Paragraph {
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
+    }
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
     }
 }
 
@@ -384,6 +414,26 @@ impl OrgTable {
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -441,6 +491,26 @@ impl AstNode for List {
 impl List {
     pub fn items(&self) -> AstChildren<ListItem> {
         support::children(&self.syntax)
+    }
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
     }
 }
 
@@ -578,7 +648,28 @@ impl AstNode for DynBlock {
         &self.syntax
     }
 }
-impl DynBlock {}
+impl DynBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Keyword {
@@ -615,6 +706,24 @@ impl AstNode for BabelCall {
     }
 }
 impl BabelCall {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AffiliatedKeyword {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AstNode for AffiliatedKeyword {
+    type Language = OrgLanguage;
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == AFFILIATED_KEYWORD
+    }
+    fn cast(node: SyntaxNode) -> Option<AffiliatedKeyword> {
+        Self::can_cast(node.kind()).then(|| AffiliatedKeyword { syntax: node })
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AffiliatedKeyword {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TableEl {
@@ -680,6 +789,26 @@ impl FnDef {
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -704,6 +833,26 @@ impl Comment {
     }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
+    }
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
     }
 }
 
@@ -752,6 +901,26 @@ impl FixedWidth {
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -770,7 +939,28 @@ impl AstNode for SpecialBlock {
         &self.syntax
     }
 }
-impl SpecialBlock {}
+impl SpecialBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct QuoteBlock {
@@ -788,7 +978,28 @@ impl AstNode for QuoteBlock {
         &self.syntax
     }
 }
-impl QuoteBlock {}
+impl QuoteBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CenterBlock {
@@ -806,7 +1017,28 @@ impl AstNode for CenterBlock {
         &self.syntax
     }
 }
-impl CenterBlock {}
+impl CenterBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VerseBlock {
@@ -824,7 +1056,28 @@ impl AstNode for VerseBlock {
         &self.syntax
     }
 }
-impl VerseBlock {}
+impl VerseBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CommentBlock {
@@ -842,7 +1095,28 @@ impl AstNode for CommentBlock {
         &self.syntax
     }
 }
-impl CommentBlock {}
+impl CommentBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExampleBlock {
@@ -860,7 +1134,28 @@ impl AstNode for ExampleBlock {
         &self.syntax
     }
 }
-impl ExampleBlock {}
+impl ExampleBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExportBlock {
@@ -878,7 +1173,28 @@ impl AstNode for ExportBlock {
         &self.syntax
     }
 }
-impl ExportBlock {}
+impl ExportBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SourceBlock {
@@ -896,7 +1212,28 @@ impl AstNode for SourceBlock {
         &self.syntax
     }
 }
-impl SourceBlock {}
+impl SourceBlock {
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InlineCall {

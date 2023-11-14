@@ -8,14 +8,14 @@ use nom::{
 };
 
 use super::{
-    combinator::{debug_assert_lossless, GreenElement, NodeBuilder},
+    combinator::{GreenElement, NodeBuilder},
     input::Input,
     timestamp::{timestamp_active_node, timestamp_inactive_node},
     SyntaxKind::*,
 };
 
 pub fn planning_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(planning_node_base)(input)
+    crate::lossless_parser!(planning_node_base, input)
 }
 
 fn planning_node_base(input: Input) -> IResult<Input, GreenElement, ()> {

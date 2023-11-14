@@ -8,15 +8,14 @@ use nom::{
 };
 
 use super::{
-    combinator::{
-        debug_assert_lossless, l_bracket_token, node, r_bracket_token, token, GreenElement,
-    },
+    combinator::{l_bracket_token, node, r_bracket_token, token, GreenElement},
     input::Input,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn cookie_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             l_bracket_token,
             alt((
@@ -42,7 +41,8 @@ pub fn cookie_node(input: Input) -> IResult<Input, GreenElement, ()> {
 
             node(COOKIE, children)
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

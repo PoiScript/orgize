@@ -2,6 +2,7 @@
 mod generated;
 
 
+mod affiliated_keyword;
 mod drawer;
 mod headline;
 mod inline_call;

@@ -7,10 +7,7 @@ use nom::{
 };
 
 use super::{
-    combinator::{
-        blank_lines, debug_assert_lossless, line_ends_iter, node, pipe_token, GreenElement,
-        NodeBuilder,
-    },
+    combinator::{blank_lines, line_ends_iter, node, pipe_token, GreenElement, NodeBuilder},
     input::Input,
     object::object_nodes,
     SyntaxKind::*,
@@ -120,12 +117,14 @@ fn table_el_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     Ok((input, node(TABLE_EL, children)))
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn org_table_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(org_table_node_base)(input)
+    crate::lossless_parser!(org_table_node_base, input)
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn table_el_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(table_el_node_base)(input)
+    crate::lossless_parser!(table_el_node_base, input)
 }
 
 #[test]

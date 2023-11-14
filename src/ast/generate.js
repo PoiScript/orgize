@@ -19,6 +19,7 @@ const nodes = [
     struct: "Paragraph",
     kind: ["PARAGRAPH"],
     post_blank: true,
+    affiliated_keywords: true,
   },
   {
     struct: "Headline",
@@ -97,6 +98,7 @@ const nodes = [
     struct: "OrgTable",
     kind: ["ORG_TABLE"],
     post_blank: true,
+    affiliated_keywords: true,
   },
   {
     struct: "OrgTableRow",
@@ -110,6 +112,7 @@ const nodes = [
     struct: "List",
     kind: ["LIST"],
     children: [["items", "ListItem"]],
+    affiliated_keywords: true,
   },
   {
     struct: "ListItem",
@@ -143,6 +146,7 @@ const nodes = [
   {
     struct: "DynBlock",
     kind: ["DYN_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "Keyword",
@@ -151,6 +155,10 @@ const nodes = [
   {
     struct: "BabelCall",
     kind: ["BABEL_CALL"],
+  },
+  {
+    struct: "AffiliatedKeyword",
+    kind: ["AFFILIATED_KEYWORD"],
   },
   {
     struct: "TableEl",
@@ -166,12 +174,14 @@ const nodes = [
     struct: "FnDef",
     kind: ["FN_DEF"],
     post_blank: true,
+    affiliated_keywords: true,
   },
   {
     struct: "Comment",
     kind: ["COMMENT"],
     post_blank: true,
     token: [["text", "TEXT"]],
+    affiliated_keywords: true,
   },
   {
     struct: "Rule",
@@ -183,38 +193,47 @@ const nodes = [
     kind: ["FIXED_WIDTH"],
     post_blank: true,
     token: [["text", "TEXT"]],
+    affiliated_keywords: true,
   },
   {
     struct: "SpecialBlock",
     kind: ["SPECIAL_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "QuoteBlock",
     kind: ["QUOTE_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "CenterBlock",
     kind: ["CENTER_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "VerseBlock",
     kind: ["VERSE_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "CommentBlock",
     kind: ["COMMENT_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "ExampleBlock",
     kind: ["EXAMPLE_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "ExportBlock",
     kind: ["EXPORT_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "SourceBlock",
     kind: ["SOURCE_BLOCK"],
+    affiliated_keywords: true,
   },
   {
     struct: "InlineCall",
@@ -313,6 +332,13 @@ let content = `//! generated file, do not modify it directly
 
 use rowan::ast::{support, AstChildren, AstNode};
 use crate::syntax::{OrgLanguage, SyntaxKind, SyntaxKind::*, SyntaxNode, SyntaxToken};
+
+fn affiliated_keyword(node: &SyntaxNode, filter: impl Fn(&str) -> bool) -> Option<AffiliatedKeyword> {
+  node.children()
+      .take_while(|n| n.kind() == SyntaxKind::AFFILIATED_KEYWORD)
+      .filter_map(AffiliatedKeyword::cast)
+      .find(|k| matches!(k.key(), Some(k) if filter(k.text())))
+}
 `;
 
 for (const node of nodes) {
@@ -355,6 +381,14 @@ impl ${node.struct} {\n`;
   }
   if (node.pre_blank) {
     content += `    pub fn pre_blank(&self) -> usize { super::blank_lines(&self.syntax) }\n`;
+  }
+  if (node.affiliated_keywords) {
+    content += `    pub fn caption(&self) -> Option<AffiliatedKeyword> { affiliated_keyword(&self.syntax, |k| k == "CAPTION") }\n`;
+    content += `    pub fn header(&self) -> Option<AffiliatedKeyword> { affiliated_keyword(&self.syntax, |k| k == "HEADER") }\n`;
+    content += `    pub fn name(&self) -> Option<AffiliatedKeyword> { affiliated_keyword(&self.syntax, |k| k == "NAME") }\n`;
+    content += `    pub fn plot(&self) -> Option<AffiliatedKeyword> { affiliated_keyword(&self.syntax, |k| k == "PLOT") }\n`;
+    content += `    pub fn results(&self) -> Option<AffiliatedKeyword> { affiliated_keyword(&self.syntax, |k| k == "RESULTS") }\n`;
+    content += `    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> { affiliated_keyword(&self.syntax, |k| k.starts_with("ATTR_") && &k[5..] == backend) }\n`;
   }
   content += `}\n`;
 }

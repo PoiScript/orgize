@@ -1,7 +1,7 @@
 use nom::{IResult, InputTake};
 
 use super::{
-    combinator::{blank_lines, debug_assert_lossless, line_ends_iter, node, GreenElement},
+    combinator::{blank_lines, line_ends_iter, node, GreenElement},
     input::Input,
     SyntaxKind,
 };
@@ -33,8 +33,9 @@ fn fixed_width_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     Ok((input, node(SyntaxKind::FIXED_WIDTH, children)))
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn fixed_width_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(fixed_width_node_base)(input)
+    crate::lossless_parser!(fixed_width_node_base, input)
 }
 
 #[test]

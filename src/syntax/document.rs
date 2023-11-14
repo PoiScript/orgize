@@ -4,14 +4,15 @@ use nom::{
 };
 
 use super::{
-    combinator::{blank_lines, debug_assert_lossless, node, GreenElement},
+    combinator::{blank_lines, node, GreenElement},
     headline::{headline_node, section_node},
     input::Input,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn document_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(document_node_base)(input)
+    crate::lossless_parser!(document_node_base, input)
 }
 
 fn document_node_base(input: Input) -> IResult<Input, GreenElement, ()> {

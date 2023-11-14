@@ -1,192 +1,86 @@
-use nom::{AsBytes, IResult, InputTake};
+use nom::IResult;
 
 use super::{
     block::block_node,
     clock::clock_node,
-    combinator::{line_starts_iter, GreenElement},
+    combinator::GreenElement,
     comment::comment_node,
     drawer::drawer_node,
     dyn_block::dyn_block_node,
     fixed_width::fixed_width_node,
     fn_def::fn_def_node,
     input::Input,
-    keyword::keyword_node,
+    keyword::{affiliated_keyword_nodes, keyword_node},
     list::list_node,
-    paragraph::paragraph_nodes,
+    paragraph::paragraph_node,
     rule::rule_node,
     table::{org_table_node, table_el_node},
 };
 
 /// Parses input into multiple element
-#[tracing::instrument(skip(input), fields(input = input.s))]
+///
+/// input must not contains blank line in the beginning
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn element_nodes(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> {
-    // TODO:
-    // debug_assert!(!input.is_empty());
-    let nodes = element_nodes_base(input)?;
+    debug_assert!(!input.is_empty());
+
+    let mut i = input;
+    let mut nodes = vec![];
+
+    while !i.is_empty() {
+        let result = element_node(i);
+        debug_assert!(result.is_ok(), "element_node() always returns Ok()");
+        let (input, node) = result?;
+        i = input;
+        nodes.push(node);
+    }
+
     debug_assert_eq!(
         input.as_str(),
         nodes.iter().fold(String::new(), |s, n| s + &n.to_string()),
         "parser must be lossless"
     );
+
     Ok(nodes)
 }
 
-/// Parses input into multiple elements
-///
-/// input must not contains blank line in the beginning
-fn element_nodes_base(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> {
-    #[derive(PartialEq, Eq)]
-    enum PreviousLine {
-        None,
-        BlankLine,
-        AffiliatedKeyword,
-        Other,
-    }
-
-    let mut children = vec![];
-
-    let mut i = input;
-
-    let mut previous_line = PreviousLine::None;
-
-    'l: loop {
-        for (input, head) in line_starts_iter(i.as_str()).map(|idx| i.take_split(idx)) {
-            // find the first byte that's not a whitespace
-            let trimmed = input.as_str().trim_start_matches(|c| c == ' ' || c == '\t');
-
-            // if this line is an affiliated keyword, that skip it
-            if is_affiliated_keyword(trimmed) {
-                if previous_line == PreviousLine::BlankLine {
-                    children.extend(paragraph_nodes(head)?);
-                }
-                previous_line = PreviousLine::AffiliatedKeyword;
-                continue;
-            }
-
-            // if this line is a blank line
-            if is_blank_line(trimmed) {
-                if previous_line == PreviousLine::AffiliatedKeyword {
-                    previous_line = PreviousLine::BlankLine;
-                    if let Ok((input, node)) = keyword_node(input) {
-                        if !head.is_empty() {
-                            children.extend(paragraph_nodes(head)?);
-                        }
-                        children.push(node);
-                        i = input;
-                        continue 'l;
-                    }
-                }
-                continue;
-            }
-
-            if let Ok((input, node)) = match trimmed.bytes().next() {
-                Some(b'[') => fn_def_node(input),
-                Some(b'0'..=b'9') | Some(b'*') => list_node(input),
-                Some(b'C') => clock_node(input),
-                Some(b'-') => rule_node(input).or_else(|_| list_node(input)),
-                Some(b':') => drawer_node(input).or_else(|_| fixed_width_node(input)),
-                Some(b'|') => org_table_node(input),
-                Some(b'+') => table_el_node(input).or_else(|_| list_node(input)),
-                Some(b'#') => block_node(input)
-                    .or_else(|_| keyword_node(input))
-                    .or_else(|_| dyn_block_node(input))
-                    .or_else(|_| comment_node(input)),
-                _ => Err(nom::Err::Error(())),
-            } {
-                if !head.is_empty() {
-                    children.extend(paragraph_nodes(head)?);
-                }
-                children.push(node);
-                i = input;
-                continue 'l;
-            }
-        }
-
-        break;
-    }
-
-    if !i.is_empty() {
-        children.extend(paragraph_nodes(i)?);
-    }
-
-    Ok(children)
-}
-
-pub fn is_affiliated_keyword(line: &str) -> bool {
-    line.starts_with("#+CAPTION:")
-        || line.starts_with("#+DATA:")
-        || line.starts_with("#+HEADER:")
-        || line.starts_with("#+HEADERS:")
-        || line.starts_with("#+LABEL:")
-        || line.starts_with("#+NAME:")
-        || line.starts_with("#+PLOT:")
-        || line.starts_with("#+RESNAME:")
-        || line.starts_with("#+RESULT:")
-        || line.starts_with("#+RESULTS:")
-        || line.starts_with("#+SOURCE:")
-        || line.starts_with("#+SRCNAME:")
-        || line.starts_with("#+TBLNAME:")
-        || line.starts_with("#+ATTR_")
-}
-
-pub fn is_blank_line(line: &str) -> bool {
-    matches!(line.bytes().next(), None | Some(b'\n') | Some(b'\r'))
-}
-
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn element_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    let mut has_affiliated_keyword = false;
+    // skip affiliated keyword first
+    let (i, nodes) = affiliated_keyword_nodes(input)?;
 
-    for offset in line_starts_iter(input.as_str()) {
-        // find the first byte that's not a whitespace
-        let Some(idx) = input.as_bytes()[offset..]
-            .iter()
-            .position(|b| *b != b' ' && *b != b'\t')
-        else {
-            break;
-        };
+    let has_affiliated_keyword = !nodes.is_empty();
 
-        let line = &input.as_str()[(idx + offset)..];
+    // find first non-whitespace character
+    let byte = i
+        .as_str()
+        .trim_start_matches(|c| c == ' ' || c == '\t')
+        .bytes()
+        .next();
 
-        // if this line is an affiliated keyword, that we skip it
-        if line.starts_with("#+CAPTION:")
-            || line.starts_with("#+DATA:")
-            || line.starts_with("#+HEADER:")
-            || line.starts_with("#+HEADERS:")
-            || line.starts_with("#+LABEL:")
-            || line.starts_with("#+NAME:")
-            || line.starts_with("#+PLOT:")
-            || line.starts_with("#+RESNAME:")
-            || line.starts_with("#+RESULT:")
-            || line.starts_with("#+RESULTS:")
-            || line.starts_with("#+SOURCE:")
-            || line.starts_with("#+SRCNAME:")
-            || line.starts_with("#+TBLNAME:")
-            || line.starts_with("#+ATTR_")
-        {
-            has_affiliated_keyword = true;
-            continue;
-        }
+    debug_assert!(
+        !(has_affiliated_keyword && matches!(byte, None | Some(b'\n') | Some(b'\r'))),
+        "affiliated_keyword must not followed by blank lines: {:?}",
+        input.s
+    );
 
-        return match input.as_bytes()[idx + offset] {
-            b'[' => fn_def_node(input),
-            b'0'..=b'9' | b'*' => list_node(input),
-            b'C' => clock_node(input),
-            b'-' => rule_node(input).or_else(|_| list_node(input)),
-            b':' => drawer_node(input).or_else(|_| fixed_width_node(input)),
-            b'|' => org_table_node(input),
-            b'+' => table_el_node(input).or_else(|_| list_node(input)),
-            b'#' => block_node(input)
-                .or_else(|_| keyword_node(input))
-                .or_else(|_| dyn_block_node(input))
-                .or_else(|_| comment_node(input)),
-            _ => Err(nom::Err::Error(())),
-        };
-    }
+    let result = match byte {
+        Some(b'[') => fn_def_node(input),
+        Some(b'0'..=b'9') | Some(b'*') => list_node(input),
+        // clock doesn't have affiliated keywords
+        Some(b'C') if !has_affiliated_keyword => clock_node(input),
+        Some(b'-') => rule_node(input).or_else(|_| list_node(input)),
+        Some(b':') => drawer_node(input).or_else(|_| fixed_width_node(input)),
+        Some(b'|') => org_table_node(input),
+        Some(b'+') => table_el_node(input).or_else(|_| list_node(input)),
+        Some(b'#') => block_node(input)
+            .or_else(|_| keyword_node(input))
+            .or_else(|_| dyn_block_node(input))
+            .or_else(|_| comment_node(input)),
+        _ => Err(nom::Err::Error(())),
+    };
 
-    // we find an affiliated keyword, but it's not followed by any element
-    // in this case, we treat it as a simple keyword
-
-    return Err(nom::Err::Error(()));
+    result.or_else(|_| paragraph_node(input))
 }
 
 #[test]
@@ -218,17 +112,156 @@ b"#),
         t("#+ATTR_HTML: :width 300px\n[[./img/a.jpg]]"),
         @r###"
     SECTION@0..41
+      PARAGRAPH@0..41
+        AFFILIATED_KEYWORD@0..26
+          HASH_PLUS@0..2 "#+"
+          TEXT@2..11 "ATTR_HTML"
+          COLON@11..12 ":"
+          TEXT@12..25 " :width 300px"
+          NEW_LINE@25..26 "\n"
+        LINK@26..41
+          L_BRACKET2@26..28 "[["
+          LINK_PATH@28..39 "./img/a.jpg"
+          R_BRACKET2@39..41 "]]"
+    "###
+    );
+
+    insta::assert_debug_snapshot!(
+        t("#+ATTR_HTML: :width 300px\n[[./img/a.jpg]]"),
+        @r###"
+    SECTION@0..41
+      PARAGRAPH@0..41
+        AFFILIATED_KEYWORD@0..26
+          HASH_PLUS@0..2 "#+"
+          TEXT@2..11 "ATTR_HTML"
+          COLON@11..12 ":"
+          TEXT@12..25 " :width 300px"
+          NEW_LINE@25..26 "\n"
+        LINK@26..41
+          L_BRACKET2@26..28 "[["
+          LINK_PATH@28..39 "./img/a.jpg"
+          R_BRACKET2@39..41 "]]"
+    "###
+    );
+}
+
+#[test]
+fn affiliated_keywords() {
+    use crate::syntax::{SyntaxKind, SyntaxNode};
+    use crate::{syntax::combinator::node, ParseConfig};
+
+    let t = |input: &str| {
+        let config = &ParseConfig::default();
+        let children = element_nodes((input, config).into()).unwrap();
+        SyntaxNode::new_root(node(SyntaxKind::SECTION, children).into_node().unwrap())
+    };
+
+    // affiliated keywords + paragraph
+    insta::assert_debug_snapshot!(
+        t("#+ATTR_HTML: :width 300px\n[[./img/a.jpg]]"),
+        @r###"
+    SECTION@0..41
+      PARAGRAPH@0..41
+        AFFILIATED_KEYWORD@0..26
+          HASH_PLUS@0..2 "#+"
+          TEXT@2..11 "ATTR_HTML"
+          COLON@11..12 ":"
+          TEXT@12..25 " :width 300px"
+          NEW_LINE@25..26 "\n"
+        LINK@26..41
+          L_BRACKET2@26..28 "[["
+          LINK_PATH@28..39 "./img/a.jpg"
+          R_BRACKET2@39..41 "]]"
+    "###
+    );
+
+    // affiliated keywords + blank lines, fallback to normal keyword
+    insta::assert_debug_snapshot!(
+        t("#+ATTR_HTML: :width 300px\n#+CAPTION: abc\n\n[[./img/a.jpg]]"),
+        @r###"
+    SECTION@0..57
       KEYWORD@0..26
         HASH_PLUS@0..2 "#+"
         TEXT@2..11 "ATTR_HTML"
         COLON@11..12 ":"
         TEXT@12..25 " :width 300px"
         NEW_LINE@25..26 "\n"
-      PARAGRAPH@26..41
-        LINK@26..41
-          L_BRACKET2@26..28 "[["
-          LINK_PATH@28..39 "./img/a.jpg"
-          R_BRACKET2@39..41 "]]"
+      KEYWORD@26..42
+        HASH_PLUS@26..28 "#+"
+        TEXT@28..35 "CAPTION"
+        COLON@35..36 ":"
+        TEXT@36..40 " abc"
+        NEW_LINE@40..41 "\n"
+        BLANK_LINE@41..42 "\n"
+      PARAGRAPH@42..57
+        LINK@42..57
+          L_BRACKET2@42..44 "[["
+          LINK_PATH@44..55 "./img/a.jpg"
+          R_BRACKET2@55..57 "]]"
     "###
-    )
+    );
+
+    // affiliated keywords + special element
+    insta::assert_debug_snapshot!(
+        t("#+CAPTION: a footnote def\n[fn:WORD] https://orgmode.org"),
+        @r###"
+    SECTION@0..55
+      FN_DEF@0..55
+        AFFILIATED_KEYWORD@0..26
+          HASH_PLUS@0..2 "#+"
+          TEXT@2..9 "CAPTION"
+          COLON@9..10 ":"
+          TEXT@10..25 " a footnote def"
+          NEW_LINE@25..26 "\n"
+        L_BRACKET@26..27 "["
+        TEXT@27..29 "fn"
+        COLON@29..30 ":"
+        TEXT@30..34 "WORD"
+        R_BRACKET@34..35 "]"
+        TEXT@35..55 " https://orgmode.org"
+    "###
+    );
+
+    // affiliated keywords + clock
+    insta::assert_debug_snapshot!(
+        t("#+CAPTION: a footnote def\nCLOCK: [2003-09-16 Tue 09:39]"),
+        @r###"
+    SECTION@0..55
+      PARAGRAPH@0..55
+        AFFILIATED_KEYWORD@0..26
+          HASH_PLUS@0..2 "#+"
+          TEXT@2..9 "CAPTION"
+          COLON@9..10 ":"
+          TEXT@10..25 " a footnote def"
+          NEW_LINE@25..26 "\n"
+        TEXT@26..33 "CLOCK: "
+        TIMESTAMP_INACTIVE@33..55
+          L_BRACKET@33..34 "["
+          TIMESTAMP_YEAR@34..38 "2003"
+          MINUS@38..39 "-"
+          TIMESTAMP_MONTH@39..41 "09"
+          MINUS@41..42 "-"
+          TIMESTAMP_DAY@42..44 "16"
+          WHITESPACE@44..45 " "
+          TIMESTAMP_DAYNAME@45..48 "Tue"
+          WHITESPACE@48..49 " "
+          TIMESTAMP_HOUR@49..51 "09"
+          COLON@51..52 ":"
+          TIMESTAMP_MINUTE@52..54 "39"
+          R_BRACKET@54..55 "]"
+    "###
+    );
+
+    // affiliated keywords + eof
+    insta::assert_debug_snapshot!(
+        t("#+CAPTION: Longer caption."),
+        @r###"
+    SECTION@0..26
+      KEYWORD@0..26
+        HASH_PLUS@0..2 "#+"
+        TEXT@2..9 "CAPTION"
+        COLON@9..10 ":"
+        TEXT@10..26 " Longer caption."
+    "###
+    );
 }

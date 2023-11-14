@@ -10,24 +10,29 @@ use nom::{
 
 use super::{
     combinator::{
-        at_token, blank_lines, colon2_token, debug_assert_lossless, l_bracket_token,
-        line_starts_iter, node, r_bracket_token, GreenElement,
+        at_token, blank_lines, colon2_token, l_bracket_token, line_starts_iter, node,
+        r_bracket_token, GreenElement,
     },
     element::element_node,
     input::Input,
+    keyword::affiliated_keyword_nodes,
     object::object_nodes,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn list_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(list_node_base)(input)
+    crate::lossless_parser!(list_node_base, input)
 }
 
 fn list_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
+    let (input, affiliated_keywords) = affiliated_keyword_nodes(input)?;
     let (input, first_indent) = space0(input)?;
     let (input, first_item) = list_item_node(first_indent, input)?;
 
-    let mut children = vec![first_item];
+    let mut children = vec![];
+    children.extend(affiliated_keywords);
+    children.push(first_item);
 
     let mut input = input;
     while !input.is_empty() {
@@ -422,8 +427,10 @@ fn parse() {
         LIST_ITEM_INDENT@0..0 ""
         LIST_ITEM_BULLET@0..2 "* "
         LIST_ITEM_CONTENT@2..23
-          PARAGRAPH@2..23
-            TEXT@2..23 "item1\n\n  still item 1"
+          PARAGRAPH@2..9
+            TEXT@2..9 "item1\n\n"
+          PARAGRAPH@9..23
+            TEXT@9..23 "  still item 1"
     "###
     );
 

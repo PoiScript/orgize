@@ -6,12 +6,11 @@ use nom::{
     sequence::tuple,
     AsBytes, IResult, InputLength, InputTake, Slice,
 };
-use tracing::instrument;
 
 use super::{
     combinator::{
-        debug_assert_lossless, hash_token, l_bracket_token, line_starts_iter, node,
-        r_bracket_token, token, trim_line_end, GreenElement, NodeBuilder,
+        hash_token, l_bracket_token, line_starts_iter, node, r_bracket_token, token, trim_line_end,
+        GreenElement, NodeBuilder,
     },
     drawer::property_drawer_node,
     element::element_nodes,
@@ -21,11 +20,11 @@ use super::{
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn headline_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(headline_node_base)(input)
+    crate::lossless_parser!(headline_node_base, input)
 }
 
-#[instrument(skip(input), fields(input = input.s))]
 fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let (input, stars) = headline_stars(input)?;
 
@@ -90,7 +89,7 @@ fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     Ok((i, b.finish(HEADLINE)))
 }
 
-#[instrument(skip(input), fields(input = input.s))]
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn section_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let (input, section) = section_text(input)?;
     Ok((input, node(SECTION, element_nodes(section)?)))
@@ -114,7 +113,7 @@ pub fn section_text(input: Input) -> IResult<Input, Input, ()> {
     Ok(input.take_split(input.input_len()))
 }
 
-#[instrument(skip(input), fields(input = input.s))]
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 fn headline_stars(input: Input) -> IResult<Input, Input, ()> {
     let bytes = input.as_bytes();
     let level = bytes.iter().take_while(|&&c| c == b'*').count();
@@ -130,7 +129,7 @@ fn headline_stars(input: Input) -> IResult<Input, Input, ()> {
     }
 }
 
-#[instrument(skip(input), fields(input = input.s))]
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
     if !input.s.ends_with(':') {
         return Err(nom::Err::Error(()));
@@ -245,8 +244,7 @@ fn parse() {
       NEW_LINE@5..6 "\n"
       SECTION@6..7
         PARAGRAPH@6..7
-          BLANK_LINE@6..7
-            NEW_LINE@6..7 "\n"
+          BLANK_LINE@6..7 "\n"
       HEADLINE@7..13
         HEADLINE_STARS@7..9 "**"
         WHITESPACE@9..10 " "

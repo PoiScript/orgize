@@ -7,17 +7,17 @@ use nom::{
 
 use super::{
     combinator::{
-        blank_lines, colon_token, debug_assert_lossless, l_bracket_token, r_bracket_token,
-        trim_line_end, GreenElement, NodeBuilder,
+        blank_lines, colon_token, l_bracket_token, r_bracket_token, trim_line_end, GreenElement,
+        NodeBuilder,
     },
     input::Input,
     keyword::affiliated_keyword_nodes,
     SyntaxKind,
 };
 
-#[tracing::instrument(skip(input), fields(input = input.s))]
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn fn_def_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             affiliated_keyword_nodes,
             l_bracket_token,
@@ -51,7 +51,8 @@ pub fn fn_def_node(input: Input) -> IResult<Input, GreenElement, ()> {
             b.children.extend(post_blank);
             b.finish(SyntaxKind::FN_DEF)
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]
@@ -137,7 +138,7 @@ fn parse() {
          to_fn_def("#+ATTR_poi: 1\n[fn:WORD-1] https://orgmode.org").syntax,
          @r###"
     FN_DEF@0..45
-      KEYWORD@0..14
+      AFFILIATED_KEYWORD@0..14
         HASH_PLUS@0..2 "#+"
         TEXT@2..10 "ATTR_poi"
         COLON@10..11 ":"

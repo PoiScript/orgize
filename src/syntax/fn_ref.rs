@@ -7,16 +7,15 @@ use nom::{
 };
 
 use super::{
-    combinator::{
-        colon_token, debug_assert_lossless, l_bracket_token, node, r_bracket_token, GreenElement,
-    },
+    combinator::{colon_token, l_bracket_token, node, r_bracket_token, GreenElement},
     input::Input,
     object::object_nodes,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn fn_ref_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(fn_ref_node_base)(input)
+    crate::lossless_parser!(fn_ref_node_base, input)
 }
 
 fn fn_ref_node_base(input: Input) -> IResult<Input, GreenElement, ()> {

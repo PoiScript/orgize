@@ -1,6 +1,6 @@
 use rowan::ast::{support, AstNode};
 
-use super::Link;
+use super::{AffiliatedKeyword, Link, Paragraph};
 use crate::syntax::SyntaxKind;
 
 impl Link {
@@ -23,6 +23,8 @@ impl Link {
     /// ```rust
     /// use orgize::{Org, ast::Link};
     ///
+    /// let link = Org::parse("[[https://google.com]]").first_node::<Link>().unwrap();
+    /// assert!(!link.is_image());
     /// let link = Org::parse("[[file:/home/dominik/images/jupiter.jpg]]").first_node::<Link>().unwrap();
     /// assert!(link.is_image());
     /// ```
@@ -37,5 +39,18 @@ impl Link {
             .map(|path| IMAGE_SUFFIX.iter().any(|e| path.text().ends_with(e)))
             .unwrap_or_default()
             && !self.has_description()
+    }
+
+    /// Returns caption keyword in this link
+    ///
+    /// ```rust
+    /// use orgize::{Org, ast::Link};
+    ///
+    /// let link = Org::parse("#+CAPTION: image link\n[[file:/home/dominik/images/jupiter.jpg]]").first_node::<Link>().unwrap();
+    /// assert_eq!(link.caption().unwrap().value().unwrap().text(), " image link");
+    /// ```
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        // TODO: support other element type
+        Paragraph::cast(self.syntax.parent()?.clone())?.caption()
     }
 }

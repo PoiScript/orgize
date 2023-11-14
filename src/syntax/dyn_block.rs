@@ -8,10 +8,7 @@ use nom::{
 };
 
 use super::{
-    combinator::{
-        blank_lines, debug_assert_lossless, line_starts_iter, node, trim_line_end, GreenElement,
-        NodeBuilder,
-    },
+    combinator::{blank_lines, line_starts_iter, node, trim_line_end, GreenElement, NodeBuilder},
     input::Input,
     SyntaxKind::*,
 };
@@ -74,8 +71,9 @@ fn dyn_block_end_node(input: Input) -> IResult<Input, GreenElement, ()> {
     Ok((input, b.finish(DYN_BLOCK_END)))
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn dyn_block_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(dyn_block_node_base)(input)
+    crate::lossless_parser!(dyn_block_node_base, input)
 }
 
 #[test]

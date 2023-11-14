@@ -8,13 +8,13 @@ use nom::{
 };
 
 use super::{
-    combinator::{blank_lines, debug_assert_lossless, GreenElement, NodeBuilder},
+    combinator::{blank_lines, GreenElement, NodeBuilder},
     input::Input,
     SyntaxKind::*,
 };
 
 pub fn rule_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             space0,
             take_while_m_n(5, usize::max_value(), |c| c == '-'),
@@ -31,7 +31,8 @@ pub fn rule_node(input: Input) -> IResult<Input, GreenElement, ()> {
             b.children.extend(post_blank);
             b.finish(RULE)
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

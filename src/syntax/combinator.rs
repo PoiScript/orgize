@@ -3,7 +3,6 @@ use std::iter::once;
 use memchr::{memchr, memchr2_iter, memchr_iter};
 use nom::{
     bytes::complete::tag, character::complete::space0, AsBytes, IResult, InputLength, InputTake,
-    Parser,
 };
 use rowan::{GreenNode, GreenToken, Language, NodeOrToken};
 
@@ -72,23 +71,19 @@ token_parser!(hash_plus_token, "#+", HASH_PLUS);
 token_parser!(hash_token, "#", HASH);
 token_parser!(double_arrow_token, "=>", DOUBLE_ARROW);
 
-pub fn debug_assert_lossless<'a, F>(
-    mut f: F,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, GreenElement, ()>
-where
-    F: Parser<Input<'a>, GreenElement, ()>,
-{
-    move |input: Input| {
-        let (i, o) = f.parse(input)?;
-
+#[macro_export]
+macro_rules! lossless_parser {
+    ($parser:expr, $input:expr) => {{
+        let i_ = $input;
+        let (i, o) = $parser($input)?;
+        tracing::info!(consumed = o.to_string());
         debug_assert_eq!(
-            &input.as_str()[0..(input.input_len() - i.input_len())],
+            &i_.as_str()[0..(i_.s.len() - i.s.len())],
             &o.to_string(),
-            "parser must be lossless"
+            stringify!("parser must be lossless")
         );
-
         Ok((i, o))
-    }
+    }};
 }
 
 /// Takes all blank lines

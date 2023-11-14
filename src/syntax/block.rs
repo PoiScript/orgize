@@ -9,8 +9,7 @@ use nom::{
 
 use super::{
     combinator::{
-        blank_lines, debug_assert_lossless, line_starts_iter, node, token, trim_line_end,
-        GreenElement, NodeBuilder,
+        blank_lines, line_starts_iter, node, token, trim_line_end, GreenElement, NodeBuilder,
     },
     element::element_nodes,
     input::Input,
@@ -115,8 +114,9 @@ fn comma_quoted_text_nodes(input: Input) -> Vec<GreenElement> {
     nodes
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn block_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(block_node_base)(input)
+    crate::lossless_parser!(block_node_base, input)
 }
 
 #[test]

@@ -7,15 +7,15 @@ use nom::{
 
 use super::{
     combinator::{
-        debug_assert_lossless, l_bracket_token, l_parens_token, node, r_bracket_token,
-        r_parens_token, GreenElement,
+        l_bracket_token, l_parens_token, node, r_bracket_token, r_parens_token, GreenElement,
     },
     input::Input,
     SyntaxKind,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn inline_call_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             tag("call_"),
             take_till(|c| c == '[' || c == '\n' || c == '(' || c == ')'),
@@ -51,7 +51,8 @@ pub fn inline_call_node(input: Input) -> IResult<Input, GreenElement, ()> {
             }
             node(SyntaxKind::INLINE_CALL, children)
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

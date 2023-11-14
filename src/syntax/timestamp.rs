@@ -8,16 +8,17 @@ use nom::{
 
 use super::{
     combinator::{
-        colon_token, debug_assert_lossless, l_angle_token, l_bracket_token, l_parens_token,
-        minus2_token, minus_token, node, percent2_token, r_angle_token, r_bracket_token,
-        r_parens_token, GreenElement, NodeBuilder,
+        colon_token, l_angle_token, l_bracket_token, l_parens_token, minus2_token, minus_token,
+        node, percent2_token, r_angle_token, r_bracket_token, r_parens_token, GreenElement,
+        NodeBuilder,
     },
     input::Input,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn timestamp_diary_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             l_angle_token,
             percent2_token,
@@ -39,7 +40,8 @@ pub fn timestamp_diary_node(input: Input) -> IResult<Input, GreenElement, ()> {
                 ],
             )
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 fn is_digit_str(s: &Input) -> bool {
@@ -231,11 +233,14 @@ fn timestamp_inactive_node_base(input: Input) -> IResult<Input, GreenElement, ()
     }
 }
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn timestamp_active_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(timestamp_active_node_base)(input)
+    crate::lossless_parser!(timestamp_active_node_base, input)
 }
+
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn timestamp_inactive_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(timestamp_inactive_node_base)(input)
+    crate::lossless_parser!(timestamp_inactive_node_base, input)
 }
 
 #[test]

@@ -1,14 +1,21 @@
 use nom::{IResult, InputTake};
 
 use super::{
-    combinator::{blank_lines, debug_assert_lossless, line_ends_iter, node, GreenElement},
+    combinator::{blank_lines, line_ends_iter, node, GreenElement},
     input::Input,
+    keyword::affiliated_keyword_nodes,
     object::object_nodes,
     SyntaxKind,
 };
 
+pub fn paragraph_node(input: Input) -> IResult<Input, GreenElement, ()> {
+    crate::lossless_parser!(paragraph_node_base, input)
+}
+
 fn paragraph_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     debug_assert!(!input.is_empty());
+
+    let (input, keywords) = affiliated_keyword_nodes(input)?;
 
     let mut start = 0;
     for idx in line_ends_iter(input.as_str()) {
@@ -24,25 +31,11 @@ fn paragraph_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let (input, post_blank) = blank_lines(input)?;
 
     let mut children = vec![];
+    children.extend(keywords);
     children.extend(object_nodes(contents));
     children.extend(post_blank);
 
     Ok((input, node(SyntaxKind::PARAGRAPH, children)))
-}
-
-pub fn paragraph_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(paragraph_node_base)(input)
-}
-
-pub fn paragraph_nodes(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> {
-    let mut i = input;
-    let mut children = vec![];
-    while !i.is_empty() {
-        let (input, node) = paragraph_node(i)?;
-        children.push(node);
-        i = input;
-    }
-    Ok(children)
 }
 
 #[test]

@@ -6,7 +6,7 @@ use nom::{
 };
 
 use super::{
-    combinator::{debug_assert_lossless, l_angle3_token, node, r_angle3_token, GreenElement},
+    combinator::{l_angle3_token, node, r_angle3_token, GreenElement},
     input::Input,
     SyntaxKind::*,
 };
@@ -14,7 +14,7 @@ use super::{
 // TODO: text-markup, entities, latex-fragments, subscript and superscript
 
 pub fn radio_target_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             l_angle3_token,
             verify(
@@ -28,7 +28,8 @@ pub fn radio_target_node(input: Input) -> IResult<Input, GreenElement, ()> {
         |(l_angle3, contents, r_angle3)| {
             node(RADIO_TARGET, [l_angle3, contents.text_token(), r_angle3])
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]

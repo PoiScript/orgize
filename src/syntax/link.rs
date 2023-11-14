@@ -7,15 +7,15 @@ use nom::{
 
 use super::{
     combinator::{
-        debug_assert_lossless, l_bracket2_token, l_bracket_token, node, r_bracket2_token,
-        r_bracket_token, GreenElement,
+        l_bracket2_token, l_bracket_token, node, r_bracket2_token, r_bracket_token, GreenElement,
     },
     input::Input,
     SyntaxKind::*,
 };
 
+#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn link_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    debug_assert_lossless(map(
+    let mut parser = map(
         tuple((
             l_bracket2_token,
             take_while(|c: char| c != '<' && c != '>' && c != '\n' && c != ']'),
@@ -37,7 +37,8 @@ pub fn link_node(input: Input) -> IResult<Input, GreenElement, ()> {
 
             node(LINK, children)
         },
-    ))(input)
+    );
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]
