@@ -47,11 +47,27 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
 
 #[derive(Default)]
 pub struct HtmlExport {
-    pub output: String,
+    output: String,
+
     in_descriptive_list: Vec<bool>,
+
+    table_row: TableRow,
+}
+
+#[derive(Default, PartialEq, Eq)]
+enum TableRow {
+    #[default]
+    HeaderRule,
+    Header,
+    BodyRule,
+    Body,
 }
 
 impl HtmlExport {
+    pub fn push_str(&mut self, s: impl AsRef<str>) {
+        self.output += s.as_ref();
+    }
+
     pub fn finish(self) -> String {
         self.output
     }
@@ -306,10 +322,28 @@ impl Traverser for HtmlExport {
 
     #[tracing::instrument(skip(self, _ctx))]
     fn org_table(&mut self, event: WalkEvent<&OrgTable>, _ctx: &mut TraversalContext) {
-        self.output += match event {
-            WalkEvent::Enter(_) => "<table><tbody>",
-            WalkEvent::Leave(_) => "</tbody></table>",
-        };
+        match event {
+            WalkEvent::Enter(table) => {
+                self.output += "<table>";
+                self.table_row = if table.has_header() {
+                    TableRow::HeaderRule
+                } else {
+                    TableRow::BodyRule
+                }
+            }
+            WalkEvent::Leave(_) => {
+                match self.table_row {
+                    TableRow::Body => {
+                        self.output += "</tbody>";
+                    }
+                    TableRow::Header => {
+                        self.output += "</thead>";
+                    }
+                    _ => {}
+                }
+                self.output += "</table>";
+            }
+        }
     }
 
     #[tracing::instrument(skip(self, ctx))]
@@ -317,13 +351,39 @@ impl Traverser for HtmlExport {
         if match event {
             WalkEvent::Enter(n) | WalkEvent::Leave(n) => n.is_rule(),
         } {
+            match self.table_row {
+                TableRow::Body => {
+                    self.output += "</tbody>";
+                    self.table_row = TableRow::BodyRule;
+                }
+                TableRow::Header => {
+                    self.output += "</thead>";
+                    self.table_row = TableRow::BodyRule;
+                }
+                _ => {}
+            }
             return ctx.skip();
         }
 
-        self.output += match event {
-            WalkEvent::Enter(_) => "<tr>",
-            WalkEvent::Leave(_) => "</tr>",
-        };
+        match event {
+            WalkEvent::Enter(_) => {
+                match self.table_row {
+                    TableRow::HeaderRule => {
+                        self.table_row = TableRow::Header;
+                        self.output += "<thead>";
+                    }
+                    TableRow::BodyRule => {
+                        self.table_row = TableRow::Body;
+                        self.output += "<tbody>";
+                    }
+                    _ => {}
+                }
+                self.output += "<tr>";
+            }
+            WalkEvent::Leave(_) => {
+                self.output += "</tr>";
+            }
+        }
     }
 
     #[tracing::instrument(skip(self, _ctx))]
