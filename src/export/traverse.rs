@@ -145,9 +145,8 @@ pub trait Traverser {
 
     /// Called when visiting any token
     fn token(&mut self, token: SyntaxToken, ctx: &mut TraversalContext) {
-        match token.kind() {
-            TEXT => self.text(token, ctx),
-            _ => {}
+        if token.kind() == TEXT {
+            self.text(token, ctx);
         }
         take_control!(ctx);
     }

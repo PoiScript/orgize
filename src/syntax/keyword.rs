@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till, take_while1},

@@ -46,9 +46,7 @@ impl OrgTable {
             .filter_map(OrgTableRow::cast)
             .skip_while(|row| row.is_rule())
             .skip_while(|row| row.is_standard())
-            .skip_while(|row| row.is_rule())
-            .next()
-            .is_some()
+            .any(|row| !row.is_rule())
     }
 }
 

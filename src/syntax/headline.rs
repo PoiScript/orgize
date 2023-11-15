@@ -120,9 +120,11 @@ fn headline_stars(input: Input) -> IResult<Input, Input, ()> {
 
     if level == 0 {
         Err(nom::Err::Error(()))
-    } else if input.input_len() == level {
-        Ok(input.take_split(level))
-    } else if bytes[level] == b'\n' || bytes[level] == b'\r' || bytes[level] == b' ' {
+    } else if input.input_len() == level
+        || bytes[level] == b'\n'
+        || bytes[level] == b'\r'
+        || bytes[level] == b' '
+    {
         Ok(input.take_split(level))
     } else {
         Err(nom::Err::Error(()))
