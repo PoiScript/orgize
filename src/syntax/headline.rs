@@ -22,6 +22,7 @@ use super::{
 
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn headline_node(input: Input) -> IResult<Input, GreenElement, ()> {
+    debug_assert!(!input.is_empty());
     crate::lossless_parser!(headline_node_base, input)
 }
 
@@ -59,15 +60,23 @@ fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     b.ws(ws_);
     b.nl(nl);
 
-    if nl.is_empty() {
+    if input.is_empty() {
         return Ok((input, b.finish(HEADLINE)));
     }
 
     let (input, planning) = opt(planning_node)(input)?;
     b.push_opt(planning);
 
+    if input.is_empty() {
+        return Ok((input, b.finish(HEADLINE)));
+    }
+
     let (input, property_drawer) = opt(property_drawer_node)(input)?;
     b.push_opt(property_drawer);
+
+    if input.is_empty() {
+        return Ok((input, b.finish(HEADLINE)));
+    }
 
     let (input, section) = opt(section_node)(input)?;
     b.push_opt(section);
@@ -83,6 +92,12 @@ fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
         let (input, headline) = headline_node(i)?;
         b.push(headline);
+        debug_assert!(
+            i.input_len() > input.input_len(),
+            "{} > {}",
+            i.input_len(),
+            input.input_len()
+        );
         i = input;
     }
 
@@ -91,15 +106,12 @@ fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn section_node(input: Input) -> IResult<Input, GreenElement, ()> {
+    debug_assert!(!input.is_empty());
     let (input, section) = section_text(input)?;
     Ok((input, node(SECTION, element_nodes(section)?)))
 }
 
-pub fn section_text(input: Input) -> IResult<Input, Input, ()> {
-    if input.is_empty() {
-        return Err(nom::Err::Error(()));
-    }
-
+fn section_text(input: Input) -> IResult<Input, Input, ()> {
     for (input, section) in line_starts_iter(input.as_str()).map(|i| input.take_split(i)) {
         if headline_stars(input).is_ok() {
             if section.is_empty() {
@@ -119,12 +131,13 @@ fn headline_stars(input: Input) -> IResult<Input, Input, ()> {
     let level = bytes.iter().take_while(|&&c| c == b'*').count();
 
     if level == 0 {
-        Err(nom::Err::Error(()))
-    } else if input.input_len() == level
-        || bytes[level] == b'\n'
-        || bytes[level] == b'\r'
-        || bytes[level] == b' '
-    {
+        return Err(nom::Err::Error(()));
+    }
+    // followed by eof, new line, or whitespace
+    else if matches!(
+        bytes.get(level),
+        None | Some(b'\n') | Some(b'\r') | Some(b' ')
+    ) {
         Ok(input.take_split(level))
     } else {
         Err(nom::Err::Error(()))
@@ -151,6 +164,7 @@ fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
         if item.is_empty() {
             children.push(token(COLON, ":"));
             can_not_be_ws = false;
+            debug_assert!(i > ii, "{} > {}", i, ii);
             i = ii;
         } else if item
             .iter()
@@ -159,11 +173,13 @@ fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
             children.push(input.slice(ii + 1..i).text_token());
             children.push(token(COLON, ":"));
             can_not_be_ws = false;
+            debug_assert!(i > ii, "{} > {}", i, ii);
             i = ii;
         } else if item.iter().all(|&c| c == b' ' || c == b'\t') && !can_not_be_ws {
             children.push(input.slice(ii + 1..i).ws_token());
             children.push(token(COLON, ":"));
             can_not_be_ws = true;
+            debug_assert!(i > ii, "{} > {}", i, ii);
             i = ii;
         } else {
             break;

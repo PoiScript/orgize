@@ -57,6 +57,12 @@ pub fn affiliated_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement
             break;
         }
 
+        debug_assert!(
+            i.input_len() > input_.input_len(),
+            "{} > {}",
+            i.input_len(),
+            input_.input_len()
+        );
         i = input_;
         children.push(GreenElement::Node(GreenNode::new(
             SyntaxKind::AFFILIATED_KEYWORD.into(),

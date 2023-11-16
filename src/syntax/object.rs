@@ -16,87 +16,115 @@ use super::{
     timestamp::{timestamp_active_node, timestamp_diary_node, timestamp_inactive_node},
 };
 
-pub struct InlinePositions<'a> {
-    bytes: &'a [u8],
+struct ObjectPositions<'a> {
+    input: Input<'a>,
     pos: usize,
     next: Option<usize>,
+    finder: jetscii::BytesConst,
 }
 
-impl InlinePositions<'_> {
-    pub fn new(bytes: &[u8]) -> InlinePositions {
-        InlinePositions {
-            bytes,
+impl ObjectPositions<'_> {
+    fn new(input: Input) -> ObjectPositions {
+        ObjectPositions {
+            input,
             pos: 0,
             next: Some(0),
+            finder: jetscii::bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n'),
         }
     }
 }
 
-impl Iterator for InlinePositions<'_> {
-    type Item = usize;
+impl<'a> Iterator for ObjectPositions<'a> {
+    type Item = (Input<'a>, Input<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next.take().or_else(|| {
-            jetscii::bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n')
-                .find(&self.bytes[self.pos..])
-                .map(|i| {
-                    self.pos += i + 1;
+        if self.input.input_len() < 3 {
+            return None;
+        }
 
-                    match self.bytes[self.pos - 1] {
-                        b'{' => {
-                            self.next = Some(self.pos);
-                            self.pos - 1
-                        }
-                        b' ' | b'(' | b'\'' | b'"' | b'\n' => self.pos,
-                        _ => self.pos - 1,
-                    }
-                })
-        })
+        if let Some(p) = self.next.take() {
+            return Some(self.input.take_split(p));
+        }
+
+        if self.pos >= self.input.input_len() {
+            return None;
+        }
+
+        let bytes = &self.input.as_bytes()[self.pos..];
+        let previous = self.pos;
+        let i = self.finder.find(bytes)?;
+        self.pos += i + 1;
+
+        let p = match bytes[i] {
+            b'{' => {
+                self.next = Some(self.pos);
+                self.pos - 1
+            }
+            b' ' | b'(' | b'\'' | b'"' | b'\n' => self.pos,
+            _ => self.pos - 1,
+        };
+
+        debug_assert!(
+            previous < self.pos && self.pos <= self.input.s.len(),
+            "{} < {} < {}",
+            previous,
+            self.pos,
+            self.input.s.len()
+        );
+
+        // a valid object requires at least three characters
+        if self.input.s.len() - p < 3 {
+            return None;
+        }
+
+        Some(self.input.take_split(p))
     }
 }
 
 pub fn object_nodes(input: Input) -> Vec<GreenElement> {
+    // TODO:
     // debug_assert!(!input.is_empty());
-    let nodes = object_nodes_base(input);
+
+    let mut i = input;
+    let mut nodes = vec![];
+
+    'l: while !i.is_empty() {
+        for (input, head) in ObjectPositions::new(i) {
+            debug_assert!(
+                input.s.len() >= 3,
+                "object must have at least three characters: {:?}",
+                input.s
+            );
+            if let Ok((input, node)) = object_node(input) {
+                if !head.is_empty() {
+                    nodes.push(head.text_token())
+                }
+                nodes.push(node);
+                debug_assert!(
+                    input.input_len() < i.input_len(),
+                    "{} < {}",
+                    input.input_len(),
+                    i.input_len()
+                );
+                i = input;
+                continue 'l;
+            }
+        }
+        nodes.push(i.text_token());
+        break;
+    }
+
     debug_assert_eq!(
         input.as_str(),
         nodes.iter().fold(String::new(), |s, i| s + &i.to_string()),
         "parser must be lossless"
     );
+
     nodes
 }
 
-fn object_nodes_base(input: Input) -> Vec<GreenElement> {
-    let mut children = vec![];
-
-    let mut i = input;
-    'l: loop {
-        for (input, head) in InlinePositions::new(i.as_bytes()).map(|idx| i.take_split(idx)) {
-            if let Ok((input, node)) = object_node(input) {
-                if !head.is_empty() {
-                    children.push(head.text_token())
-                }
-                children.push(node);
-                i = input;
-                continue 'l;
-            }
-        }
-
-        break;
-    }
-
-    if !i.is_empty() {
-        children.push(i.text_token());
-    }
-
-    children
-}
-
+/// Recognizes an org-mode element expect text
 fn object_node(i: Input) -> IResult<Input, GreenElement, ()> {
-    if i.input_len() < 3 {
-        return Err(nom::Err::Error(()));
-    }
-
     match &i.as_bytes()[0] {
         b'*' => bold_node(i),
         b'+' => strike_node(i),
@@ -118,6 +146,22 @@ fn object_node(i: Input) -> IResult<Input, GreenElement, ()> {
         b's' => inline_src_node(i),
         _ => Err(nom::Err::Error(())),
     }
+}
+
+#[test]
+fn positions() {
+    let config = crate::ParseConfig::default();
+
+    let vec = ObjectPositions::new(("*{", &config).into()).collect::<Vec<_>>();
+    assert!(vec.is_empty());
+
+    let vec = ObjectPositions::new(("*{()}//s\nc<<", &config).into()).collect::<Vec<_>>();
+    assert_eq!(vec.len(), 5);
+    assert_eq!(vec[0].0.s, "*{()}//s\nc<<");
+    assert_eq!(vec[1].0.s, "{()}//s\nc<<");
+    assert_eq!(vec[2].0.s, "()}//s\nc<<");
+    assert_eq!(vec[3].0.s, ")}//s\nc<<");
+    assert_eq!(vec[4].0.s, "c<<");
 }
 
 #[test]

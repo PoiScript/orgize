@@ -58,13 +58,9 @@ fn list() {
 "#).to_html(),
         @r###"
     <main><section><ul><li><p>1
-
     </p></li><li><p>2
-
     </p><ul><li><p>3
-
     </p></li><li><p>4
-
     </p></li></ul></li><li><p>5
     </p></li></ul></section></main>
     "###

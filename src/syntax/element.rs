@@ -1,4 +1,7 @@
-use nom::IResult;
+use std::iter::once;
+
+use memchr::memchr2_iter;
+use nom::{AsBytes, IResult, InputLength, InputTake};
 
 use super::{
     block::block_node,
@@ -12,27 +15,46 @@ use super::{
     input::Input,
     keyword::{affiliated_keyword_nodes, keyword_node},
     list::list_node,
-    paragraph::paragraph_node,
+    paragraph::{paragraph_node, paragraph_nodes},
     rule::rule_node,
     table::{org_table_node, table_el_node},
 };
 
-/// Parses input into multiple element
+/// Recognizes multiple org-mode elements
 ///
 /// input must not contains blank line in the beginning
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn element_nodes(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> {
     debug_assert!(!input.is_empty());
+    // TODO:
+    // debug_assert!(
+    //     blank_lines(input).unwrap().1.is_empty(),
+    //     "input must not starts with blank lines: {:?}",
+    //     input.s
+    // );
 
     let mut i = input;
     let mut nodes = vec![];
 
-    while !i.is_empty() {
-        let result = element_node(i);
-        debug_assert!(result.is_ok(), "element_node() always returns Ok()");
-        let (input, node) = result?;
-        i = input;
-        nodes.push(node);
+    'l: while !i.is_empty() {
+        for (input, head) in ElementPositions::new(i) {
+            if let Ok((input, element)) = element_node(input) {
+                if !head.is_empty() {
+                    nodes.extend(paragraph_nodes(head)?);
+                }
+                nodes.push(element);
+                debug_assert!(
+                    input.input_len() < i.input_len(),
+                    "{} < {}",
+                    input.input_len(),
+                    i.input_len()
+                );
+                i = input;
+                continue 'l;
+            }
+        }
+        nodes.extend(paragraph_nodes(i)?);
+        break;
     }
 
     debug_assert_eq!(
@@ -44,6 +66,7 @@ pub fn element_nodes(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> {
     Ok(nodes)
 }
 
+/// Recognizes an org-mode element expect paragraph
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn element_node(input: Input) -> IResult<Input, GreenElement, ()> {
     // skip affiliated keyword first
@@ -52,11 +75,7 @@ pub fn element_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let has_affiliated_keyword = !nodes.is_empty();
 
     // find first non-whitespace character
-    let byte = i
-        .as_str()
-        .trim_start_matches(|c| c == ' ' || c == '\t')
-        .bytes()
-        .next();
+    let byte = i.bytes().find(|&b| b != b' ' && b != b'\t');
 
     debug_assert!(
         !(has_affiliated_keyword && matches!(byte, None | Some(b'\n') | Some(b'\r'))),
@@ -80,7 +99,78 @@ pub fn element_node(input: Input) -> IResult<Input, GreenElement, ()> {
         _ => Err(nom::Err::Error(())),
     };
 
-    result.or_else(|_| paragraph_node(input))
+    if has_affiliated_keyword {
+        result.or_else(|_| paragraph_node(input))
+    } else {
+        result
+    }
+}
+
+struct ElementPositions<'a> {
+    input: Input<'a>,
+    pos: usize,
+}
+
+impl<'a> ElementPositions<'a> {
+    fn new(input: Input<'a>) -> Self {
+        ElementPositions { input, pos: 0 }
+    }
+}
+
+impl<'a> Iterator for ElementPositions<'a> {
+    type Item = (Input<'a>, Input<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos >= self.input.s.len() {
+            return None;
+        }
+
+        let bytes = &self.input.as_bytes()[self.pos..];
+
+        let mut iter = once(0).chain(memchr2_iter(b'\r', b'\n', bytes).map(|i| i + 1));
+
+        while let Some(i) = iter.next() {
+            let b = *bytes[i..].iter().find(|&&b| b != b' ' && b != b'\t')?;
+
+            if matches!(
+                b,
+                b'[' | b'0'..=b'9' | b'*' | b'C' | b'-' | b':' | b'|' | b'+' | b'#'
+            ) {
+                let previous = self.pos;
+                self.pos = iter
+                    .next()
+                    .map(|i| i + self.pos)
+                    .unwrap_or_else(|| self.input.s.len());
+
+                debug_assert!(
+                    previous < self.pos && self.pos <= self.input.s.len(),
+                    "{} < {} < {}",
+                    previous,
+                    self.pos,
+                    self.input.s.len()
+                );
+
+                let (input, head) = self.input.take_split(i + previous);
+
+                return Some((input, head));
+            }
+        }
+
+        None
+    }
+}
+
+#[test]
+fn positions() {
+    let config = crate::ParseConfig::default();
+    let s = "+\n\n    C\n    \r\n-\n\t\t[\n:  \r\n";
+    let vec = ElementPositions::new((s, &config).into()).collect::<Vec<_>>();
+    assert_eq!(vec.len(), 5);
+    assert_eq!(vec[0].0.s, "+\n\n    C\n    \r\n-\n\t\t[\n:  \r\n");
+    assert_eq!(vec[1].0.s, "    C\n    \r\n-\n\t\t[\n:  \r\n");
+    assert_eq!(vec[2].0.s, "-\n\t\t[\n:  \r\n");
+    assert_eq!(vec[3].0.s, "\t\t[\n:  \r\n");
+    assert_eq!(vec[4].0.s, ":  \r\n");
 }
 
 #[test]
@@ -94,6 +184,7 @@ fn parse() {
         SyntaxNode::new_root(node(SyntaxKind::SECTION, children).into_node().unwrap())
     };
 
+    // paragraph stops at blank lines
     insta::assert_debug_snapshot!(
         t(r#"a
 
@@ -108,39 +199,18 @@ b"#),
     "###
     );
 
+    // paragraph followed by special element
     insta::assert_debug_snapshot!(
-        t("#+ATTR_HTML: :width 300px\n[[./img/a.jpg]]"),
+        t("Table:\n|cell"),
         @r###"
-    SECTION@0..41
-      PARAGRAPH@0..41
-        AFFILIATED_KEYWORD@0..26
-          HASH_PLUS@0..2 "#+"
-          TEXT@2..11 "ATTR_HTML"
-          COLON@11..12 ":"
-          TEXT@12..25 " :width 300px"
-          NEW_LINE@25..26 "\n"
-        LINK@26..41
-          L_BRACKET2@26..28 "[["
-          LINK_PATH@28..39 "./img/a.jpg"
-          R_BRACKET2@39..41 "]]"
-    "###
-    );
-
-    insta::assert_debug_snapshot!(
-        t("#+ATTR_HTML: :width 300px\n[[./img/a.jpg]]"),
-        @r###"
-    SECTION@0..41
-      PARAGRAPH@0..41
-        AFFILIATED_KEYWORD@0..26
-          HASH_PLUS@0..2 "#+"
-          TEXT@2..11 "ATTR_HTML"
-          COLON@11..12 ":"
-          TEXT@12..25 " :width 300px"
-          NEW_LINE@25..26 "\n"
-        LINK@26..41
-          L_BRACKET2@26..28 "[["
-          LINK_PATH@28..39 "./img/a.jpg"
-          R_BRACKET2@39..41 "]]"
+    SECTION@0..12
+      PARAGRAPH@0..7
+        TEXT@0..7 "Table:\n"
+      ORG_TABLE@7..12
+        ORG_TABLE_STANDARD_ROW@7..12
+          PIPE@7..8 "|"
+          ORG_TABLE_CELL@8..12
+            TEXT@8..12 "cell"
     "###
     );
 }

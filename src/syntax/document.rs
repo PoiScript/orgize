@@ -1,7 +1,4 @@
-use nom::{
-    combinator::{iterator, opt},
-    IResult,
-};
+use nom::{combinator::opt, IResult, InputLength};
 
 use super::{
     combinator::{blank_lines, node, GreenElement},
@@ -22,18 +19,29 @@ fn document_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
     children.extend(pre_blank);
 
+    if input.is_empty() {
+        return Ok((input, node(DOCUMENT, children)));
+    }
+
     let (input, section) = opt(section_node)(input)?;
     if let Some(section) = section {
         children.push(section);
     }
 
-    let mut it = iterator(input, headline_node);
-    children.extend(&mut it);
-    let (input, _) = it.finish()?;
+    let mut i = input;
+    while !i.is_empty() {
+        let (input, headline) = headline_node(i)?;
+        debug_assert!(
+            i.input_len() > input.input_len(),
+            "{} > {}",
+            i.input_len(),
+            input.input_len(),
+        );
+        i = input;
+        children.push(headline);
+    }
 
-    debug_assert!(input.is_empty());
-
-    Ok((input, node(DOCUMENT, children)))
+    Ok((i, node(DOCUMENT, children)))
 }
 
 #[test]
