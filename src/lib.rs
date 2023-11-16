@@ -16,3 +16,5 @@ pub use org::Org;
 pub use syntax::{
     SyntaxElement, SyntaxElementChildren, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxToken,
 };
+
+pub(crate) use syntax::combinator::lossless_parser;

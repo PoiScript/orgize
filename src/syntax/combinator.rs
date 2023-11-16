@@ -71,7 +71,6 @@ token_parser!(hash_plus_token, "#+", HASH_PLUS);
 token_parser!(hash_token, "#", HASH);
 token_parser!(double_arrow_token, "=>", DOUBLE_ARROW);
 
-#[macro_export]
 macro_rules! lossless_parser {
     ($parser:expr, $input:expr) => {{
         let i_ = $input;
@@ -85,6 +84,8 @@ macro_rules! lossless_parser {
         Ok((i, o))
     }};
 }
+
+pub(crate) use lossless_parser;
 
 /// Takes all blank lines
 pub fn blank_lines(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
