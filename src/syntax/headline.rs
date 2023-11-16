@@ -166,9 +166,10 @@ fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
             can_not_be_ws = false;
             debug_assert!(i > ii, "{} > {}", i, ii);
             i = ii;
-        } else if item
-            .iter()
-            .all(|&c| c.is_ascii_alphanumeric() || c == b'_' || c == b'@' || c == b'#' || c == b'%')
+        } else if String::from_utf8_lossy(&item)
+            .chars()
+            // https://github.com/yyr/org-mode/blob/d8494b5668ad4d4e68e83228ae8451eaa01d2220/lisp/org-element.el#L922C25-L922C32
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '@' || c == '#' || c == '%')
         {
             children.push(input.slice(ii + 1..i).text_token());
             children.push(token(COLON, ":"));
@@ -186,7 +187,7 @@ fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
         }
     }
 
-    if children.len() == 1 {
+    if children.len() <= 2 {
         return Err(nom::Err::Error(()));
     }
 
@@ -328,11 +329,13 @@ fn issue_15_16() {
 
     let to_headline = to_ast::<Headline>(headline_node);
 
-    let tags = to_headline("* a ::").tags().unwrap();
-    assert_eq!(tags.iter().count(), 0);
-
-    // let tags = to_headline("* a :(:").tags().unwrap();
-    // assert_eq!(tags.iter().count(), 0);
+    assert!(to_headline("* a ::").tags().is_none());
+    assert!(to_headline("* a : :").tags().is_none());
+    assert!(to_headline("* a :(:").tags().is_none());
+    assert!(to_headline("* a :a: :").tags().is_none());
+    assert!(to_headline("* a :a :").tags().is_none());
+    assert!(to_headline("* a a:").tags().is_none());
+    assert!(to_headline("* a :a").tags().is_none());
 
     let tags = to_headline("* a \t:_:").tags().unwrap();
     assert_eq!(
@@ -358,9 +361,9 @@ fn issue_15_16() {
         tags.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
     );
 
-    // let tags = to_headline("* a :余:").tags().unwrap();
-    // assert_eq!(
-    //     vec!["余".to_string()],
-    //     tags.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
-    // );
+    let tags = to_headline("* a :余: :破:").tags().unwrap();
+    assert_eq!(
+        vec!["余".to_string(), "破".to_string()],
+        tags.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+    );
 }
