@@ -1,11 +1,15 @@
-A Rust library for parsing org-mode files.
+# Orgize
 
 [![Crates.io](https://img.shields.io/crates/v/orgize.svg)](https://crates.io/crates/orgize)
 [![Documentation](https://docs.rs/orgize/badge.svg)](https://docs.rs/orgize)
-[![Build status](https://github.com/PoiScript/orgize/actions/workflows/ci.yml/badge.svg)](https://github.com/PoiScript/orgize/actions/workflows/ci.yml)
+[![Build status](https://img.shields.io/github/actions/workflow/status/PoiScript/orgize/ci.yml)](https://github.com/PoiScript/orgize/actions/workflows/ci.yml)
 ![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)
 
-# Parse
+A Rust library for parsing org-mode files.
+
+Live Demo: <https://poiscript.github.io/orgize/>
+
+## Parse
 
 To parse a org-mode string, simply invoking the `Org::parse` function:
 
@@ -45,7 +49,7 @@ let hdl = org.first_node::<Headline>().unwrap();
 assert_eq!(hdl.keyword().unwrap().text(), "TASK");
 ```
 
-# Render to html
+## Render to html
 
 Call the `Org::to_html` function to export org element tree to html:
 
@@ -60,8 +64,8 @@ assert_eq!(
 
 Checkout `examples/html-slugify.rs` on how to customizing html export process.
 
-# Features
+## Features
 
-- `chrono`: adds the ability to convert `Timestamp` into `chrono::NaiveDateTime`, disabled by default.
+- **`chrono`**: adds the ability to convert `Timestamp` into `chrono::NaiveDateTime`, disabled by default.
 
-- `indexmap`: adds the ability to convert `PropertyDrawer` properties into `IndexMap`, disabled by default.
+- **`indexmap`**: adds the ability to convert `PropertyDrawer` properties into `IndexMap`, disabled by default.
