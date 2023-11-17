@@ -38,16 +38,12 @@ impl<'a> Iterator for ObjectPositions<'a> {
     type Item = (Input<'a>, Input<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.input.input_len() < 3 {
+        if self.input.input_len() < 3 || self.pos >= self.input.input_len() {
             return None;
         }
 
         if let Some(p) = self.next.take() {
             return Some(self.input.take_split(p));
-        }
-
-        if self.pos >= self.input.input_len() {
-            return None;
         }
 
         let bytes = &self.input.as_bytes()[self.pos..];
@@ -57,7 +53,9 @@ impl<'a> Iterator for ObjectPositions<'a> {
 
         let p = match bytes[i] {
             b'{' => {
-                self.next = Some(self.pos);
+                if self.input.s.len() - self.pos > 3 {
+                    self.next = Some(self.pos);
+                }
                 self.pos - 1
             }
             b' ' | b'(' | b'\'' | b'"' | b'\n' => self.pos,
@@ -154,6 +152,13 @@ fn positions() {
 
     let vec = ObjectPositions::new(("*{", &config).into()).collect::<Vec<_>>();
     assert!(vec.is_empty());
+
+    // https://github.com/PoiScript/orgize/issues/69
+    let vec = ObjectPositions::new(("{3}", &config).into()).collect::<Vec<_>>();
+    assert_eq!(vec.len(), 2);
+    assert_eq!(vec[0].0.s, "{3}");
+    // FIXME:
+    assert_eq!(vec[1].0.s, "{3}");
 
     let vec = ObjectPositions::new(("*{()}//s\nc<<", &config).into()).collect::<Vec<_>>();
     assert_eq!(vec.len(), 5);
