@@ -68,6 +68,9 @@ impl Timestamp {
     ///
     /// let ts = Org::parse("[2003-09-16 Tue 09:39-10:39]").first_node::<Timestamp>().unwrap();
     /// assert_eq!(ts.start_to_chrono().unwrap(), "2003-09-16T09:39:00".parse::<NaiveDateTime>().unwrap());
+    ///
+    /// let ts = Org::parse("[2003-13-00 Tue 09:39-10:39]").first_node::<Timestamp>().unwrap();
+    /// assert!(ts.start_to_chrono().is_none());
     /// ```
     #[cfg(feature = "chrono")]
     pub fn start_to_chrono(&self) -> Option<chrono::NaiveDateTime> {
