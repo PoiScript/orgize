@@ -220,7 +220,7 @@ fn list_item_content_node(input: Input, indent: usize) -> IResult<Input, (bool, 
             match get_line_indent(input.as_str()) {
                 Some(next_indent) => {
                     if next_indent <= indent {
-                        let (input, head) = previous_blank_line.unwrap_or_else(|| (input, head));
+                        let (input, head) = previous_blank_line.unwrap_or((input, head));
                         if !head.is_empty() {
                             children.extend(paragraph_nodes(head)?);
                         }

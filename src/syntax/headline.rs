@@ -166,7 +166,7 @@ fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
             can_not_be_ws = false;
             debug_assert!(i > ii, "{} > {}", i, ii);
             i = ii;
-        } else if String::from_utf8_lossy(&item)
+        } else if String::from_utf8_lossy(item)
             .chars()
             // https://github.com/yyr/org-mode/blob/d8494b5668ad4d4e68e83228ae8451eaa01d2220/lisp/org-element.el#L922C25-L922C32
             .all(|c| c.is_alphanumeric() || c == '_' || c == '@' || c == '#' || c == '%')
