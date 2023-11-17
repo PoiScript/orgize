@@ -109,6 +109,8 @@ impl Headline {
     ///
     /// let hdl = Org::parse("* [#A]").first_node::<Headline>().unwrap();
     /// assert_eq!(hdl.priority().unwrap().text(), "A");
+    /// let hdl = Org::parse("** DONE [#B]::").first_node::<Headline>().unwrap();
+    /// assert_eq!(hdl.priority().unwrap().text(), "B");
     /// let hdl = Org::parse("* [#破]").first_node::<Headline>().unwrap();
     /// assert_eq!(hdl.priority().unwrap().text(), "破");
     /// ```
