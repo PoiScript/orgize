@@ -1,8 +1,6 @@
-use rowan::ast::support;
+use crate::syntax::{SyntaxKind, SyntaxToken};
 
-use crate::syntax::{SyntaxElement, SyntaxKind, SyntaxToken};
-
-use super::{filter_token, Headline, HeadlinePriority, HeadlineTags, Timestamp};
+use super::{filter_token, Headline, Timestamp};
 
 impl Headline {
     /// Return level of this headline
@@ -11,12 +9,19 @@ impl Headline {
     /// use orgize::{Org, ast::Headline};
     ///
     /// let hdl = Org::parse("* ").first_node::<Headline>().unwrap();
-    /// assert_eq!(hdl.level(), Some(1));
+    /// assert_eq!(hdl.level(), 1);
     /// let hdl = Org::parse("****** hello").first_node::<Headline>().unwrap();
-    /// assert_eq!(hdl.level(), Some(6));
+    /// assert_eq!(hdl.level(), 6);
     /// ```
-    pub fn level(&self) -> Option<usize> {
-        self.stars().map(|stars| stars.text().len())
+    pub fn level(&self) -> usize {
+        self.syntax
+            .children_with_tokens()
+            .find_map(filter_token(SyntaxKind::HEADLINE_STARS))
+            .map(|stars| stars.text().len())
+            .unwrap_or_else(|| {
+                debug_assert!(false, "headline must contains starts token");
+                0
+            })
     }
 
     /// Return `true` if this headline contains a COMMENT keyword
@@ -54,34 +59,67 @@ impl Headline {
     /// assert!(!hdl.is_archived());
     /// ```
     pub fn is_archived(&self) -> bool {
-        self.tags()
-            .map(|tags| {
-                tags.syntax
-                    .children_with_tokens()
-                    .any(|elem| matches!(elem, SyntaxElement::Token(t) if t.text() == "ARCHIVE"))
-            })
-            .unwrap_or_default()
+        self.tags().any(|t| t.text() == "ARCHIVE")
     }
 
     /// Returns this headline's closed timestamp, or `None` if not set.
     pub fn closed(&self) -> Option<Timestamp> {
-        self.planning()
-            .and_then(|planning| planning.closed())
-            .and_then(|node| support::child::<Timestamp>(&node.syntax))
+        self.planning().and_then(|planning| planning.closed())
     }
 
     /// Returns this headline's scheduled timestamp, or `None` if not set.
     pub fn scheduled(&self) -> Option<Timestamp> {
-        self.planning()
-            .and_then(|planning| planning.scheduled())
-            .and_then(|node| support::child::<Timestamp>(&node.syntax))
+        self.planning().and_then(|planning| planning.scheduled())
     }
 
     /// Returns this headline's deadline timestamp, or `None` if not set.
     pub fn deadline(&self) -> Option<Timestamp> {
-        self.planning()
-            .and_then(|planning| planning.deadline())
-            .and_then(|node| support::child::<Timestamp>(&node.syntax))
+        self.planning().and_then(|planning| planning.deadline())
+    }
+
+    /// Returns an iterator of text token in this tags
+    ///
+    /// ```rust
+    /// use orgize::{Org, ast::Headline};
+    ///
+    /// let tags_vec = |input: &str| {
+    ///     let hdl = Org::parse(input).first_node::<Headline>().unwrap();
+    ///     let tags: Vec<_> = hdl.tags().map(|t| t.to_string()).collect();
+    ///     tags
+    /// };
+    ///
+    /// assert_eq!(tags_vec("* :tag:"), vec!["tag".to_string()]);
+    /// assert_eq!(tags_vec("* [#A] :::::a2%:"), vec!["a2%".to_string()]);
+    /// assert_eq!(tags_vec("* TODO :tag:  :a2%:"), vec!["tag".to_string(), "a2%".to_string()]);
+    /// assert_eq!(tags_vec("* title :tag:a2%:"), vec!["tag".to_string(), "a2%".to_string()]);
+    /// ```
+    pub fn tags(&self) -> impl Iterator<Item = SyntaxToken> {
+        self.syntax
+            .children()
+            .find(|n| n.kind() == SyntaxKind::HEADLINE_TAGS)
+            .into_iter()
+            .flat_map(|t| t.children_with_tokens())
+            .filter_map(filter_token(SyntaxKind::TEXT))
+    }
+
+    /// Returns priority text
+    ///
+    /// ```rust
+    /// use orgize::{Org, ast::Headline};
+    ///
+    /// let hdl = Org::parse("* [#A]").first_node::<Headline>().unwrap();
+    /// assert_eq!(hdl.priority().unwrap().text(), "A");
+    /// let hdl = Org::parse("* [#破]").first_node::<Headline>().unwrap();
+    /// assert_eq!(hdl.priority().unwrap().text(), "破");
+    /// ```
+    pub fn priority(&self) -> Option<SyntaxToken> {
+        self.syntax
+            .children()
+            .find(|n| n.kind() == SyntaxKind::HEADLINE_PRIORITY)
+            .and_then(|n| {
+                n.children_with_tokens()
+                    .find_map(filter_token(SyntaxKind::TEXT))
+            })
     }
 }
 
@@ -316,43 +354,3 @@ impl Headline {
 //         }
 //     }
 // }
-
-impl HeadlineTags {
-    /// Returns an iterator of text token in this tags
-    ///
-    /// ```rust
-    /// use orgize::{Org, ast::HeadlineTags};
-    ///
-    /// let tags_vec = |input: &str| {
-    ///     let tags = Org::parse(input).first_node::<HeadlineTags>().unwrap();
-    ///     let tags: Vec<_> = tags.iter().map(|t| t.to_string()).collect();
-    ///     tags
-    /// };
-    ///
-    /// assert_eq!(tags_vec("* :tag:"), vec!["tag".to_string()]);
-    /// assert_eq!(tags_vec("* [#A] :::::a2%:"), vec!["a2%".to_string()]);
-    /// assert_eq!(tags_vec("* TODO :tag:  :a2%:"), vec!["tag".to_string(), "a2%".to_string()]);
-    /// assert_eq!(tags_vec("* title :tag:a2%:"), vec!["tag".to_string(), "a2%".to_string()]);
-    /// ```
-    pub fn iter(&self) -> impl Iterator<Item = SyntaxToken> {
-        self.syntax
-            .children_with_tokens()
-            .filter_map(filter_token(SyntaxKind::TEXT))
-    }
-}
-
-impl HeadlinePriority {
-    /// Returns priority text
-    ///
-    /// ```rust
-    /// use orgize::{Org, ast::HeadlinePriority};
-    ///
-    /// let priority = Org::parse("* [#A]").first_node::<HeadlinePriority>().unwrap();
-    /// assert_eq!(priority.text_string().unwrap(), "A".to_string());
-    /// let priority = Org::parse("* [#破]").first_node::<HeadlinePriority>().unwrap();
-    /// assert_eq!(priority.text_string().unwrap(), "破".to_string());
-    /// ```
-    pub fn text_string(&self) -> Option<String> {
-        self.text().map(|tk| tk.to_string())
-    }
-}

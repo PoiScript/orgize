@@ -1,7 +1,55 @@
-use super::List;
-use crate::syntax::SyntaxKind;
+use super::{filter_token, List};
+use crate::{syntax::SyntaxKind, SyntaxElement, SyntaxToken};
 
 impl List {
+    pub fn indent(&self) -> usize {
+        self.syntax
+            .children_with_tokens()
+            .find_map(filter_token(SyntaxKind::LIST_ITEM_INDENT))
+            .map(|t| t.text().len())
+            .unwrap_or_else(|| {
+                debug_assert!(false, "list must contains indent token");
+                0
+            })
+    }
+
+    pub fn bullet(&self) -> Option<SyntaxToken> {
+        self.syntax
+            .children_with_tokens()
+            .find_map(filter_token(SyntaxKind::LIST_ITEM_BULLET))
+    }
+
+    pub fn checkbox(&self) -> Option<SyntaxToken> {
+        self.syntax
+            .children()
+            .find(|n| n.kind() == SyntaxKind::LIST_ITEM_CHECK_BOX)
+            .and_then(|n| {
+                n.children_with_tokens()
+                    .find_map(filter_token(SyntaxKind::TEXT))
+            })
+    }
+
+    pub fn counter(&self) -> Option<SyntaxToken> {
+        self.syntax
+            .children()
+            .find(|n| n.kind() == SyntaxKind::LIST_ITEM_COUNTER)
+            .and_then(|n| {
+                n.children_with_tokens()
+                    .find_map(filter_token(SyntaxKind::TEXT))
+            })
+    }
+
+    pub fn tag(&self) -> impl Iterator<Item = SyntaxElement> {
+        self.syntax
+            .children()
+            .find(|n| n.kind() == SyntaxKind::LIST_ITEM_TAG)
+            .into_iter()
+            .flat_map(|n| {
+                n.children_with_tokens()
+                    .filter(|n| n.kind() != SyntaxKind::COLON2)
+            })
+    }
+
     /// Returns `true` if this list is an ordered link
     ///
     /// ```rust

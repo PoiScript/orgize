@@ -8,6 +8,7 @@ mod headline;
 mod inline_call;
 mod link;
 mod list;
+mod planning;
 mod snippet;
 mod table;
 mod timestamp;

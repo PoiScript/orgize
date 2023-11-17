@@ -27,8 +27,7 @@ impl Traverser for MyHtmlHandler {
     fn headline_title(&mut self, event: WalkEvent<&HeadlineTitle>, _ctx: &mut TraversalContext) {
         match event {
             WalkEvent::Enter(title) => {
-                let level = title.headline().and_then(|h| h.level()).unwrap_or(1);
-                let level = min(level, 6);
+                let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
                 let raw = title.syntax().to_string();
                 self.0.push_str(format!(
                     "<h{level}><a id=\"{0}\" href=\"#{0}\">",
@@ -36,8 +35,7 @@ impl Traverser for MyHtmlHandler {
                 ));
             }
             WalkEvent::Leave(title) => {
-                let level = title.headline().and_then(|h| h.level()).unwrap_or(1);
-                let level = min(level, 6);
+                let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
                 self.0.push_str(format!("</a></h{level}>"));
             }
         }

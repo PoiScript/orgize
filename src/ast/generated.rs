@@ -32,6 +32,12 @@ impl AstNode for Document {
     }
 }
 impl Document {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn section(&self) -> Option<Section> {
         support::child(&self.syntax)
     }
@@ -66,6 +72,12 @@ impl AstNode for Section {
     }
 }
 impl Section {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
@@ -88,6 +100,12 @@ impl AstNode for Paragraph {
     }
 }
 impl Paragraph {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
@@ -130,8 +148,11 @@ impl AstNode for Headline {
     }
 }
 impl Headline {
-    pub fn stars(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, HEADLINE_STARS)
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
     }
     pub fn keyword(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, HEADLINE_KEYWORD)
@@ -142,13 +163,7 @@ impl Headline {
     pub fn section(&self) -> Option<Section> {
         support::child(&self.syntax)
     }
-    pub fn tags(&self) -> Option<HeadlineTags> {
-        support::child(&self.syntax)
-    }
     pub fn planning(&self) -> Option<Planning> {
-        support::child(&self.syntax)
-    }
-    pub fn priority(&self) -> Option<HeadlinePriority> {
         support::child(&self.syntax)
     }
     pub fn headlines(&self) -> AstChildren<Headline> {
@@ -156,28 +171,6 @@ impl Headline {
     }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct HeadlineStars {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for HeadlineStars {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == HEADLINE_STARS
-    }
-    fn cast(node: SyntaxNode) -> Option<HeadlineStars> {
-        Self::can_cast(node.kind()).then(|| HeadlineStars { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl HeadlineStars {
-    pub fn headline(&self) -> Option<Headline> {
-        self.syntax.parent().and_then(Headline::cast)
     }
 }
 
@@ -198,75 +191,12 @@ impl AstNode for HeadlineTitle {
     }
 }
 impl HeadlineTitle {
-    pub fn headline(&self) -> Option<Headline> {
-        self.syntax.parent().and_then(Headline::cast)
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct HeadlineKeyword {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for HeadlineKeyword {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == HEADLINE_KEYWORD
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
     }
-    fn cast(node: SyntaxNode) -> Option<HeadlineKeyword> {
-        Self::can_cast(node.kind()).then(|| HeadlineKeyword { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl HeadlineKeyword {
-    pub fn headline(&self) -> Option<Headline> {
-        self.syntax.parent().and_then(Headline::cast)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct HeadlinePriority {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for HeadlinePriority {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == HEADLINE_PRIORITY
-    }
-    fn cast(node: SyntaxNode) -> Option<HeadlinePriority> {
-        Self::can_cast(node.kind()).then(|| HeadlinePriority { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl HeadlinePriority {
-    pub fn text(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TEXT)
-    }
-    pub fn headline(&self) -> Option<Headline> {
-        self.syntax.parent().and_then(Headline::cast)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct HeadlineTags {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for HeadlineTags {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == HEADLINE_TAGS
-    }
-    fn cast(node: SyntaxNode) -> Option<HeadlineTags> {
-        Self::can_cast(node.kind()).then(|| HeadlineTags { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl HeadlineTags {
     pub fn headline(&self) -> Option<Headline> {
         self.syntax.parent().and_then(Headline::cast)
     }
@@ -289,6 +219,12 @@ impl AstNode for PropertyDrawer {
     }
 }
 impl PropertyDrawer {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn node_properties(&self) -> AstChildren<NodeProperty> {
         support::children(&self.syntax)
     }
@@ -310,7 +246,14 @@ impl AstNode for NodeProperty {
         &self.syntax
     }
 }
-impl NodeProperty {}
+impl NodeProperty {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Planning {
@@ -329,70 +272,13 @@ impl AstNode for Planning {
     }
 }
 impl Planning {
-    pub fn deadline(&self) -> Option<PlanningDeadline> {
-        super::last_child(&self.syntax)
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
     }
-    pub fn scheduled(&self) -> Option<PlanningScheduled> {
-        super::last_child(&self.syntax)
-    }
-    pub fn closed(&self) -> Option<PlanningClosed> {
-        super::last_child(&self.syntax)
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
     }
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PlanningDeadline {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for PlanningDeadline {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == PLANNING_DEADLINE
-    }
-    fn cast(node: SyntaxNode) -> Option<PlanningDeadline> {
-        Self::can_cast(node.kind()).then(|| PlanningDeadline { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl PlanningDeadline {}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PlanningScheduled {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for PlanningScheduled {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == PLANNING_SCHEDULED
-    }
-    fn cast(node: SyntaxNode) -> Option<PlanningScheduled> {
-        Self::can_cast(node.kind()).then(|| PlanningScheduled { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl PlanningScheduled {}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PlanningClosed {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for PlanningClosed {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == PLANNING_CLOSED
-    }
-    fn cast(node: SyntaxNode) -> Option<PlanningClosed> {
-        Self::can_cast(node.kind()).then(|| PlanningClosed { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl PlanningClosed {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OrgTable {
@@ -411,6 +297,12 @@ impl AstNode for OrgTable {
     }
 }
 impl OrgTable {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
@@ -452,7 +344,14 @@ impl AstNode for OrgTableRow {
         &self.syntax
     }
 }
-impl OrgTableRow {}
+impl OrgTableRow {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OrgTableCell {
@@ -470,7 +369,14 @@ impl AstNode for OrgTableCell {
         &self.syntax
     }
 }
-impl OrgTableCell {}
+impl OrgTableCell {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct List {
@@ -489,6 +395,12 @@ impl AstNode for List {
     }
 }
 impl List {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn items(&self) -> AstChildren<ListItem> {
         support::children(&self.syntax)
     }
@@ -531,6 +443,12 @@ impl AstNode for ListItem {
     }
 }
 impl ListItem {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn indent(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, LIST_ITEM_INDENT)
     }
@@ -558,7 +476,14 @@ impl AstNode for ListItemIndent {
         &self.syntax
     }
 }
-impl ListItemIndent {}
+impl ListItemIndent {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ListItemTag {
@@ -576,7 +501,14 @@ impl AstNode for ListItemTag {
         &self.syntax
     }
 }
-impl ListItemTag {}
+impl ListItemTag {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ListItemBullet {
@@ -594,7 +526,14 @@ impl AstNode for ListItemBullet {
         &self.syntax
     }
 }
-impl ListItemBullet {}
+impl ListItemBullet {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ListItemContent {
@@ -612,7 +551,14 @@ impl AstNode for ListItemContent {
         &self.syntax
     }
 }
-impl ListItemContent {}
+impl ListItemContent {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Drawer {
@@ -630,7 +576,14 @@ impl AstNode for Drawer {
         &self.syntax
     }
 }
-impl Drawer {}
+impl Drawer {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DynBlock {
@@ -649,6 +602,12 @@ impl AstNode for DynBlock {
     }
 }
 impl DynBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -687,7 +646,14 @@ impl AstNode for Keyword {
         &self.syntax
     }
 }
-impl Keyword {}
+impl Keyword {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BabelCall {
@@ -705,7 +671,14 @@ impl AstNode for BabelCall {
         &self.syntax
     }
 }
-impl BabelCall {}
+impl BabelCall {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AffiliatedKeyword {
@@ -723,7 +696,14 @@ impl AstNode for AffiliatedKeyword {
         &self.syntax
     }
 }
-impl AffiliatedKeyword {}
+impl AffiliatedKeyword {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TableEl {
@@ -742,6 +722,12 @@ impl AstNode for TableEl {
     }
 }
 impl TableEl {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
@@ -764,6 +750,12 @@ impl AstNode for Clock {
     }
 }
 impl Clock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
@@ -786,6 +778,12 @@ impl AstNode for FnDef {
     }
 }
 impl FnDef {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
@@ -828,6 +826,12 @@ impl AstNode for Comment {
     }
 }
 impl Comment {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn text(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, TEXT)
     }
@@ -873,6 +877,12 @@ impl AstNode for Rule {
     }
 }
 impl Rule {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
@@ -895,6 +905,12 @@ impl AstNode for FixedWidth {
     }
 }
 impl FixedWidth {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn text(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, TEXT)
     }
@@ -940,6 +956,12 @@ impl AstNode for SpecialBlock {
     }
 }
 impl SpecialBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -979,6 +1001,12 @@ impl AstNode for QuoteBlock {
     }
 }
 impl QuoteBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -1018,6 +1046,12 @@ impl AstNode for CenterBlock {
     }
 }
 impl CenterBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -1057,6 +1091,12 @@ impl AstNode for VerseBlock {
     }
 }
 impl VerseBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -1096,6 +1136,12 @@ impl AstNode for CommentBlock {
     }
 }
 impl CommentBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -1135,6 +1181,12 @@ impl AstNode for ExampleBlock {
     }
 }
 impl ExampleBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -1174,6 +1226,12 @@ impl AstNode for ExportBlock {
     }
 }
 impl ExportBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -1213,6 +1271,12 @@ impl AstNode for SourceBlock {
     }
 }
 impl SourceBlock {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn caption(&self) -> Option<AffiliatedKeyword> {
         affiliated_keyword(&self.syntax, |k| k == "CAPTION")
     }
@@ -1251,7 +1315,14 @@ impl AstNode for InlineCall {
         &self.syntax
     }
 }
-impl InlineCall {}
+impl InlineCall {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InlineSrc {
@@ -1269,7 +1340,14 @@ impl AstNode for InlineSrc {
         &self.syntax
     }
 }
-impl InlineSrc {}
+impl InlineSrc {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Link {
@@ -1288,6 +1366,12 @@ impl AstNode for Link {
     }
 }
 impl Link {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn path(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, LINK_PATH)
     }
@@ -1309,7 +1393,14 @@ impl AstNode for Cookie {
         &self.syntax
     }
 }
-impl Cookie {}
+impl Cookie {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RadioTarget {
@@ -1327,7 +1418,14 @@ impl AstNode for RadioTarget {
         &self.syntax
     }
 }
-impl RadioTarget {}
+impl RadioTarget {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FnRef {
@@ -1345,7 +1443,14 @@ impl AstNode for FnRef {
         &self.syntax
     }
 }
-impl FnRef {}
+impl FnRef {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LatexEnvironment {
@@ -1363,7 +1468,14 @@ impl AstNode for LatexEnvironment {
         &self.syntax
     }
 }
-impl LatexEnvironment {}
+impl LatexEnvironment {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Macros {
@@ -1381,7 +1493,14 @@ impl AstNode for Macros {
         &self.syntax
     }
 }
-impl Macros {}
+impl Macros {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MacrosArgument {
@@ -1399,7 +1518,14 @@ impl AstNode for MacrosArgument {
         &self.syntax
     }
 }
-impl MacrosArgument {}
+impl MacrosArgument {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Snippet {
@@ -1418,6 +1544,12 @@ impl AstNode for Snippet {
     }
 }
 impl Snippet {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn name(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, TEXT)
     }
@@ -1439,7 +1571,14 @@ impl AstNode for Target {
         &self.syntax
     }
 }
-impl Target {}
+impl Target {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Bold {
@@ -1457,7 +1596,14 @@ impl AstNode for Bold {
         &self.syntax
     }
 }
-impl Bold {}
+impl Bold {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Strike {
@@ -1475,7 +1621,14 @@ impl AstNode for Strike {
         &self.syntax
     }
 }
-impl Strike {}
+impl Strike {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Italic {
@@ -1493,7 +1646,14 @@ impl AstNode for Italic {
         &self.syntax
     }
 }
-impl Italic {}
+impl Italic {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Underline {
@@ -1511,7 +1671,14 @@ impl AstNode for Underline {
         &self.syntax
     }
 }
-impl Underline {}
+impl Underline {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Verbatim {
@@ -1529,7 +1696,14 @@ impl AstNode for Verbatim {
         &self.syntax
     }
 }
-impl Verbatim {}
+impl Verbatim {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Code {
@@ -1548,6 +1722,12 @@ impl AstNode for Code {
     }
 }
 impl Code {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn text(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, TEXT)
     }
@@ -1570,6 +1750,12 @@ impl AstNode for Timestamp {
     }
 }
 impl Timestamp {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
     pub fn year_start(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, TIMESTAMP_YEAR)
     }

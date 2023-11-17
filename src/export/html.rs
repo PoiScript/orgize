@@ -1,4 +1,5 @@
 use rowan::WalkEvent;
+use std::cmp::min;
 use std::fmt;
 
 use super::TraversalContext;
@@ -188,19 +189,11 @@ impl Traverser for HtmlExport {
     fn headline_title(&mut self, event: WalkEvent<&HeadlineTitle>, _ctx: &mut TraversalContext) {
         self.output += &match event {
             WalkEvent::Enter(title) => {
-                let level = title
-                    .headline()
-                    .and_then(|hdl| hdl.level())
-                    .map(|lvl| std::cmp::min(lvl, 6))
-                    .unwrap_or(1);
+                let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
                 format!("<h{level}>")
             }
             WalkEvent::Leave(title) => {
-                let level = title
-                    .headline()
-                    .and_then(|hdl| hdl.level())
-                    .map(|lvl| std::cmp::min(lvl, 6))
-                    .unwrap_or(1);
+                let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
                 format!("</h{level}>")
             }
         };

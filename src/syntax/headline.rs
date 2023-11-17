@@ -273,8 +273,8 @@ fn parse() {
     );
 
     let hdl = to_headline("* TODO foo\nbar\n** baz\n");
-    assert_eq!(hdl.level(), Some(1));
-    assert_eq!(hdl.keyword().as_ref().map(|x| x.text()), Some("TODO"));
+    assert_eq!(hdl.level(), 1);
+    assert_eq!(hdl.keyword().unwrap().text(), "TODO");
     insta::assert_debug_snapshot!(
         hdl.syntax,
         @r###"
@@ -299,11 +299,8 @@ fn parse() {
     );
 
     let hdl = to_headline("** [#A] foo\n* baz");
-    assert_eq!(hdl.level(), Some(2));
-    assert_eq!(
-        hdl.priority().unwrap().text_string().unwrap(),
-        "A".to_string()
-    );
+    assert_eq!(hdl.level(), 2);
+    assert_eq!(hdl.priority().unwrap().text(), "A");
     insta::assert_debug_snapshot!(
         hdl.syntax,
         @r###"
@@ -329,41 +326,41 @@ fn issue_15_16() {
 
     let to_headline = to_ast::<Headline>(headline_node);
 
-    assert!(to_headline("* a ::").tags().is_none());
-    assert!(to_headline("* a : :").tags().is_none());
-    assert!(to_headline("* a :(:").tags().is_none());
-    assert!(to_headline("* a :a: :").tags().is_none());
-    assert!(to_headline("* a :a :").tags().is_none());
-    assert!(to_headline("* a a:").tags().is_none());
-    assert!(to_headline("* a :a").tags().is_none());
+    assert!(to_headline("* a ::").tags().count() == 0);
+    assert!(to_headline("* a : :").tags().count() == 0);
+    assert!(to_headline("* a :(:").tags().count() == 0);
+    assert!(to_headline("* a :a: :").tags().count() == 0);
+    assert!(to_headline("* a :a :").tags().count() == 0);
+    assert!(to_headline("* a a:").tags().count() == 0);
+    assert!(to_headline("* a :a").tags().count() == 0);
 
-    let tags = to_headline("* a \t:_:").tags().unwrap();
+    let tags = to_headline("* a \t:_:").tags();
     assert_eq!(
         vec!["_".to_string()],
-        tags.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+        tags.map(|x| x.to_string()).collect::<Vec<_>>(),
     );
 
-    let tags = to_headline("* a \t :@:").tags().unwrap();
+    let tags = to_headline("* a \t :@:").tags();
     assert_eq!(
         vec!["@".to_string()],
-        tags.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+        tags.map(|x| x.to_string()).collect::<Vec<_>>(),
     );
 
-    let tags = to_headline("* a :#:").tags().unwrap();
+    let tags = to_headline("* a :#:").tags();
     assert_eq!(
         vec!["#".to_string()],
-        tags.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+        tags.map(|x| x.to_string()).collect::<Vec<_>>(),
     );
 
-    let tags = to_headline("* a\t :%:").tags().unwrap();
+    let tags = to_headline("* a\t :%:").tags();
     assert_eq!(
         vec!["%".to_string()],
-        tags.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+        tags.map(|x| x.to_string()).collect::<Vec<_>>(),
     );
 
-    let tags = to_headline("* a :余: :破:").tags().unwrap();
+    let tags = to_headline("* a :余: :破:").tags();
     assert_eq!(
         vec!["余".to_string(), "破".to_string()],
-        tags.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+        tags.map(|x| x.to_string()).collect::<Vec<_>>(),
     );
 }

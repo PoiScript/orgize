@@ -27,41 +27,15 @@ const nodes = [
     first_child: [
       ["title", "HeadlineTitle"],
       ["section", "Section"],
-      ["tags", "HeadlineTags"],
       ["planning", "Planning"],
-      ["priority", "HeadlinePriority"],
     ],
     children: [["headlines", "Headline"]],
-    token: [
-      ["stars", "HEADLINE_STARS"],
-      ["keyword", "HEADLINE_KEYWORD"],
-    ],
+    token: [["keyword", "HEADLINE_KEYWORD"]],
     post_blank: true,
-  },
-  {
-    struct: "HeadlineStars",
-    kind: ["HEADLINE_STARS"],
-    parent: [["headline", "Headline"]],
   },
   {
     struct: "HeadlineTitle",
     kind: ["HEADLINE_TITLE"],
-    parent: [["headline", "Headline"]],
-  },
-  {
-    struct: "HeadlineKeyword",
-    kind: ["HEADLINE_KEYWORD"],
-    parent: [["headline", "Headline"]],
-  },
-  {
-    struct: "HeadlinePriority",
-    kind: ["HEADLINE_PRIORITY"],
-    parent: [["headline", "Headline"]],
-    token: [["text", "TEXT"]],
-  },
-  {
-    struct: "HeadlineTags",
-    kind: ["HEADLINE_TAGS"],
     parent: [["headline", "Headline"]],
   },
   {
@@ -76,23 +50,6 @@ const nodes = [
   {
     struct: "Planning",
     kind: ["PLANNING"],
-    last_child: [
-      ["deadline", "PlanningDeadline"],
-      ["scheduled", "PlanningScheduled"],
-      ["closed", "PlanningClosed"],
-    ],
-  },
-  {
-    struct: "PlanningDeadline",
-    kind: ["PLANNING_DEADLINE"],
-  },
-  {
-    struct: "PlanningScheduled",
-    kind: ["PLANNING_SCHEDULED"],
-  },
-  {
-    struct: "PlanningClosed",
-    kind: ["PLANNING_CLOSED"],
   },
   {
     struct: "OrgTable",
@@ -118,26 +75,6 @@ const nodes = [
     struct: "ListItem",
     kind: ["LIST_ITEM"],
     first_child: [["content", "ListItemContent"]],
-    token: [
-      ["indent", "LIST_ITEM_INDENT"],
-      ["bullet", "LIST_ITEM_BULLET"],
-    ],
-  },
-  {
-    struct: "ListItemIndent",
-    kind: ["LIST_ITEM_INDENT"],
-  },
-  {
-    struct: "ListItemTag",
-    kind: ["LIST_ITEM_TAG"],
-  },
-  {
-    struct: "ListItemBullet",
-    kind: ["LIST_ITEM_BULLET"],
-  },
-  {
-    struct: "ListItemContent",
-    kind: ["LIST_ITEM_CONTENT"],
   },
   {
     struct: "Drawer",
@@ -357,7 +294,14 @@ impl AstNode for ${node.struct} {
     }> { Self::can_cast(node.kind()).then(|| ${node.struct} { syntax: node }) }
     fn syntax(&self) -> &SyntaxNode { &self.syntax }
 }
-impl ${node.struct} {\n`;
+impl ${node.struct} {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+`;
   for (const [method, kind] of node.token || []) {
     content += `    pub fn ${method}(&self) -> Option<SyntaxToken> { support::token(&self.syntax, ${kind}) }\n`;
   }
