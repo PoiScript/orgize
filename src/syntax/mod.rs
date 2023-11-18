@@ -18,6 +18,7 @@ pub mod inline_call;
 pub mod inline_src;
 pub mod input;
 pub mod keyword;
+pub mod latex_fragment;
 pub mod link;
 pub mod list;
 pub mod macros;
@@ -85,6 +86,9 @@ pub enum SyntaxKind {
     PERCENT,      // '%'
     PERCENT2,     // '%%'
     SLASH,        // '/'
+    BACKSLASH,    // '\'
+    DOLLAR,       // '$'
+    DOLLAR2,      // '$$'
     UNDERSCORE,   // '_'
     STAR,         // '*'
     PLUS,         // '+'
@@ -168,6 +172,7 @@ pub enum SyntaxKind {
     BLOCK_BEGIN,
     BLOCK_END,
     BLOCK_CONTENT,
+    LATEX_ENVIRONMENT,
 
     //
     // objects
@@ -179,7 +184,7 @@ pub enum SyntaxKind {
     COOKIE,
     RADIO_TARGET,
     FN_REF,
-    LATEX_ENVIRONMENT,
+    LATEX_FRAGMENT,
     MACROS,
     MACROS_ARGUMENT,
     SNIPPET,

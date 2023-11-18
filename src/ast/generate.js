@@ -196,10 +196,6 @@ const nodes = [
     kind: ["FN_REF"],
   },
   {
-    struct: "LatexEnvironment",
-    kind: ["LATEX_ENVIRONMENT"],
-  },
-  {
     struct: "Macros",
     kind: ["MACROS"],
   },
@@ -258,6 +254,14 @@ const nodes = [
       ["hour_end", "TIMESTAMP_HOUR"],
       ["minute_end", "TIMESTAMP_MINUTE"],
     ],
+  },
+  {
+    struct: "LatexEnvironment",
+    kind: ["LATEX_ENVIRONMENT"],
+  },
+  {
+    struct: "LatexFragment",
+    kind: ["LATEX_FRAGMENT"],
   },
 ];
 

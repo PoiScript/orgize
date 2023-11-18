@@ -8,6 +8,7 @@ use super::{
     inline_call::inline_call_node,
     inline_src::inline_src_node,
     input::Input,
+    latex_fragment::latex_fragment_node,
     link::link_node,
     macros::macros_node,
     radio_target::radio_target_node,
@@ -29,7 +30,9 @@ impl ObjectPositions<'_> {
             input,
             pos: 0,
             next: Some(0),
-            finder: jetscii::bytes!(b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n'),
+            finder: jetscii::bytes!(
+                b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n', b'\\', b'$'
+            ),
         }
     }
 }
@@ -142,6 +145,8 @@ fn object_node(i: Input) -> IResult<Input, GreenElement, ()> {
             .or_else(|_| timestamp_inactive_node(i)),
         b'c' => inline_call_node(i),
         b's' => inline_src_node(i),
+        b'$' => latex_fragment_node(i),
+        b'\\' => latex_fragment_node(i),
         _ => Err(nom::Err::Error(())),
     }
 }

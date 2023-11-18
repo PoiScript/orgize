@@ -1650,3 +1650,53 @@ impl Timestamp {
         super::last_token(&self.syntax, TIMESTAMP_MINUTE)
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LatexEnvironment {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AstNode for LatexEnvironment {
+    type Language = OrgLanguage;
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == LATEX_ENVIRONMENT
+    }
+    fn cast(node: SyntaxNode) -> Option<LatexEnvironment> {
+        Self::can_cast(node.kind()).then(|| LatexEnvironment { syntax: node })
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl LatexEnvironment {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LatexFragment {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AstNode for LatexFragment {
+    type Language = OrgLanguage;
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == LATEX_FRAGMENT
+    }
+    fn cast(node: SyntaxNode) -> Option<LatexFragment> {
+        Self::can_cast(node.kind()).then(|| LatexFragment { syntax: node })
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl LatexFragment {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
