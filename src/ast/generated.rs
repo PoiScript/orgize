@@ -157,9 +157,6 @@ impl Headline {
     pub fn keyword(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, HEADLINE_KEYWORD)
     }
-    pub fn title(&self) -> Option<HeadlineTitle> {
-        support::child(&self.syntax)
-    }
     pub fn section(&self) -> Option<Section> {
         support::child(&self.syntax)
     }
@@ -443,115 +440,6 @@ impl AstNode for ListItem {
     }
 }
 impl ListItem {
-    pub fn begin(&self) -> u32 {
-        self.syntax.text_range().start().into()
-    }
-    pub fn end(&self) -> u32 {
-        self.syntax.text_range().end().into()
-    }
-    pub fn indent(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, LIST_ITEM_INDENT)
-    }
-    pub fn bullet(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, LIST_ITEM_BULLET)
-    }
-    pub fn content(&self) -> Option<ListItemContent> {
-        support::child(&self.syntax)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ListItemIndent {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for ListItemIndent {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == LIST_ITEM_INDENT
-    }
-    fn cast(node: SyntaxNode) -> Option<ListItemIndent> {
-        Self::can_cast(node.kind()).then(|| ListItemIndent { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl ListItemIndent {
-    pub fn begin(&self) -> u32 {
-        self.syntax.text_range().start().into()
-    }
-    pub fn end(&self) -> u32 {
-        self.syntax.text_range().end().into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ListItemTag {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for ListItemTag {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == LIST_ITEM_TAG
-    }
-    fn cast(node: SyntaxNode) -> Option<ListItemTag> {
-        Self::can_cast(node.kind()).then(|| ListItemTag { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl ListItemTag {
-    pub fn begin(&self) -> u32 {
-        self.syntax.text_range().start().into()
-    }
-    pub fn end(&self) -> u32 {
-        self.syntax.text_range().end().into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ListItemBullet {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for ListItemBullet {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == LIST_ITEM_BULLET
-    }
-    fn cast(node: SyntaxNode) -> Option<ListItemBullet> {
-        Self::can_cast(node.kind()).then(|| ListItemBullet { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl ListItemBullet {
-    pub fn begin(&self) -> u32 {
-        self.syntax.text_range().start().into()
-    }
-    pub fn end(&self) -> u32 {
-        self.syntax.text_range().end().into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ListItemContent {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for ListItemContent {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == LIST_ITEM_CONTENT
-    }
-    fn cast(node: SyntaxNode) -> Option<ListItemContent> {
-        Self::can_cast(node.kind()).then(|| ListItemContent { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl ListItemContent {
     pub fn begin(&self) -> u32 {
         self.syntax.text_range().start().into()
     }
@@ -1444,31 +1332,6 @@ impl AstNode for FnRef {
     }
 }
 impl FnRef {
-    pub fn begin(&self) -> u32 {
-        self.syntax.text_range().start().into()
-    }
-    pub fn end(&self) -> u32 {
-        self.syntax.text_range().end().into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LatexEnvironment {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for LatexEnvironment {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == LATEX_ENVIRONMENT
-    }
-    fn cast(node: SyntaxNode) -> Option<LatexEnvironment> {
-        Self::can_cast(node.kind()).then(|| LatexEnvironment { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl LatexEnvironment {
     pub fn begin(&self) -> u32 {
         self.syntax.text_range().start().into()
     }

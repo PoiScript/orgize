@@ -25,7 +25,6 @@ const nodes = [
     struct: "Headline",
     kind: ["HEADLINE"],
     first_child: [
-      ["title", "HeadlineTitle"],
       ["section", "Section"],
       ["planning", "Planning"],
     ],
@@ -74,7 +73,6 @@ const nodes = [
   {
     struct: "ListItem",
     kind: ["LIST_ITEM"],
-    first_child: [["content", "ListItemContent"]],
   },
   {
     struct: "Drawer",

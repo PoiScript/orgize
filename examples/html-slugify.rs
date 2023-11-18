@@ -3,12 +3,13 @@
 //! ```
 
 use orgize::{
-    ast::HeadlineTitle,
+    ast::Headline,
     export::{HtmlExport, TraversalContext, Traverser},
     forward_handler,
-    rowan::{ast::AstNode, WalkEvent},
+    rowan::WalkEvent,
     Org,
 };
+use rowan::NodeOrToken;
 use slugify::slugify;
 use std::cmp::min;
 use std::env::args;
@@ -24,30 +25,31 @@ impl AsMut<HtmlExport> for MyHtmlHandler {
 }
 
 impl Traverser for MyHtmlHandler {
-    fn headline_title(&mut self, event: WalkEvent<&HeadlineTitle>, _ctx: &mut TraversalContext) {
-        match event {
-            WalkEvent::Enter(title) => {
-                let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
-                let raw = title.syntax().to_string();
-                self.0.push_str(format!(
-                    "<h{level}><a id=\"{0}\" href=\"#{0}\">",
-                    slugify!(&raw)
-                ));
+    fn headline(&mut self, event: WalkEvent<&Headline>, ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(headline) = event {
+            let level = min(headline.level(), 6);
+            let title = headline.title().map(|e| e.to_string()).collect::<String>();
+            self.0.push_str(format!(
+                "<h{level}><a id=\"{0}\" href=\"#{0}\">",
+                slugify!(&title)
+            ));
+            for elem in headline.title() {
+                match elem {
+                    NodeOrToken::Node(node) => self.node(node, ctx),
+                    NodeOrToken::Token(token) => self.token(token, ctx),
+                }
             }
-            WalkEvent::Leave(title) => {
-                let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
-                self.0.push_str(format!("</a></h{level}>"));
-            }
+            self.0.push_str(format!("</a></h{level}>"));
         }
     }
 
     forward_handler! {
         HtmlExport,
-        link text document headline paragraph section rule comment
-        inline_src inline_call code bold verbatim italic strike underline list list_item list_item_tag
+        link text document paragraph section rule comment
+        inline_src inline_call code bold verbatim italic strike underline list list_item
         special_block quote_block center_block verse_block comment_block example_block export_block
         source_block babel_call clock cookie radio_target drawer dyn_block fn_def fn_ref macros
-        snippet timestamp target fixed_width org_table org_table_row org_table_cell list_item_content
+        snippet timestamp target fixed_width org_table org_table_row org_table_cell
     }
 }
 

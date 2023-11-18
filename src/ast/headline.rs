@@ -1,4 +1,7 @@
-use crate::syntax::{SyntaxKind, SyntaxToken};
+use crate::{
+    syntax::{SyntaxKind, SyntaxToken},
+    SyntaxElement,
+};
 
 use super::{filter_token, Headline, Timestamp};
 
@@ -24,6 +27,21 @@ impl Headline {
             })
     }
 
+    /// ```rust
+    /// use orgize::{Org, ast::Headline};
+    ///
+    /// let hdl = Org::parse("*** abc *abc* /abc/ :tag:").first_node::<Headline>().unwrap();
+    /// let title = hdl.title().map(|n| n.to_string()).collect::<String>();
+    /// assert_eq!(title, "abc *abc* /abc/ ");
+    /// ```
+    pub fn title(&self) -> impl Iterator<Item = SyntaxElement> {
+        self.syntax
+            .children()
+            .find(|n| n.kind() == SyntaxKind::HEADLINE_TITLE)
+            .into_iter()
+            .flat_map(|n| n.children_with_tokens())
+    }
+
     /// Return `true` if this headline contains a COMMENT keyword
     ///      
     /// ```rust
@@ -38,12 +56,16 @@ impl Headline {
     /// ```
     pub fn is_commented(&self) -> bool {
         self.title()
-            .and_then(|title| title.syntax.first_token())
-            .map(|title| {
-                let text = title.text();
-                title.kind() == SyntaxKind::TEXT
-                    && text.starts_with("COMMENT")
-                    && (text.len() == 7 || text[7..].starts_with(char::is_whitespace))
+            .next()
+            .map(|first| {
+                if let Some(t) = first.as_token() {
+                    let text = t.text();
+                    t.kind() == SyntaxKind::TEXT
+                        && text.starts_with("COMMENT")
+                        && (text.len() == 7 || text[7..].starts_with(char::is_whitespace))
+                } else {
+                    false
+                }
             })
             .unwrap_or_default()
     }

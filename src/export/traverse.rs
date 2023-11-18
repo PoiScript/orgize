@@ -63,15 +63,19 @@ impl TraversalContext {
 ///
 /// Each handle method can returns a `TraversalControl` to control the traversal.
 pub trait Traverser {
+    fn element(&mut self, element: SyntaxElement, ctx: &mut TraversalContext) {
+        match element {
+            SyntaxElement::Node(node) => self.node(node, ctx),
+            SyntaxElement::Token(token) => self.token(token, ctx),
+        };
+    }
+
     /// Called when visiting any node
     fn node(&mut self, node: SyntaxNode, ctx: &mut TraversalContext) {
         macro_rules! traverse_children {
             ($node:expr) => {{
                 for child in $node.children_with_tokens() {
-                    match child {
-                        SyntaxElement::Node(node) => self.node(node, ctx),
-                        SyntaxElement::Token(token) => self.token(token, ctx),
-                    };
+                    self.element(child, ctx);
                     take_control!(ctx);
                 }
             }};
@@ -100,8 +104,6 @@ pub trait Traverser {
             UNDERLINE => traverse!(Underline, underline),
             LIST => traverse!(List, list),
             LIST_ITEM => traverse!(ListItem, list_item),
-            LIST_ITEM_CONTENT => traverse!(ListItemContent, list_item_content),
-            LIST_ITEM_TAG => traverse!(ListItemTag, list_item_tag),
             CODE => traverse!(Code, code),
             INLINE_CALL => traverse!(InlineCall, inline_call),
             INLINE_SRC => traverse!(InlineSrc, inline_src),
@@ -131,13 +133,12 @@ pub trait Traverser {
             TARGET => traverse!(Target, target),
             COMMENT => traverse!(Comment, comment),
             FIXED_WIDTH => traverse!(FixedWidth, fixed_width),
-            HEADLINE_TITLE => traverse!(HeadlineTitle, headline_title),
             ORG_TABLE => traverse!(OrgTable, org_table),
             ORG_TABLE_RULE_ROW | ORG_TABLE_STANDARD_ROW => traverse!(OrgTableRow, org_table_row),
             ORG_TABLE_CELL => traverse!(OrgTableCell, org_table_cell),
             LINK => traverse!(Link, link),
 
-            BLOCK_CONTENT => traverse_children!(node),
+            BLOCK_CONTENT | LIST_ITEM_CONTENT => traverse_children!(node),
 
             _ => {}
         }
@@ -185,14 +186,6 @@ pub trait Traverser {
     fn list(&mut self, _event: WalkEvent<&List>, _ctx: &mut TraversalContext);
     /// Called when entering or leaving `ListItem` node
     fn list_item(&mut self, _event: WalkEvent<&ListItem>, _ctx: &mut TraversalContext);
-    /// Called when entering or leaving `ListItemTag` node
-    fn list_item_tag(&mut self, _event: WalkEvent<&ListItemTag>, _ctx: &mut TraversalContext);
-    /// Called when entering or leaving `ListItemContent` node
-    fn list_item_content(
-        &mut self,
-        _event: WalkEvent<&ListItemContent>,
-        _ctx: &mut TraversalContext,
-    );
     /// Called when entering or leaving `SpecialBlock` node
     fn special_block(&mut self, _event: WalkEvent<&SpecialBlock>, _ctx: &mut TraversalContext);
     /// Called when entering or leaving `QuoteBlock` node
@@ -235,8 +228,6 @@ pub trait Traverser {
     fn target(&mut self, _event: WalkEvent<&Target>, _ctx: &mut TraversalContext);
     /// Called when entering or leaving `FixedWidth` node
     fn fixed_width(&mut self, _event: WalkEvent<&FixedWidth>, _ctx: &mut TraversalContext);
-    /// Called when entering or leaving `HeadlineTitle` node
-    fn headline_title(&mut self, _event: WalkEvent<&HeadlineTitle>, _ctx: &mut TraversalContext);
     /// Called when entering or leaving `OrgTable` node
     fn org_table(&mut self, _event: WalkEvent<&OrgTable>, _ctx: &mut TraversalContext);
     /// Called when entering or leaving `OrgTableRow` node

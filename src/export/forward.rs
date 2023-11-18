@@ -1,14 +1,13 @@
-/// Forward handler method implement to other handler
+/// Forward traverser method implement to other
 ///
-/// This macros is commonly used if you want to extend
-/// some builtin handlers like HtmlExport.
+/// Used to "extend" some builtin traverser like `HtmlExport`.
 ///
 /// ```rust
 /// use orgize::{
-///     ast::HeadlineTitle,
+///     ast::Headline,
 ///     export::{HtmlExport, TraversalContext, Traverser},
 ///     forward_handler,
-///     rowan::{ast::AstNode, WalkEvent},
+///     rowan::{ast::AstNode, WalkEvent, NodeOrToken},
 ///     Org,
 /// };
 /// use slugify::slugify;
@@ -25,27 +24,31 @@
 /// }
 ///
 /// impl Traverser for SlugifyTitleHandler {
-///     fn headline_title(&mut self, event: WalkEvent<&HeadlineTitle>, _ctx: &mut TraversalContext) {
-///         match event {
-///             WalkEvent::Enter(title) => {
-///                 let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
-///                 let raw = title.syntax().to_string();
-///                 self.0.push_str(format!("<h{level}><a id=\"{0}\" href=\"#{0}\">", slugify!(&raw)));
+///     fn headline(&mut self, event: WalkEvent<&Headline>, ctx: &mut TraversalContext) {
+///         if let WalkEvent::Enter(headline) = event {
+///             let level = min(headline.level(), 6);
+///             let title = headline.title().map(|e| e.to_string()).collect::<String>();
+///             self.0.push_str(format!(
+///                 "<h{level}><a id=\"{0}\" href=\"#{0}\">",
+///                 slugify!(&title)
+///             ));
+///             for elem in headline.title() {
+///                 match elem {
+///                     NodeOrToken::Node(node) => self.node(node, ctx),
+///                     NodeOrToken::Token(token) => self.token(token, ctx),
+///                 }
 ///             }
-///             WalkEvent::Leave(title) => {
-///                 let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
-///                 self.0.push_str(format!("</a></h{level}>"));
-///             }
+///             self.0.push_str(format!("</a></h{level}>"));
 ///         }
 ///     }
 ///
 ///     forward_handler! {
 ///         HtmlExport,
-///         link text document headline paragraph section rule comment
-///         inline_src inline_call code bold verbatim italic strike underline list list_item list_item_tag
+///         link text document paragraph section rule comment
+///         inline_src inline_call code bold verbatim italic strike underline list list_item
 ///         special_block quote_block center_block verse_block comment_block example_block export_block
 ///         source_block babel_call clock cookie radio_target drawer dyn_block fn_def fn_ref macros
-///         snippet timestamp target fixed_width org_table org_table_row org_table_cell list_item_content
+///         snippet timestamp target fixed_width org_table org_table_row org_table_cell
 ///     }
 /// }
 ///
@@ -62,146 +65,137 @@ macro_rules! forward_handler {
     };
 
     (@method $handler:ty, text) => {
-        forward_handler!(@method $handler, text, ::orgize::SyntaxToken);
+        forward_handler!(@method $handler, text, $crate::SyntaxToken);
     };
     (@method $handler:ty, document) => {
-        forward_handler!(@method $handler, document, WalkEvent<&::orgize::ast::Document>);
+        forward_handler!(@method $handler, document, WalkEvent<&$crate::ast::Document>);
     };
     (@method $handler:ty, headline) => {
-        forward_handler!(@method $handler, headline, WalkEvent<&::orgize::ast::Headline>);
+        forward_handler!(@method $handler, headline, WalkEvent<&$crate::ast::Headline>);
     };
     (@method $handler:ty, paragraph) => {
-        forward_handler!(@method $handler, paragraph, WalkEvent<&::orgize::ast::Paragraph>);
+        forward_handler!(@method $handler, paragraph, WalkEvent<&$crate::ast::Paragraph>);
     };
     (@method $handler:ty, section) => {
-        forward_handler!(@method $handler, section, WalkEvent<&::orgize::ast::Section>);
+        forward_handler!(@method $handler, section, WalkEvent<&$crate::ast::Section>);
     };
     (@method $handler:ty, rule) => {
-        forward_handler!(@method $handler, rule, WalkEvent<&::orgize::ast::Rule>);
+        forward_handler!(@method $handler, rule, WalkEvent<&$crate::ast::Rule>);
     };
     (@method $handler:ty, comment) => {
-        forward_handler!(@method $handler, comment, WalkEvent<&::orgize::ast::Comment>);
+        forward_handler!(@method $handler, comment, WalkEvent<&$crate::ast::Comment>);
     };
     (@method $handler:ty, inline_src) => {
-        forward_handler!(@method $handler, inline_src, WalkEvent<&::orgize::ast::InlineSrc>);
+        forward_handler!(@method $handler, inline_src, WalkEvent<&$crate::ast::InlineSrc>);
     };
     (@method $handler:ty, inline_call) => {
-        forward_handler!(@method $handler, inline_call, WalkEvent<&::orgize::ast::InlineCall>);
+        forward_handler!(@method $handler, inline_call, WalkEvent<&$crate::ast::InlineCall>);
     };
     (@method $handler:ty, code) => {
-        forward_handler!(@method $handler, code, WalkEvent<&::orgize::ast::Code>);
+        forward_handler!(@method $handler, code, WalkEvent<&$crate::ast::Code>);
     };
     (@method $handler:ty, bold) => {
-        forward_handler!(@method $handler, bold, WalkEvent<&::orgize::ast::Bold>);
+        forward_handler!(@method $handler, bold, WalkEvent<&$crate::ast::Bold>);
     };
     (@method $handler:ty, verbatim) => {
-        forward_handler!(@method $handler, verbatim, WalkEvent<&::orgize::ast::Verbatim>);
+        forward_handler!(@method $handler, verbatim, WalkEvent<&$crate::ast::Verbatim>);
     };
     (@method $handler:ty, italic) => {
-        forward_handler!(@method $handler, italic, WalkEvent<&::orgize::ast::Italic>);
+        forward_handler!(@method $handler, italic, WalkEvent<&$crate::ast::Italic>);
     };
     (@method $handler:ty, strike) => {
-        forward_handler!(@method $handler, strike, WalkEvent<&::orgize::ast::Strike>);
+        forward_handler!(@method $handler, strike, WalkEvent<&$crate::ast::Strike>);
     };
     (@method $handler:ty, underline) => {
-        forward_handler!(@method $handler, underline, WalkEvent<&::orgize::ast::Underline>);
+        forward_handler!(@method $handler, underline, WalkEvent<&$crate::ast::Underline>);
     };
     (@method $handler:ty, list) => {
-        forward_handler!(@method $handler, list, WalkEvent<&::orgize::ast::List>);
+        forward_handler!(@method $handler, list, WalkEvent<&$crate::ast::List>);
     };
     (@method $handler:ty, list_item) => {
-        forward_handler!(@method $handler, list_item, WalkEvent<&::orgize::ast::ListItem>);
-    };
-    (@method $handler:ty, list_item_tag) => {
-        forward_handler!(@method $handler, list_item_tag, WalkEvent<&::orgize::ast::ListItemTag>);
-    };
-    (@method $handler:ty, list_item_content) => {
-        forward_handler!(@method $handler, list_item_content, WalkEvent<&::orgize::ast::ListItemContent>);
+        forward_handler!(@method $handler, list_item, WalkEvent<&$crate::ast::ListItem>);
     };
     (@method $handler:ty, special_block) => {
-        forward_handler!(@method $handler, special_block, WalkEvent<&::orgize::ast::SpecialBlock>);
+        forward_handler!(@method $handler, special_block, WalkEvent<&$crate::ast::SpecialBlock>);
     };
     (@method $handler:ty, quote_block) => {
-        forward_handler!(@method $handler, quote_block, WalkEvent<&::orgize::ast::QuoteBlock>);
+        forward_handler!(@method $handler, quote_block, WalkEvent<&$crate::ast::QuoteBlock>);
     };
     (@method $handler:ty, center_block) => {
-        forward_handler!(@method $handler, center_block, WalkEvent<&::orgize::ast::CenterBlock>);
+        forward_handler!(@method $handler, center_block, WalkEvent<&$crate::ast::CenterBlock>);
     };
     (@method $handler:ty, verse_block) => {
-        forward_handler!(@method $handler, verse_block, WalkEvent<&::orgize::ast::VerseBlock>);
+        forward_handler!(@method $handler, verse_block, WalkEvent<&$crate::ast::VerseBlock>);
     };
     (@method $handler:ty, comment_block) => {
-        forward_handler!(@method $handler, comment_block, WalkEvent<&::orgize::ast::CommentBlock>);
+        forward_handler!(@method $handler, comment_block, WalkEvent<&$crate::ast::CommentBlock>);
     };
     (@method $handler:ty, example_block) => {
-        forward_handler!(@method $handler, example_block, WalkEvent<&::orgize::ast::ExampleBlock>);
+        forward_handler!(@method $handler, example_block, WalkEvent<&$crate::ast::ExampleBlock>);
     };
     (@method $handler:ty, export_block) => {
-        forward_handler!(@method $handler, export_block, WalkEvent<&::orgize::ast::ExportBlock>);
+        forward_handler!(@method $handler, export_block, WalkEvent<&$crate::ast::ExportBlock>);
     };
     (@method $handler:ty, source_block) => {
-        forward_handler!(@method $handler, source_block, WalkEvent<&::orgize::ast::SourceBlock>);
+        forward_handler!(@method $handler, source_block, WalkEvent<&$crate::ast::SourceBlock>);
     };
     (@method $handler:ty, babel_call) => {
-        forward_handler!(@method $handler, babel_call, WalkEvent<&::orgize::ast::BabelCall>);
+        forward_handler!(@method $handler, babel_call, WalkEvent<&$crate::ast::BabelCall>);
     };
     (@method $handler:ty, clock) => {
-        forward_handler!(@method $handler, clock, WalkEvent<&::orgize::ast::Clock>);
+        forward_handler!(@method $handler, clock, WalkEvent<&$crate::ast::Clock>);
     };
     (@method $handler:ty, cookie) => {
-        forward_handler!(@method $handler, cookie, WalkEvent<&::orgize::ast::Cookie>);
+        forward_handler!(@method $handler, cookie, WalkEvent<&$crate::ast::Cookie>);
     };
     (@method $handler:ty, radio_target) => {
-        forward_handler!(@method $handler, radio_target, WalkEvent<&::orgize::ast::RadioTarget>);
+        forward_handler!(@method $handler, radio_target, WalkEvent<&$crate::ast::RadioTarget>);
     };
     (@method $handler:ty, drawer) => {
-        forward_handler!(@method $handler, drawer, WalkEvent<&::orgize::ast::Drawer>);
+        forward_handler!(@method $handler, drawer, WalkEvent<&$crate::ast::Drawer>);
     };
     (@method $handler:ty, dyn_block) => {
-        forward_handler!(@method $handler, dyn_block, WalkEvent<&::orgize::ast::DynBlock>);
+        forward_handler!(@method $handler, dyn_block, WalkEvent<&$crate::ast::DynBlock>);
     };
     (@method $handler:ty, fn_def) => {
-        forward_handler!(@method $handler, fn_def, WalkEvent<&::orgize::ast::FnDef>);
+        forward_handler!(@method $handler, fn_def, WalkEvent<&$crate::ast::FnDef>);
     };
     (@method $handler:ty, fn_ref) => {
-        forward_handler!(@method $handler, fn_ref, WalkEvent<&::orgize::ast::FnRef>);
+        forward_handler!(@method $handler, fn_ref, WalkEvent<&$crate::ast::FnRef>);
     };
     (@method $handler:ty, macros) => {
-        forward_handler!(@method $handler, macros, WalkEvent<&::orgize::ast::Macros>);
+        forward_handler!(@method $handler, macros, WalkEvent<&$crate::ast::Macros>);
     };
     (@method $handler:ty, snippet) => {
-        forward_handler!(@method $handler, snippet, WalkEvent<&::orgize::ast::Snippet>);
+        forward_handler!(@method $handler, snippet, WalkEvent<&$crate::ast::Snippet>);
     };
     (@method $handler:ty, timestamp) => {
-        forward_handler!(@method $handler, timestamp, WalkEvent<&::orgize::ast::Timestamp>);
+        forward_handler!(@method $handler, timestamp, WalkEvent<&$crate::ast::Timestamp>);
     };
     (@method $handler:ty, target) => {
-        forward_handler!(@method $handler, target, WalkEvent<&::orgize::ast::Target>);
+        forward_handler!(@method $handler, target, WalkEvent<&$crate::ast::Target>);
     };
     (@method $handler:ty, fixed_width) => {
-        forward_handler!(@method $handler, fixed_width, WalkEvent<&::orgize::ast::FixedWidth>);
-    };
-    (@method $handler:ty, headline_title) => {
-        forward_handler!(@method $handler, headline_title, WalkEvent<&::orgize::ast::HeadlineTitle>);
+        forward_handler!(@method $handler, fixed_width, WalkEvent<&$crate::ast::FixedWidth>);
     };
     (@method $handler:ty, org_table) => {
-        forward_handler!(@method $handler, org_table, WalkEvent<&::orgize::ast::OrgTable>);
+        forward_handler!(@method $handler, org_table, WalkEvent<&$crate::ast::OrgTable>);
     };
     (@method $handler:ty, org_table_row) => {
-        forward_handler!(@method $handler, org_table_row, WalkEvent<&::orgize::ast::OrgTableRow>);
+        forward_handler!(@method $handler, org_table_row, WalkEvent<&$crate::ast::OrgTableRow>);
     };
     (@method $handler:ty, org_table_cell) => {
-        forward_handler!(@method $handler, org_table_cell, WalkEvent<&::orgize::ast::OrgTableCell>);
+        forward_handler!(@method $handler, org_table_cell, WalkEvent<&$crate::ast::OrgTableCell>);
     };
     (@method $handler:ty, link) => {
-        forward_handler!(@method $handler, link, WalkEvent<&::orgize::ast::Link>);
+        forward_handler!(@method $handler, link, WalkEvent<&$crate::ast::Link>);
     };
     (@method $handler:ty, $x:ident) => {
         std::compile_error!(std::concat!(std::stringify!($x), " is not a method"));
     };
 
     (@method $handler:ty, $name:ident, $type:ty) => {
-        fn $name(&mut self, item: $type, ctx: &mut ::orgize::export::TraversalContext) {
+        fn $name(&mut self, item: $type, ctx: &mut $crate::export::TraversalContext) {
             <Self as AsMut<$handler>>::as_mut(self).$name(item, ctx)
         }
     };

@@ -1,4 +1,4 @@
-use rowan::WalkEvent;
+use rowan::{NodeOrToken, WalkEvent};
 use std::cmp::min;
 use std::fmt;
 
@@ -116,36 +116,26 @@ impl Traverser for HtmlExport {
         };
     }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn list_item(&mut self, event: WalkEvent<&ListItem>, _ctx: &mut TraversalContext) {
-        if !self.in_descriptive_list.last().copied().unwrap_or_default() {
-            self.output += match event {
-                WalkEvent::Enter(_) => "<li>",
-                WalkEvent::Leave(_) => "</li>",
-            };
-        }
-    }
-
-    #[tracing::instrument(skip(self, _ctx))]
-    fn list_item_content(
-        &mut self,
-        event: WalkEvent<&ListItemContent>,
-        _ctx: &mut TraversalContext,
-    ) {
+    #[tracing::instrument(skip(self, ctx))]
+    fn list_item(&mut self, event: WalkEvent<&ListItem>, ctx: &mut TraversalContext) {
         if self.in_descriptive_list.last().copied().unwrap_or_default() {
-            self.output += match event {
-                WalkEvent::Enter(_) => "<dd>",
-                WalkEvent::Leave(_) => "</dd>",
+            match event {
+                WalkEvent::Enter(item) => {
+                    self.output += "<dt>";
+                    for elem in item.tag() {
+                        match elem {
+                            NodeOrToken::Node(n) => self.node(n, ctx),
+                            NodeOrToken::Token(t) => self.token(t, ctx),
+                        }
+                    }
+                    self.output += "</dt><dd>";
+                }
+                WalkEvent::Leave(_) => self.output += "</dd>",
             };
-        }
-    }
-
-    #[tracing::instrument(skip(self, _ctx))]
-    fn list_item_tag(&mut self, event: WalkEvent<&ListItemTag>, _ctx: &mut TraversalContext) {
-        if self.in_descriptive_list.last().copied().unwrap_or_default() {
-            self.output += match event {
-                WalkEvent::Enter(_) => "<dt>",
-                WalkEvent::Leave(_) => "</dt>",
+        } else {
+            match event {
+                WalkEvent::Enter(_) => self.output += "<li>",
+                WalkEvent::Leave(_) => self.output += "</li>",
             };
         }
     }
@@ -182,20 +172,6 @@ impl Traverser for HtmlExport {
                 }
             }
             return ctx.skip();
-        };
-    }
-
-    #[tracing::instrument(skip(self, _ctx))]
-    fn headline_title(&mut self, event: WalkEvent<&HeadlineTitle>, _ctx: &mut TraversalContext) {
-        self.output += &match event {
-            WalkEvent::Enter(title) => {
-                let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
-                format!("<h{level}>")
-            }
-            WalkEvent::Leave(title) => {
-                let level = title.headline().map(|h| min(h.level(), 6)).unwrap_or(1);
-                format!("</h{level}>")
-            }
         };
     }
 
@@ -403,8 +379,20 @@ impl Traverser for HtmlExport {
         };
     }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn headline(&mut self, _event: WalkEvent<&Headline>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn headline(&mut self, event: WalkEvent<&Headline>, ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(headline) = event {
+            let level = min(headline.level(), 6);
+            self.output += &format!("<h{level}>");
+            for elem in headline.title() {
+                match elem {
+                    NodeOrToken::Node(node) => self.node(node, ctx),
+                    NodeOrToken::Token(token) => self.token(token, ctx),
+                }
+            }
+            self.output += &format!("</h{level}>");
+        }
+    }
 
     #[tracing::instrument(skip(self, _ctx))]
     fn inline_src(&mut self, _event: WalkEvent<&InlineSrc>, _ctx: &mut TraversalContext) {}
