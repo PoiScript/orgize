@@ -34,7 +34,6 @@ tracing = "0.1"
 [dev-dependencies]
 criterion = "0.5"
 insta = "1.29"
-serde_json = "1.0"
 slugify = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 
