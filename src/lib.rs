@@ -2,6 +2,7 @@
 
 pub mod ast;
 mod config;
+mod entities;
 pub mod export;
 mod org;
 mod syntax;

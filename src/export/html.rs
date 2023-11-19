@@ -461,4 +461,12 @@ impl Traverser for HtmlExport {
             ctx.skip();
         }
     }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn entity(&mut self, event: WalkEvent<&Entity>, ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(e) = event {
+            self.output += e.html();
+            ctx.skip();
+        }
+    }
 }

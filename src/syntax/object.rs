@@ -4,6 +4,7 @@ use super::{
     combinator::GreenElement,
     cookie::cookie_node,
     emphasis::{bold_node, code_node, italic_node, strike_node, underline_node, verbatim_node},
+    entity::entity_node,
     fn_ref::fn_ref_node,
     inline_call::inline_call_node,
     inline_src::inline_src_node,
@@ -41,7 +42,7 @@ impl<'a> Iterator for ObjectPositions<'a> {
     type Item = (Input<'a>, Input<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.input.input_len() < 3 || self.pos >= self.input.input_len() {
+        if self.input.input_len() < 2 || self.pos >= self.input.input_len() {
             return None;
         }
 
@@ -56,7 +57,7 @@ impl<'a> Iterator for ObjectPositions<'a> {
 
         let p = match bytes[i] {
             b'{' => {
-                if self.input.s.len() - self.pos > 3 {
+                if self.input.s.len() - self.pos > 2 {
                     self.next = Some(self.pos);
                 }
                 self.pos - 1
@@ -73,8 +74,8 @@ impl<'a> Iterator for ObjectPositions<'a> {
             self.input.s.len()
         );
 
-        // a valid object requires at least three characters
-        if self.input.s.len() - p < 3 {
+        // a valid object requires at least two characters
+        if self.input.s.len() - p < 2 {
             return None;
         }
 
@@ -92,8 +93,8 @@ pub fn object_nodes(input: Input) -> Vec<GreenElement> {
     'l: while !i.is_empty() {
         for (input, head) in ObjectPositions::new(i) {
             debug_assert!(
-                input.s.len() >= 3,
-                "object must have at least three characters: {:?}",
+                input.s.len() >= 2,
+                "object must have at least two characters: {:?}",
                 input.s
             );
             if let Ok((input, node)) = object_node(input) {
@@ -146,7 +147,7 @@ fn object_node(i: Input) -> IResult<Input, GreenElement, ()> {
         b'c' => inline_call_node(i),
         b's' => inline_src_node(i),
         b'$' => latex_fragment_node(i),
-        b'\\' => latex_fragment_node(i),
+        b'\\' => entity_node(i).or_else(|_| latex_fragment_node(i)),
         _ => Err(nom::Err::Error(())),
     }
 }
@@ -155,8 +156,12 @@ fn object_node(i: Input) -> IResult<Input, GreenElement, ()> {
 fn positions() {
     let config = crate::ParseConfig::default();
 
-    let vec = ObjectPositions::new(("*{", &config).into()).collect::<Vec<_>>();
+    let vec = ObjectPositions::new(("*", &config).into()).collect::<Vec<_>>();
     assert!(vec.is_empty());
+
+    let vec = ObjectPositions::new(("*{", &config).into()).collect::<Vec<_>>();
+    assert_eq!(vec.len(), 1);
+    assert_eq!(vec[0].0.s, "*{");
 
     // https://github.com/PoiScript/orgize/issues/69
     let vec = ObjectPositions::new(("{3}", &config).into()).collect::<Vec<_>>();
@@ -166,12 +171,13 @@ fn positions() {
     assert_eq!(vec[1].0.s, "{3}");
 
     let vec = ObjectPositions::new(("*{()}//s\nc<<", &config).into()).collect::<Vec<_>>();
-    assert_eq!(vec.len(), 5);
+    assert_eq!(vec.len(), 6);
     assert_eq!(vec[0].0.s, "*{()}//s\nc<<");
     assert_eq!(vec[1].0.s, "{()}//s\nc<<");
     assert_eq!(vec[2].0.s, "()}//s\nc<<");
     assert_eq!(vec[3].0.s, ")}//s\nc<<");
     assert_eq!(vec[4].0.s, "c<<");
+    assert_eq!(vec[5].0.s, "<<");
 }
 
 #[test]

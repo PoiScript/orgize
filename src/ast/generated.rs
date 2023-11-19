@@ -1700,3 +1700,28 @@ impl LatexFragment {
         self.syntax.text_range().end().into()
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Entity {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AstNode for Entity {
+    type Language = OrgLanguage;
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == ENTITY
+    }
+    fn cast(node: SyntaxNode) -> Option<Entity> {
+        Self::can_cast(node.kind()).then(|| Entity { syntax: node })
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl Entity {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}

@@ -139,6 +139,7 @@ pub trait Traverser {
             LINK => traverse!(Link, link),
             LATEX_FRAGMENT => traverse!(LatexFragment, latex_fragment),
             LATEX_ENVIRONMENT => traverse!(LatexEnvironment, latex_environment),
+            ENTITY => traverse!(Entity, entity),
 
             BLOCK_CONTENT | LIST_ITEM_CONTENT => traverse_children!(node),
 
@@ -246,4 +247,6 @@ pub trait Traverser {
         _event: WalkEvent<&LatexEnvironment>,
         _ctx: &mut TraversalContext,
     );
+    /// Called when entering or leaving `Entity` node
+    fn entity(&mut self, _event: WalkEvent<&Entity>, _ctx: &mut TraversalContext);
 }

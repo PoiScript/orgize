@@ -263,6 +263,10 @@ const nodes = [
     struct: "LatexFragment",
     kind: ["LATEX_FRAGMENT"],
   },
+  {
+    struct: "Entity",
+    kind: ["ENTITY"],
+  },
 ];
 
 let content = `//! generated file, do not modify it directly

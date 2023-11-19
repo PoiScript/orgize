@@ -10,6 +10,7 @@ pub mod drawer;
 pub mod dyn_block;
 pub mod element;
 pub mod emphasis;
+pub mod entity;
 pub mod fixed_width;
 pub mod fn_def;
 pub mod fn_ref;
@@ -196,6 +197,7 @@ pub enum SyntaxKind {
     UNDERLINE,
     VERBATIM,
     CODE,
+    ENTITY,
 
     /* timestamp */
     TIMESTAMP_ACTIVE,

@@ -4,6 +4,7 @@ mod generated;
 
 mod affiliated_keyword;
 mod drawer;
+mod entity;
 mod headline;
 mod inline_call;
 mod link;
