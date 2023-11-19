@@ -1,11 +1,13 @@
 use rowan::{NodeOrToken, WalkEvent};
 use std::cmp::min;
 use std::fmt;
+use std::fmt::Write as _;
 
 use super::TraversalContext;
 use super::Traverser;
 use crate::ast::*;
 use crate::syntax::SyntaxToken;
+use crate::SyntaxKind;
 
 /// A wrapper for escaping sensitive characters in html.
 ///
@@ -38,7 +40,7 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
                 b'&' => write!(f, "&amp;")?,
                 b'\'' => write!(f, "&apos;")?,
                 b'"' => write!(f, "&quot;")?,
-                _ => unreachable!(),
+                _ => {}
             }
         }
 
@@ -239,15 +241,14 @@ impl Traverser for HtmlExport {
                 let path = path.as_ref().map(|path| path.text()).unwrap_or_default();
 
                 if link.is_image() {
-                    self.output += &format!(r#"<img src="{}">"#, HtmlEscape(path));
+                    let _ = write!(&mut self.output, r#"<img src="{}">"#, HtmlEscape(path));
                     return ctx.skip();
                 }
 
-                self.output += &format!(r#"<a href="{}">"#, HtmlEscape(path));
+                let _ = write!(&mut self.output, r#"<a href="{}">"#, HtmlEscape(path));
 
                 if !link.has_description() {
-                    self.output += &HtmlEscape(path).to_string();
-                    self.output += "</a>";
+                    let _ = write!(&mut self.output, "{}</a>", HtmlEscape(path));
                     return ctx.skip();
                 }
             }
@@ -302,12 +303,8 @@ impl Traverser for HtmlExport {
             }
             WalkEvent::Leave(_) => {
                 match self.table_row {
-                    TableRow::Body => {
-                        self.output += "</tbody>";
-                    }
-                    TableRow::Header => {
-                        self.output += "</thead>";
-                    }
+                    TableRow::Body => self.output += "</tbody>",
+                    TableRow::Header => self.output += "</thead>",
                     _ => {}
                 }
                 self.output += "</table>";
@@ -383,64 +380,111 @@ impl Traverser for HtmlExport {
     fn headline(&mut self, event: WalkEvent<&Headline>, ctx: &mut TraversalContext) {
         if let WalkEvent::Enter(headline) = event {
             let level = min(headline.level(), 6);
-            self.output += &format!("<h{level}>");
+            let _ = write!(&mut self.output, "<h{level}>");
             for elem in headline.title() {
                 match elem {
                     NodeOrToken::Node(node) => self.node(node, ctx),
                     NodeOrToken::Token(token) => self.token(token, ctx),
                 }
             }
-            self.output += &format!("</h{level}>");
+            let _ = write!(&mut self.output, "</h{level}>");
         }
     }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn inline_src(&mut self, _event: WalkEvent<&InlineSrc>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn inline_src(&mut self, _event: WalkEvent<&InlineSrc>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn inline_call(&mut self, _event: WalkEvent<&InlineCall>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn inline_call(&mut self, _event: WalkEvent<&InlineCall>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn special_block(&mut self, _event: WalkEvent<&SpecialBlock>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn special_block(&mut self, _event: WalkEvent<&SpecialBlock>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn export_block(&mut self, _event: WalkEvent<&ExportBlock>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn export_block(&mut self, _event: WalkEvent<&ExportBlock>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn source_block(&mut self, _event: WalkEvent<&SourceBlock>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn source_block(&mut self, _event: WalkEvent<&SourceBlock>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn babel_call(&mut self, _event: WalkEvent<&BabelCall>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn babel_call(&mut self, _event: WalkEvent<&BabelCall>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn clock(&mut self, _event: WalkEvent<&Clock>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn clock(&mut self, _event: WalkEvent<&Clock>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn cookie(&mut self, _event: WalkEvent<&Cookie>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn cookie(&mut self, _event: WalkEvent<&Cookie>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn radio_target(&mut self, _event: WalkEvent<&RadioTarget>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn radio_target(&mut self, _event: WalkEvent<&RadioTarget>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn drawer(&mut self, _event: WalkEvent<&Drawer>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn drawer(&mut self, _event: WalkEvent<&Drawer>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn dyn_block(&mut self, _event: WalkEvent<&DynBlock>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn dyn_block(&mut self, _event: WalkEvent<&DynBlock>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn fn_def(&mut self, _event: WalkEvent<&FnDef>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn fn_def(&mut self, _event: WalkEvent<&FnDef>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn fn_ref(&mut self, _event: WalkEvent<&FnRef>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn fn_ref(&mut self, _event: WalkEvent<&FnRef>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn macros(&mut self, _event: WalkEvent<&Macros>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn macros(&mut self, _event: WalkEvent<&Macros>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn timestamp(&mut self, _event: WalkEvent<&Timestamp>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn timestamp(&mut self, event: WalkEvent<&Timestamp>, ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(t) = event {
+            self.output += r#"<span class="timestamp-wrapper"><span class="timestamp">"#;
+            for e in t.syntax.children_with_tokens() {
+                match e {
+                    NodeOrToken::Token(t) if t.kind() == SyntaxKind::MINUS2 => {
+                        self.output += "&#x2013;";
+                    }
+                    NodeOrToken::Token(t) => {
+                        self.output += t.text();
+                    }
+                    _ => {}
+                }
+            }
+            self.output += r#"</span></span>"#;
+            ctx.skip();
+        }
+    }
 
-    #[tracing::instrument(skip(self, _ctx))]
-    fn target(&mut self, _event: WalkEvent<&Target>, _ctx: &mut TraversalContext) {}
+    #[tracing::instrument(skip(self, ctx))]
+    fn target(&mut self, _event: WalkEvent<&Target>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
 
     #[tracing::instrument(skip(self, ctx))]
     fn latex_fragment(&mut self, event: WalkEvent<&LatexFragment>, ctx: &mut TraversalContext) {
