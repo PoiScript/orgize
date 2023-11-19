@@ -11,6 +11,11 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown-light.min.css"
     />
 
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+    />
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.22.0/ace.min.js"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.0/beautify-html.js"></script>
@@ -20,6 +25,7 @@
       html {
         height: 100%;
         margin: 0;
+        overflow: hidden;
       }
 
       .bordered {
@@ -109,6 +115,7 @@
 
   <script type="module">
     import init, { Org } from "./dist/orgize.js";
+    import renderMathInElement from "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.mjs";
 
     let org;
     const result = document.getElementById("result");
@@ -131,6 +138,15 @@
           const html = injectHeadingClass(org.html());
           result.innerHTML =
             "<div style='padding:1.25rem 1.5rem'>" + html + "</div>";
+          renderMathInElement(result, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+              { left: "\\(", right: "\\)", display: false },
+              { left: "\\[", right: "\\]", display: true },
+              { left: "\\begin{align}", right: "\\end{align}", display: true },
+            ],
+          });
           break;
         }
 
@@ -276,6 +292,22 @@ Table
 Image
 
 [[https://www.rust-lang.org/static/images/rust-logo-blk.svg]]
+
+-----
+LaTeX
+
+Render with \\(\\KaTeX\\): $x+y$
+
+$$
+  f(\\relax{x}) = \\int_{-\\infty}^\\infty
+    \\hat{f}(\\xi)\\,e^{2 \\pi i \\xi x}
+    \\,d\\xi
+$$
+
+\\begin{align}
+   a&=b+c \\\\
+   d+e&=f
+\\end{align}
 `);
 
       editor.session.on("change", () => render());

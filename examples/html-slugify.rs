@@ -49,7 +49,8 @@ impl Traverser for MyHtmlHandler {
         inline_src inline_call code bold verbatim italic strike underline list list_item
         special_block quote_block center_block verse_block comment_block example_block export_block
         source_block babel_call clock cookie radio_target drawer dyn_block fn_def fn_ref macros
-        snippet timestamp target fixed_width org_table org_table_row org_table_cell
+        snippet timestamp target fixed_width org_table org_table_row org_table_cell latex_fragment
+        latex_environment
     }
 }
 

@@ -441,4 +441,24 @@ impl Traverser for HtmlExport {
 
     #[tracing::instrument(skip(self, _ctx))]
     fn target(&mut self, _event: WalkEvent<&Target>, _ctx: &mut TraversalContext) {}
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn latex_fragment(&mut self, event: WalkEvent<&LatexFragment>, ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(l) = event {
+            self.output += &l.syntax.to_string();
+            ctx.skip();
+        }
+    }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn latex_environment(
+        &mut self,
+        event: WalkEvent<&LatexEnvironment>,
+        ctx: &mut TraversalContext,
+    ) {
+        if let WalkEvent::Enter(l) = event {
+            self.output += &l.syntax.to_string();
+            ctx.skip();
+        }
+    }
 }

@@ -137,6 +137,8 @@ pub trait Traverser {
             ORG_TABLE_RULE_ROW | ORG_TABLE_STANDARD_ROW => traverse!(OrgTableRow, org_table_row),
             ORG_TABLE_CELL => traverse!(OrgTableCell, org_table_cell),
             LINK => traverse!(Link, link),
+            LATEX_FRAGMENT => traverse!(LatexFragment, latex_fragment),
+            LATEX_ENVIRONMENT => traverse!(LatexEnvironment, latex_environment),
 
             BLOCK_CONTENT | LIST_ITEM_CONTENT => traverse_children!(node),
 
@@ -236,4 +238,12 @@ pub trait Traverser {
     fn org_table_cell(&mut self, _event: WalkEvent<&OrgTableCell>, _ctx: &mut TraversalContext);
     /// Called when entering or leaving `Link` node
     fn link(&mut self, _event: WalkEvent<&Link>, _ctx: &mut TraversalContext);
+    /// Called when entering or leaving `LatexFragment` node
+    fn latex_fragment(&mut self, _event: WalkEvent<&LatexFragment>, _ctx: &mut TraversalContext);
+    /// Called when entering or leaving `LatexEnvironment` node
+    fn latex_environment(
+        &mut self,
+        _event: WalkEvent<&LatexEnvironment>,
+        _ctx: &mut TraversalContext,
+    );
 }
