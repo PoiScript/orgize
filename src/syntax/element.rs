@@ -14,6 +14,7 @@ use super::{
     fn_def::fn_def_node,
     input::Input,
     keyword::{affiliated_keyword_nodes, keyword_node},
+    latex_environment::latex_environment_node,
     list::list_node,
     paragraph::{paragraph_node, paragraph_nodes},
     rule::rule_node,
@@ -96,6 +97,7 @@ pub fn element_node(input: Input) -> IResult<Input, GreenElement, ()> {
             .or_else(|_| keyword_node(input))
             .or_else(|_| dyn_block_node(input))
             .or_else(|_| comment_node(input)),
+        Some(b'\\') => latex_environment_node(input),
         _ => Err(nom::Err::Error(())),
     };
 
@@ -134,7 +136,7 @@ impl<'a> Iterator for ElementPositions<'a> {
 
             if matches!(
                 b,
-                b'[' | b'0'..=b'9' | b'*' | b'C' | b'-' | b':' | b'|' | b'+' | b'#'
+                b'[' | b'0'..=b'9' | b'*' | b'C' | b'-' | b':' | b'|' | b'+' | b'#' | b'\\'
             ) {
                 let previous = self.pos;
                 self.pos = iter

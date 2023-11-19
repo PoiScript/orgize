@@ -18,6 +18,7 @@ pub mod inline_call;
 pub mod inline_src;
 pub mod input;
 pub mod keyword;
+pub mod latex_environment;
 pub mod latex_fragment;
 pub mod link;
 pub mod list;
