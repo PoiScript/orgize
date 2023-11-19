@@ -1,7 +1,8 @@
 use nom::{
-    bytes::complete::{take_till, take_while1, take_while_m_n},
-    character::complete::{space0, space1},
-    combinator::{map, opt},
+    branch::alt,
+    bytes::complete::{tag, take_till, take_while1, take_while_m_n},
+    character::complete::{digit1, space0, space1},
+    combinator::{iterator, map, opt},
     sequence::tuple,
     IResult,
 };
@@ -74,6 +75,7 @@ fn dayname(i: Input) -> IResult<Input, GreenElement, ()> {
                 && c != '-'
                 && c != ']'
                 && c != '>'
+                && c != '.'
         }),
         |i: Input| i.token(TIMESTAMP_DAYNAME),
     )(i)
@@ -94,6 +96,30 @@ fn time(i: Input) -> IResult<Input, [GreenElement; 3], ()> {
             ]
         },
     )(i)
+}
+
+fn repeater_or_delay(
+    input: Input,
+) -> IResult<Input, (GreenElement, GreenElement, GreenElement), ()> {
+    let (input, mark) = alt((
+        map(alt((tag("++"), tag("+"), tag(".+"))), |i: Input| {
+            i.token(TIMESTAMP_REPEATER_MARK)
+        }),
+        map(alt((tag("--"), tag("-"))), |i: Input| {
+            i.token(TIMESTAMP_DELAY_MARK)
+        }),
+    ))(input)?;
+    let (input, value) = digit1(input)?;
+    let (input, unit) = alt((tag("h"), tag("d"), tag("w"), tag("m"), tag("y")))(input)?;
+
+    Ok((
+        input,
+        (
+            mark,
+            value.token(TIMESTAMP_VALUE),
+            unit.token(TIMESTAMP_UNIT),
+        ),
+    ))
 }
 
 fn timestamp_node_base(
@@ -123,27 +149,40 @@ fn timestamp_node_base(
 
         let (input, minus) = minus_token(input)?;
         let (input, end_time) = time(input)?;
-        let (input, space) = space0(input)?;
-        // TODO: delay-or-repeater
-        let (input, r_angle) = r_parser(input)?;
 
         b.ws(ws);
         b.children.extend(start_time);
         b.push(minus);
         b.children.extend(end_time);
+
+        let mut iter = iterator(input, tuple((space1, repeater_or_delay)));
+        for (ws, (mark, value, unit)) in &mut iter {
+            b.children.extend([ws.ws_token(), mark, value, unit]);
+        }
+        let (input, _) = iter.finish()?;
+
+        let (input, space) = space0(input)?;
+        let (input, r_angle) = r_parser(input)?;
+
         b.ws(space);
         b.push(r_angle);
 
         return Ok((input, b.children));
     }
 
-    let (input, space) = space0(input)?;
-    let (input, r_angle) = r_parser(input)?;
-
     if let Some((ws, start_time)) = start_time {
         b.ws(ws);
         b.children.extend(start_time);
     }
+
+    let mut iter = iterator(input, tuple((space1, repeater_or_delay)));
+    for (ws, (mark, value, unit)) in &mut iter {
+        b.children.extend([ws.ws_token(), mark, value, unit]);
+    }
+    let (input, _) = iter.finish()?;
+
+    let (input, space) = space0(input)?;
+    let (input, r_angle) = r_parser(input)?;
 
     b.ws(space);
     b.push(r_angle);
@@ -154,9 +193,6 @@ fn timestamp_node_base(
         let (input, end_date) = date(input)?;
         let (input, end_dayname) = opt(tuple((space1, dayname)))(input)?;
         let (input, end_time) = opt(tuple((space1, time)))(input)?;
-        let (input, space_) = space0(input)?;
-        // TODO: delay-or-repeater
-        let (input, r_angle) = r_parser(input)?;
 
         b.children.extend([minus2, l_angle]);
         b.children.extend(end_date);
@@ -168,6 +204,14 @@ fn timestamp_node_base(
             b.ws(ws);
             b.children.extend(end_time);
         }
+        let mut iter = iterator(input, tuple((space1, repeater_or_delay)));
+        for (ws, (mark, value, unit)) in &mut iter {
+            b.children.extend([ws.ws_token(), mark, value, unit]);
+        }
+        let (input, _) = iter.finish()?;
+
+        let (input, space_) = space0(input)?;
+        let (input, r_angle) = r_parser(input)?;
 
         b.ws(space_);
         b.push(r_angle);
@@ -212,14 +256,18 @@ fn parse() {
     to_timestamp("[2003-09-16 Tue]--[2003-09-16 Tue]");
     to_timestamp("[2003-09-16 Tue 09:09]--[2003-09-16 Tue 09:09]");
     to_timestamp("[2003-09-16 Tue 09:09-09:09]");
-    to_timestamp("[2003-09-16 09:09-09:09]");
+    to_timestamp("[2003-09-16 09:09-09:09 ]");
+    to_timestamp("[2003-09-16 09:09 +1w .+1d]");
+    to_timestamp("[2003-09-16 09:09]--[2003-09-16  +1w .+1d --1d ]");
+    to_timestamp("[2003-09-16 Tue 09:09 +1w]--[2003-09-16 .+1d --1d ]");
+    to_timestamp("[2003-09-16 09:09-10:19 +1w --1d]");
 
-    let ts = to_timestamp("[2003-09-16 Tue]");
+    let ts = to_timestamp("[2003-09-16 Tue +1w]");
     assert!(!ts.is_range());
     insta::assert_debug_snapshot!(
         ts.syntax,
         @r###"
-    TIMESTAMP_INACTIVE@0..16
+    TIMESTAMP_INACTIVE@0..20
       L_BRACKET@0..1 "["
       TIMESTAMP_YEAR@1..5 "2003"
       MINUS@5..6 "-"
@@ -228,7 +276,11 @@ fn parse() {
       TIMESTAMP_DAY@9..11 "16"
       WHITESPACE@11..12 " "
       TIMESTAMP_DAYNAME@12..15 "Tue"
-      R_BRACKET@15..16 "]"
+      WHITESPACE@15..16 " "
+      TIMESTAMP_REPEATER_MARK@16..17 "+"
+      TIMESTAMP_VALUE@17..18 "1"
+      TIMESTAMP_UNIT@18..19 "w"
+      R_BRACKET@19..20 "]"
     "###
     );
 

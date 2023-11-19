@@ -203,12 +203,18 @@ pub enum SyntaxKind {
     TIMESTAMP_ACTIVE,
     TIMESTAMP_INACTIVE,
     TIMESTAMP_DIARY,
+    // timestamp tokens
     TIMESTAMP_YEAR,
     TIMESTAMP_MONTH,
     TIMESTAMP_DAY,
     TIMESTAMP_HOUR,
     TIMESTAMP_MINUTE,
     TIMESTAMP_DAYNAME,
+    // for repeater or delay
+    TIMESTAMP_REPEATER_MARK,
+    TIMESTAMP_DELAY_MARK,
+    TIMESTAMP_VALUE,
+    TIMESTAMP_UNIT,
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {

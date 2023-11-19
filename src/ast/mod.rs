@@ -16,6 +16,7 @@ mod timestamp;
 
 pub use generated::*;
 pub use rowan::ast::support::*;
+pub use timestamp::*;
 
 use crate::syntax::{SyntaxKind, SyntaxNode};
 use rowan::{ast::AstNode, Language, NodeOrToken};
