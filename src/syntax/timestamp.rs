@@ -1,7 +1,7 @@
 use nom::{
-    bytes::complete::{take, take_till, take_while},
+    bytes::complete::{take_till, take_while1, take_while_m_n},
     character::complete::{space0, space1},
-    combinator::{map, opt, verify},
+    combinator::{map, opt},
     sequence::tuple,
     IResult,
 };
@@ -44,48 +44,47 @@ pub fn timestamp_diary_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(parser, input)
 }
 
-fn is_digit_str(s: &Input) -> bool {
-    s.as_str().bytes().all(|u| u.is_ascii_digit())
-}
-
-fn date(i: Input) -> IResult<Input, [GreenElement; 7], ()> {
+fn date(i: Input) -> IResult<Input, [GreenElement; 5], ()> {
     map(
         tuple((
-            verify(take(4usize), is_digit_str),
+            take_while_m_n(4, 4, |c: char| c.is_ascii_digit()),
             minus_token,
-            verify(take(2usize), is_digit_str),
+            take_while_m_n(2, 2, |c: char| c.is_ascii_digit()),
             minus_token,
-            verify(take(2usize), is_digit_str),
-            space1,
-            take_while(|c: char| {
-                !c.is_ascii_whitespace()
-                    && !c.is_ascii_digit()
-                    && c != '+'
-                    && c != '-'
-                    && c != ']'
-                    && c != '>'
-            }),
+            take_while_m_n(2, 2, |c: char| c.is_ascii_digit()),
         )),
-        |(year, minus, month, minus_, day, ws, dayname)| {
+        |(year, minus, month, minus_, day)| {
             [
                 year.token(TIMESTAMP_YEAR),
                 minus,
                 month.token(TIMESTAMP_MONTH),
                 minus_,
                 day.token(TIMESTAMP_DAY),
-                ws.ws_token(),
-                dayname.token(TIMESTAMP_DAYNAME),
             ]
         },
+    )(i)
+}
+
+fn dayname(i: Input) -> IResult<Input, GreenElement, ()> {
+    map(
+        take_while1(|c: char| {
+            !c.is_ascii_whitespace()
+                && !c.is_ascii_digit()
+                && c != '+'
+                && c != '-'
+                && c != ']'
+                && c != '>'
+        }),
+        |i: Input| i.token(TIMESTAMP_DAYNAME),
     )(i)
 }
 
 fn time(i: Input) -> IResult<Input, [GreenElement; 3], ()> {
     map(
         tuple((
-            verify(take(2usize), is_digit_str),
+            take_while_m_n(2, 2, |c: char| c.is_ascii_digit()),
             colon_token,
-            verify(take(2usize), is_digit_str),
+            take_while_m_n(2, 2, |c: char| c.is_ascii_digit()),
         )),
         |(hour, colon, minute)| {
             [
@@ -97,14 +96,24 @@ fn time(i: Input) -> IResult<Input, [GreenElement; 3], ()> {
     )(i)
 }
 
-fn timestamp_active_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
-    let (input, l_angle) = l_angle_token(input)?;
+fn timestamp_node_base(
+    input: Input,
+    l_parser: impl Fn(Input) -> IResult<Input, GreenElement, ()>,
+    r_parser: impl Fn(Input) -> IResult<Input, GreenElement, ()>,
+) -> IResult<Input, Vec<GreenElement>, ()> {
+    let (input, l_angle) = l_parser(input)?;
     let (input, start_date) = date(input)?;
+    let (input, start_dayname) = opt(tuple((space1, dayname)))(input)?;
     let (input, start_time) = opt(tuple((space1, time)))(input)?;
 
     let mut b = NodeBuilder::new();
     b.push(l_angle);
     b.children.extend(start_date);
+
+    if let Some((ws, dayname)) = start_dayname {
+        b.push(ws.ws_token());
+        b.push(dayname);
+    }
 
     if input.as_str().starts_with('-') {
         let (ws, start_time) = match start_time {
@@ -116,7 +125,7 @@ fn timestamp_active_node_base(input: Input) -> IResult<Input, GreenElement, ()> 
         let (input, end_time) = time(input)?;
         let (input, space) = space0(input)?;
         // TODO: delay-or-repeater
-        let (input, r_angle) = r_angle_token(input)?;
+        let (input, r_angle) = r_parser(input)?;
 
         b.ws(ws);
         b.children.extend(start_time);
@@ -125,11 +134,11 @@ fn timestamp_active_node_base(input: Input) -> IResult<Input, GreenElement, ()> 
         b.ws(space);
         b.push(r_angle);
 
-        return Ok((input, b.finish(TIMESTAMP_ACTIVE)));
+        return Ok((input, b.children));
     }
 
     let (input, space) = space0(input)?;
-    let (input, r_angle) = r_angle_token(input)?;
+    let (input, r_angle) = r_parser(input)?;
 
     if let Some((ws, start_time)) = start_time {
         b.ws(ws);
@@ -139,18 +148,22 @@ fn timestamp_active_node_base(input: Input) -> IResult<Input, GreenElement, ()> 
     b.ws(space);
     b.push(r_angle);
 
-    if input.as_str().starts_with("--<") {
+    if input.as_str().starts_with("--") {
         let (input, minus2) = minus2_token(input)?;
-        let (input, l_angle) = l_angle_token(input)?;
+        let (input, l_angle) = l_parser(input)?;
         let (input, end_date) = date(input)?;
+        let (input, end_dayname) = opt(tuple((space1, dayname)))(input)?;
         let (input, end_time) = opt(tuple((space1, time)))(input)?;
         let (input, space_) = space0(input)?;
         // TODO: delay-or-repeater
-        let (input, r_angle) = r_angle_token(input)?;
+        let (input, r_angle) = r_parser(input)?;
 
         b.children.extend([minus2, l_angle]);
         b.children.extend(end_date);
-
+        if let Some((ws, dayname)) = end_dayname {
+            b.push(ws.ws_token());
+            b.push(dayname);
+        }
         if let Some((ws, end_time)) = end_time {
             b.ws(ws);
             b.children.extend(end_time);
@@ -159,88 +172,28 @@ fn timestamp_active_node_base(input: Input) -> IResult<Input, GreenElement, ()> 
         b.ws(space_);
         b.push(r_angle);
 
-        Ok((input, b.finish(TIMESTAMP_ACTIVE)))
+        Ok((input, b.children))
     } else {
-        Ok((input, b.finish(TIMESTAMP_ACTIVE)))
-    }
-}
-
-fn timestamp_inactive_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
-    let (input, l_bracket) = l_bracket_token(input)?;
-    let (input, start_date) = date(input)?;
-    let (input, start_time) = opt(tuple((space1, time)))(input)?;
-
-    let mut b = NodeBuilder::new();
-    b.push(l_bracket);
-    b.children.extend(start_date);
-
-    if input.s.starts_with('-') {
-        let (ws, start_time) = match start_time {
-            Some(start_time) => start_time,
-            None => return Err(nom::Err::Error(())),
-        };
-
-        let (input, minus) = minus_token(input)?;
-        let (input, end_time) = time(input)?;
-        let (input, space) = space0(input)?;
-        // TODO: delay-or-repeater
-        let (input, r_bracket) = r_bracket_token(input)?;
-
-        b.ws(ws);
-        b.children.extend(start_time);
-        b.push(minus);
-        b.children.extend(end_time);
-        b.ws(space);
-        b.push(r_bracket);
-
-        return Ok((input, b.finish(TIMESTAMP_INACTIVE)));
-    }
-
-    let (input, space) = space0(input)?;
-    let (input, r_bracket) = r_bracket_token(input)?;
-
-    if let Some((ws, start_time)) = start_time {
-        b.ws(ws);
-        b.children.extend(start_time);
-    }
-
-    b.ws(space);
-    b.push(r_bracket);
-
-    if input.s.starts_with("--[") {
-        let (input, minus2) = minus2_token(input)?;
-        let (input, l_bracket) = l_bracket_token(input)?;
-        let (input, end_date) = date(input)?;
-        let (input, end_time) = opt(tuple((space1, time)))(input)?;
-        let (input, space_) = space0(input)?;
-        // TODO: delay-or-repeater
-        let (input, r_bracket) = r_bracket_token(input)?;
-
-        b.children.extend([minus2, l_bracket]);
-        b.children.extend(end_date);
-
-        if let Some((ws, end_time)) = end_time {
-            b.ws(ws);
-            b.children.extend(end_time);
-        }
-
-        b.ws(space_);
-        b.push(r_bracket);
-
-        Ok((input, b.finish(TIMESTAMP_INACTIVE)))
-    } else {
-        Ok((input, b.finish(TIMESTAMP_INACTIVE)))
+        Ok((input, b.children))
     }
 }
 
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn timestamp_active_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    crate::lossless_parser!(timestamp_active_node_base, input)
+    fn parser(input: Input) -> IResult<Input, GreenElement, ()> {
+        let (input, children) = timestamp_node_base(input, l_angle_token, r_angle_token)?;
+        Ok((input, node(TIMESTAMP_ACTIVE, children)))
+    }
+    crate::lossless_parser!(parser, input)
 }
 
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn timestamp_inactive_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    crate::lossless_parser!(timestamp_inactive_node_base, input)
+    fn parser(input: Input) -> IResult<Input, GreenElement, ()> {
+        let (input, children) = timestamp_node_base(input, l_bracket_token, r_bracket_token)?;
+        Ok((input, node(TIMESTAMP_INACTIVE, children)))
+    }
+    crate::lossless_parser!(parser, input)
 }
 
 #[test]
@@ -248,6 +201,18 @@ fn parse() {
     use crate::{ast::Timestamp, tests::to_ast};
 
     let to_timestamp = to_ast::<Timestamp>(timestamp_inactive_node);
+
+    to_timestamp("[2003-09-16]");
+    to_timestamp("[2003-09-16 09:09]");
+    to_timestamp("[2003-09-16 Tue]");
+    to_timestamp("[2003-09-16 Tue 09:09]");
+    to_timestamp("[2003-09-16]--[2003-09-16]");
+    to_timestamp("[2003-09-16 09:09]--[2003-09-16 09:09]");
+    to_timestamp("[2003-09-16]--[2003-09-16 09:09]");
+    to_timestamp("[2003-09-16 Tue]--[2003-09-16 Tue]");
+    to_timestamp("[2003-09-16 Tue 09:09]--[2003-09-16 Tue 09:09]");
+    to_timestamp("[2003-09-16 Tue 09:09-09:09]");
+    to_timestamp("[2003-09-16 09:09-09:09]");
 
     let ts = to_timestamp("[2003-09-16 Tue]");
     assert!(!ts.is_range());
