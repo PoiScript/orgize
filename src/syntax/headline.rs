@@ -2,7 +2,7 @@ use memchr::memrchr_iter;
 use nom::{
     bytes::complete::take_while1,
     character::complete::{anychar, space0},
-    combinator::{map, opt, verify},
+    combinator::{map, opt},
     sequence::tuple,
     AsBytes, IResult, InputLength, InputTake, Slice,
 };
@@ -203,17 +203,15 @@ fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
 }
 
 fn headline_keyword_token(input: Input) -> IResult<Input, (GreenElement, Input), ()> {
-    let (input, word) = verify(
-        take_while1(|c: char| !c.is_ascii_whitespace()),
-        |input: &Input| {
-            let Input { c, s } = input;
-            c.todo_keywords.0.iter().any(|k| k == s) || c.todo_keywords.1.iter().any(|k| k == s)
-        },
-    )(input)?;
-
+    let (input, word) = take_while1(|c: char| !c.is_ascii_whitespace())(input)?;
     let (input, ws) = space0(input)?;
-
-    Ok((input, (word.token(HEADLINE_KEYWORD), ws)))
+    if input.c.todo_keywords.0.iter().any(|k| k == word.s) {
+        Ok((input, (word.token(HEADLINE_KEYWORD_TODO), ws)))
+    } else if input.c.todo_keywords.1.iter().any(|k| k == word.s) {
+        Ok((input, (word.token(HEADLINE_KEYWORD_DONE), ws)))
+    } else {
+        Err(nom::Err::Error(()))
+    }
 }
 
 fn headline_priority_node(input: Input) -> IResult<Input, (GreenElement, Input), ()> {
@@ -238,10 +236,8 @@ fn parse() {
 
     let to_headline = to_ast::<Headline>(headline_node);
 
-    let hdl = to_headline("* foo");
-
     insta::assert_debug_snapshot!(
-        hdl.syntax,
+        to_headline("* foo").syntax,
         @r###"
     HEADLINE@0..5
       HEADLINE_STARS@0..1 "*"
@@ -251,9 +247,8 @@ fn parse() {
     "###
     );
 
-    let hdl = to_headline("* foo\n\n** bar");
     insta::assert_debug_snapshot!(
-        hdl.syntax,
+        to_headline("* foo\n\n** bar").syntax,
         @r###"
     HEADLINE@0..13
       HEADLINE_STARS@0..1 "*"
@@ -272,16 +267,13 @@ fn parse() {
     "###
     );
 
-    let hdl = to_headline("* TODO foo\nbar\n** baz\n");
-    assert_eq!(hdl.level(), 1);
-    assert_eq!(hdl.keyword().unwrap().text(), "TODO");
     insta::assert_debug_snapshot!(
-        hdl.syntax,
+        to_headline("* TODO foo\nbar\n** baz\n").syntax,
         @r###"
     HEADLINE@0..22
       HEADLINE_STARS@0..1 "*"
       WHITESPACE@1..2 " "
-      HEADLINE_KEYWORD@2..6 "TODO"
+      HEADLINE_KEYWORD_TODO@2..6 "TODO"
       WHITESPACE@6..7 " "
       HEADLINE_TITLE@7..10
         TEXT@7..10 "foo"
@@ -298,11 +290,8 @@ fn parse() {
     "###
     );
 
-    let hdl = to_headline("** [#A] foo\n* baz");
-    assert_eq!(hdl.level(), 2);
-    assert_eq!(hdl.priority().unwrap().text(), "A");
     insta::assert_debug_snapshot!(
-        hdl.syntax,
+        to_headline("** [#A] foo\n* baz").syntax,
         @r###"
     HEADLINE@0..12
       HEADLINE_STARS@0..2 "**"

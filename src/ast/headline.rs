@@ -1,9 +1,17 @@
+use rowan::NodeOrToken;
+
 use crate::{
     syntax::{SyntaxKind, SyntaxToken},
     SyntaxElement,
 };
 
 use super::{filter_token, Headline, Timestamp};
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum TodoType {
+    Todo,
+    Done,
+}
 
 impl Headline {
     /// Return level of this headline
@@ -24,6 +32,48 @@ impl Headline {
             .unwrap_or_else(|| {
                 debug_assert!(false, "headline must contains starts token");
                 0
+            })
+    }
+
+    /// ```rust
+    /// use orgize::{Org, ast::Headline};
+    ///
+    /// let hdl = Org::parse("* TODO a").first_node::<Headline>().unwrap();
+    /// assert_eq!(hdl.todo_keyword().unwrap().text(), "TODO");
+    /// ```
+    pub fn todo_keyword(&self) -> Option<SyntaxToken> {
+        self.syntax
+            .children_with_tokens()
+            .find_map(|elem| match elem {
+                NodeOrToken::Token(tk)
+                    if tk.kind() == SyntaxKind::HEADLINE_KEYWORD_TODO
+                        || tk.kind() == SyntaxKind::HEADLINE_KEYWORD_DONE =>
+                {
+                    Some(tk)
+                }
+                _ => None,
+            })
+    }
+
+    /// ```rust
+    /// use orgize::{Org, ast::{Headline, TodoType}};
+    ///
+    /// let hdl = Org::parse("* TODO a").first_node::<Headline>().unwrap();
+    /// assert_eq!(hdl.todo_type().unwrap(), TodoType::Todo);
+    /// let hdl = Org::parse("*** DONE a").first_node::<Headline>().unwrap();
+    /// assert_eq!(hdl.todo_type().unwrap(), TodoType::Done);
+    /// ```
+    pub fn todo_type(&self) -> Option<TodoType> {
+        self.syntax
+            .children_with_tokens()
+            .find_map(|elem| match elem {
+                NodeOrToken::Token(tk) if tk.kind() == SyntaxKind::HEADLINE_KEYWORD_TODO => {
+                    Some(TodoType::Todo)
+                }
+                NodeOrToken::Token(tk) if tk.kind() == SyntaxKind::HEADLINE_KEYWORD_DONE => {
+                    Some(TodoType::Done)
+                }
+                _ => None,
             })
     }
 

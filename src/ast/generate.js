@@ -29,7 +29,6 @@ const nodes = [
       ["planning", "Planning"],
     ],
     children: [["headlines", "Headline"]],
-    token: [["keyword", "HEADLINE_KEYWORD"]],
     post_blank: true,
   },
   {

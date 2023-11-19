@@ -154,9 +154,6 @@ impl Headline {
     pub fn end(&self) -> u32 {
         self.syntax.text_range().end().into()
     }
-    pub fn keyword(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, HEADLINE_KEYWORD)
-    }
     pub fn section(&self) -> Option<Section> {
         support::child(&self.syntax)
     }

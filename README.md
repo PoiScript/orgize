@@ -23,7 +23,7 @@ assert_eq!(
   HEADLINE@0..18
     HEADLINE_STARS@0..1 "*"
     WHITESPACE@1..2 " "
-    HEADLINE_KEYWORD@2..6 "DONE"
+    HEADLINE_KEYWORD_DONE@2..6 "DONE"
     WHITESPACE@6..7 " "
     HEADLINE_TITLE@7..13
       TEXT@7..13 "Title "
@@ -46,7 +46,7 @@ let config = ParseConfig {
 };
 let org = config.parse("* TASK Title 1");
 let hdl = org.first_node::<Headline>().unwrap();
-assert_eq!(hdl.keyword().unwrap().text(), "TASK");
+assert_eq!(hdl.todo_keyword().unwrap().text(), "TASK");
 ```
 
 ## Render to html

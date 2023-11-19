@@ -15,6 +15,7 @@ mod table;
 mod timestamp;
 
 pub use generated::*;
+pub use headline::*;
 pub use rowan::ast::support::*;
 pub use timestamp::*;
 
