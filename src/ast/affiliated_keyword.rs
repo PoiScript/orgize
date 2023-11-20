@@ -1,6 +1,6 @@
-use crate::syntax::{SyntaxElement, SyntaxKind, SyntaxToken};
+use crate::syntax::SyntaxKind;
 
-use super::AffiliatedKeyword;
+use super::{filter_token, AffiliatedKeyword, Token};
 
 impl AffiliatedKeyword {
     ///
@@ -8,13 +8,16 @@ impl AffiliatedKeyword {
     /// use orgize::{Org, ast::AffiliatedKeyword};
     ///
     /// let keyword = Org::parse("#+CAPTION: VALUE\nabc").first_node::<AffiliatedKeyword>().unwrap();
-    /// assert_eq!(keyword.key().unwrap().text(), "CAPTION");
+    /// assert_eq!(keyword.key(), "CAPTION");
     /// ```
-    pub fn key(&self) -> Option<SyntaxToken> {
-        self.syntax.children_with_tokens().find_map(|it| match it {
-            SyntaxElement::Token(t) if t.kind() == SyntaxKind::TEXT => Some(t),
-            _ => None,
-        })
+    pub fn key(&self) -> Token {
+        self.syntax
+            .children_with_tokens()
+            .find_map(filter_token(SyntaxKind::TEXT))
+            .unwrap_or_else(|| {
+                debug_assert!(false, "keyword must contains TEXT");
+                Token::default()
+            })
     }
 
     ///
@@ -24,17 +27,14 @@ impl AffiliatedKeyword {
     /// let keyword = Org::parse("#+CAPTION: VALUE\nabc").first_node::<AffiliatedKeyword>().unwrap();
     /// assert!(keyword.optional().is_none());
     /// let keyword = Org::parse("#+CAPTION[OPTIONAL]: VALUE\nabc").first_node::<AffiliatedKeyword>().unwrap();
-    /// assert_eq!(keyword.optional().unwrap().text(), "OPTIONAL");
+    /// assert_eq!(keyword.optional().unwrap(), "OPTIONAL");
     /// ```
-    pub fn optional(&self) -> Option<SyntaxToken> {
+    pub fn optional(&self) -> Option<Token> {
         self.syntax
             .children_with_tokens()
             .skip_while(|it| it.kind() != SyntaxKind::L_BRACKET)
             .nth(1)
-            .and_then(|it| match it {
-                SyntaxElement::Token(t) if t.kind() == SyntaxKind::TEXT => Some(t),
-                _ => None,
-            })
+            .and_then(filter_token(SyntaxKind::TEXT))
     }
 
     ///
@@ -42,17 +42,14 @@ impl AffiliatedKeyword {
     /// use orgize::{Org, ast::AffiliatedKeyword};
     ///
     /// let keyword = Org::parse("#+CAPTION: VALUE\nabc").first_node::<AffiliatedKeyword>().unwrap();
-    /// assert_eq!(keyword.value().unwrap().text(), " VALUE");
+    /// assert_eq!(keyword.value().unwrap(), " VALUE");
     /// let keyword = Org::parse("#+CAPTION[OPTIONAL]:VALUE\nabc").first_node::<AffiliatedKeyword>().unwrap();
-    /// assert_eq!(keyword.value().unwrap().text(), "VALUE");
+    /// assert_eq!(keyword.value().unwrap(), "VALUE");
     /// ```
-    pub fn value(&self) -> Option<SyntaxToken> {
+    pub fn value(&self) -> Option<Token> {
         self.syntax
             .children_with_tokens()
-            .filter_map(|it| match it {
-                SyntaxElement::Token(t) if t.kind() == SyntaxKind::TEXT => Some(t),
-                _ => None,
-            })
+            .filter_map(filter_token(SyntaxKind::TEXT))
             .last()
     }
 }

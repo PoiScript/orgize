@@ -30,10 +30,7 @@ pub fn macros_node(input: Input) -> IResult<Input, GreenElement, ()> {
             children.push(l_curly3);
             children.push(name.text_token());
             if let Some((l_parens, argument, r_parens)) = argument {
-                children.push(node(
-                    MACROS_ARGUMENT,
-                    [l_parens, argument.text_token(), r_parens],
-                ));
+                children.extend([l_parens, argument.text_token(), r_parens]);
             }
             children.push(r_curly3);
             node(MACROS, children)
@@ -64,10 +61,9 @@ fn test() {
     MACROS@0..22
       L_CURLY3@0..3 "{{{"
       TEXT@3..16 "one_arg_macro"
-      MACROS_ARGUMENT@16..19
-        L_PARENS@16..17 "("
-        TEXT@17..18 "1"
-        R_PARENS@18..19 ")"
+      L_PARENS@16..17 "("
+      TEXT@17..18 "1"
+      R_PARENS@18..19 ")"
       R_CURLY3@19..22 "}}}"
     "###
     );
@@ -78,10 +74,9 @@ fn test() {
     MACROS@0..25
       L_CURLY3@0..3 "{{{"
       TEXT@3..16 "two_arg_macro"
-      MACROS_ARGUMENT@16..22
-        L_PARENS@16..17 "("
-        TEXT@17..21 "1, 2"
-        R_PARENS@21..22 ")"
+      L_PARENS@16..17 "("
+      TEXT@17..21 "1, 2"
+      R_PARENS@21..22 ")"
       R_CURLY3@22..25 "}}}"
     "###
     );
@@ -92,10 +87,9 @@ fn test() {
     MACROS@0..28
       L_CURLY3@0..3 "{{{"
       TEXT@3..16 "two_arg_macro"
-      MACROS_ARGUMENT@16..25
-        L_PARENS@16..17 "("
-        TEXT@17..24 "1\\,a, 2"
-        R_PARENS@24..25 ")"
+      L_PARENS@16..17 "("
+      TEXT@17..24 "1\\,a, 2"
+      R_PARENS@24..25 ")"
       R_CURLY3@25..28 "}}}"
     "###
     );

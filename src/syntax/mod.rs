@@ -189,7 +189,6 @@ pub enum SyntaxKind {
     FN_REF,
     LATEX_FRAGMENT,
     MACROS,
-    MACROS_ARGUMENT,
     SNIPPET,
     TARGET,
     BOLD,

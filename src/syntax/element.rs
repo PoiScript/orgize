@@ -141,8 +141,7 @@ impl<'a> Iterator for ElementPositions<'a> {
                 let previous = self.pos;
                 self.pos = iter
                     .next()
-                    .map(|i| i + self.pos)
-                    .unwrap_or_else(|| self.input.s.len());
+                    .map_or_else(|| self.input.s.len(), |i| i + self.pos);
 
                 debug_assert!(
                     previous < self.pos && self.pos <= self.input.s.len(),

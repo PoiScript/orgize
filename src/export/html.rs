@@ -168,10 +168,8 @@ impl Traverser for HtmlExport {
     #[tracing::instrument(skip(self, ctx))]
     fn snippet(&mut self, event: WalkEvent<&Snippet>, ctx: &mut TraversalContext) {
         if let WalkEvent::Enter(snippet) = event {
-            if matches!(snippet.name(), Some(name) if name.text().eq_ignore_ascii_case("html")) {
-                if let Some(value) = snippet.value() {
-                    self.output += value.text()
-                }
+            if snippet.backend().eq_ignore_ascii_case("html") {
+                self.output += &snippet.value();
             }
             return ctx.skip();
         };
@@ -238,17 +236,16 @@ impl Traverser for HtmlExport {
         match event {
             WalkEvent::Enter(link) => {
                 let path = link.path();
-                let path = path.as_ref().map(|path| path.text()).unwrap_or_default();
 
                 if link.is_image() {
-                    let _ = write!(&mut self.output, r#"<img src="{}">"#, HtmlEscape(path));
+                    let _ = write!(&mut self.output, r#"<img src="{}">"#, HtmlEscape(&path));
                     return ctx.skip();
                 }
 
-                let _ = write!(&mut self.output, r#"<a href="{}">"#, HtmlEscape(path));
+                let _ = write!(&mut self.output, r#"<a href="{}">"#, HtmlEscape(&path));
 
                 if !link.has_description() {
-                    let _ = write!(&mut self.output, "{}</a>", HtmlEscape(path));
+                    let _ = write!(&mut self.output, "{}</a>", HtmlEscape(&path));
                     return ctx.skip();
                 }
             }

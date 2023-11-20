@@ -15,7 +15,7 @@ impl Planning {
     ///     .unwrap()
     ///     .deadline()
     ///     .unwrap();
-    /// assert_eq!(s.day_start().unwrap().text(), "08");
+    /// assert_eq!(s.day_start().unwrap(), "08");
     /// ```
     pub fn deadline(&self) -> Option<Timestamp> {
         self.syntax
@@ -35,7 +35,7 @@ impl Planning {
     ///     .unwrap()
     ///     .scheduled()
     ///     .unwrap();
-    /// assert_eq!(s.year_start().unwrap().text(), "2019");
+    /// assert_eq!(s.year_start().unwrap(), "2019");
     /// ```
     pub fn scheduled(&self) -> Option<Timestamp> {
         self.syntax
@@ -55,7 +55,7 @@ impl Planning {
     ///     .unwrap()
     ///     .closed()
     ///     .unwrap();
-    /// assert_eq!(s.month_start().unwrap().text(), "04");
+    /// assert_eq!(s.month_start().unwrap(), "04");
     /// ```
     pub fn closed(&self) -> Option<Timestamp> {
         self.syntax

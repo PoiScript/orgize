@@ -98,7 +98,7 @@ impl Timestamp {
         self.syntax
             .children_with_tokens()
             .find_map(filter_token(SyntaxKind::TIMESTAMP_REPEATER_MARK))
-            .map(|t| match t.text() {
+            .map(|t| match t.as_ref() {
                 "++" => RepeaterType::CatchUp,
                 "+" => RepeaterType::Cumulate,
                 ".+" => RepeaterType::Restart,
@@ -178,7 +178,7 @@ impl Timestamp {
         self.syntax
             .children_with_tokens()
             .find_map(filter_token(SyntaxKind::TIMESTAMP_DELAY_MARK))
-            .map(|t| match t.text() {
+            .map(|t| match t.as_ref() {
                 "-" => DelayType::All,
                 "--" => DelayType::First,
                 _ => {
@@ -259,13 +259,13 @@ impl Timestamp {
     pub fn start_to_chrono(&self) -> Option<chrono::NaiveDateTime> {
         Some(chrono::NaiveDateTime::new(
             chrono::NaiveDate::from_ymd_opt(
-                self.year_start()?.text().parse().ok()?,
-                self.month_start()?.text().parse().ok()?,
-                self.day_start()?.text().parse().ok()?,
+                self.year_start()?.parse().ok()?,
+                self.month_start()?.parse().ok()?,
+                self.day_start()?.parse().ok()?,
             )?,
             chrono::NaiveTime::from_hms_opt(
-                self.hour_start()?.text().parse().ok()?,
-                self.minute_start()?.text().parse().ok()?,
+                self.hour_start()?.parse().ok()?,
+                self.minute_start()?.parse().ok()?,
                 0,
             )?,
         ))
@@ -284,13 +284,13 @@ impl Timestamp {
     pub fn end_to_chrono(&self) -> Option<chrono::NaiveDateTime> {
         Some(chrono::NaiveDateTime::new(
             chrono::NaiveDate::from_ymd_opt(
-                self.year_end()?.text().parse().ok()?,
-                self.month_end()?.text().parse().ok()?,
-                self.day_end()?.text().parse().ok()?,
+                self.year_end()?.parse().ok()?,
+                self.month_end()?.parse().ok()?,
+                self.day_end()?.parse().ok()?,
             )?,
             chrono::NaiveTime::from_hms_opt(
-                self.hour_end()?.text().parse().ok()?,
-                self.minute_end()?.text().parse().ok()?,
+                self.hour_end()?.parse().ok()?,
+                self.minute_end()?.parse().ok()?,
                 0,
             )?,
         ))

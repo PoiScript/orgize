@@ -1,11 +1,8 @@
 use rowan::NodeOrToken;
 
-use crate::{
-    syntax::{SyntaxKind, SyntaxToken},
-    SyntaxElement,
-};
+use crate::{syntax::SyntaxKind, SyntaxElement};
 
-use super::{filter_token, Headline, Timestamp};
+use super::{filter_token, Headline, Timestamp, Token};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TodoType {
@@ -28,20 +25,22 @@ impl Headline {
         self.syntax
             .children_with_tokens()
             .find_map(filter_token(SyntaxKind::HEADLINE_STARS))
-            .map(|stars| stars.text().len())
-            .unwrap_or_else(|| {
-                debug_assert!(false, "headline must contains starts token");
-                0
-            })
+            .map_or_else(
+                || {
+                    debug_assert!(false, "headline must contains starts token");
+                    0
+                },
+                |stars| stars.len(),
+            )
     }
 
     /// ```rust
     /// use orgize::{Org, ast::Headline};
     ///
     /// let hdl = Org::parse("* TODO a").first_node::<Headline>().unwrap();
-    /// assert_eq!(hdl.todo_keyword().unwrap().text(), "TODO");
+    /// assert_eq!(hdl.todo_keyword().unwrap(), "TODO");
     /// ```
-    pub fn todo_keyword(&self) -> Option<SyntaxToken> {
+    pub fn todo_keyword(&self) -> Option<Token> {
         self.syntax
             .children_with_tokens()
             .find_map(|elem| match elem {
@@ -49,7 +48,7 @@ impl Headline {
                     if tk.kind() == SyntaxKind::HEADLINE_KEYWORD_TODO
                         || tk.kind() == SyntaxKind::HEADLINE_KEYWORD_DONE =>
                 {
-                    Some(tk)
+                    Some(Token(Some(tk)))
                 }
                 _ => None,
             })
@@ -131,7 +130,7 @@ impl Headline {
     /// assert!(!hdl.is_archived());
     /// ```
     pub fn is_archived(&self) -> bool {
-        self.tags().any(|t| t.text() == "ARCHIVE")
+        self.tags().any(|t| t == "ARCHIVE")
     }
 
     /// Returns this headline's closed timestamp, or `None` if not set.
@@ -165,7 +164,7 @@ impl Headline {
     /// assert_eq!(tags_vec("* TODO :tag:  :a2%:"), vec!["tag".to_string(), "a2%".to_string()]);
     /// assert_eq!(tags_vec("* title :tag:a2%:"), vec!["tag".to_string(), "a2%".to_string()]);
     /// ```
-    pub fn tags(&self) -> impl Iterator<Item = SyntaxToken> {
+    pub fn tags(&self) -> impl Iterator<Item = Token> {
         self.syntax
             .children()
             .find(|n| n.kind() == SyntaxKind::HEADLINE_TAGS)
@@ -180,13 +179,13 @@ impl Headline {
     /// use orgize::{Org, ast::Headline};
     ///
     /// let hdl = Org::parse("* [#A]").first_node::<Headline>().unwrap();
-    /// assert_eq!(hdl.priority().unwrap().text(), "A");
+    /// assert_eq!(hdl.priority().unwrap(), "A");
     /// let hdl = Org::parse("** DONE [#B]::").first_node::<Headline>().unwrap();
-    /// assert_eq!(hdl.priority().unwrap().text(), "B");
+    /// assert_eq!(hdl.priority().unwrap(), "B");
     /// let hdl = Org::parse("* [#破]").first_node::<Headline>().unwrap();
-    /// assert_eq!(hdl.priority().unwrap().text(), "破");
+    /// assert_eq!(hdl.priority().unwrap(), "破");
     /// ```
-    pub fn priority(&self) -> Option<SyntaxToken> {
+    pub fn priority(&self) -> Option<Token> {
         self.syntax
             .children()
             .find(|n| n.kind() == SyntaxKind::HEADLINE_PRIORITY)

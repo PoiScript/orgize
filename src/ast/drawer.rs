@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use super::{filter_token, SyntaxKind::*};
-use crate::{ast::PropertyDrawer, syntax::SyntaxToken};
+use super::{filter_token, SyntaxKind, Token};
+use crate::ast::PropertyDrawer;
 
 impl PropertyDrawer {
     /// ```rust
@@ -11,12 +11,12 @@ impl PropertyDrawer {
     /// let drawer = org.first_node::<PropertyDrawer>().unwrap();
     /// assert_eq!(drawer.iter().count(), 2);
     /// ```
-    pub fn iter(&self) -> impl Iterator<Item = (SyntaxToken, SyntaxToken)> {
+    pub fn iter(&self) -> impl Iterator<Item = (Token, Token)> {
         self.node_properties().filter_map(|property| {
             let mut texts = property
                 .syntax
                 .children_with_tokens()
-                .filter_map(filter_token(TEXT));
+                .filter_map(filter_token(SyntaxKind::TEXT));
 
             Some((texts.next()?, texts.next()?))
         })
@@ -27,12 +27,11 @@ impl PropertyDrawer {
     ///
     /// let org = Org::parse("* Heading\n:PROPERTIES:\n:CUSTOM_ID: someid\n:ID: id\n:END:");
     /// let drawer = org.first_node::<PropertyDrawer>().unwrap();
-    /// assert_eq!(drawer.get("CUSTOM_ID").unwrap().text(), "someid");
-    /// assert_eq!(drawer.get("ID").unwrap().text(), "id");
+    /// assert_eq!(drawer.get("CUSTOM_ID").unwrap(), "someid");
+    /// assert_eq!(drawer.get("ID").unwrap(), "id");
     /// ```
-    pub fn get(&self, key: &str) -> Option<SyntaxToken> {
-        self.iter()
-            .find_map(|(k, v)| (k.text() == key).then_some(v))
+    pub fn get(&self, key: &str) -> Option<Token> {
+        self.iter().find_map(|(k, v)| (k == key).then_some(v))
     }
 
     /// ```rust
@@ -44,10 +43,8 @@ impl PropertyDrawer {
     /// assert_eq!(map.len(), 1);
     /// assert_eq!(map.get("CUSTOM_ID").unwrap(), "id");
     /// ```
-    pub fn to_hash_map(&self) -> HashMap<String, String> {
-        self.iter()
-            .map(|(k, v)| (k.text().into(), v.text().into()))
-            .collect()
+    pub fn to_hash_map(&self) -> HashMap<Token, Token> {
+        self.iter().collect()
     }
 
     #[cfg(feature = "indexmap")]
@@ -57,11 +54,11 @@ impl PropertyDrawer {
     /// let org = Org::parse("* Heading\n:PROPERTIES:\n:CUSTOM_ID: someid\n:ID: id\n:END:");
     /// let drawer = org.first_node::<PropertyDrawer>().unwrap();
     /// let map = drawer.to_index_map();
-    /// assert_eq!(map.get_index(1).unwrap(), (&"ID".to_string(), &"id".to_string()));
+    /// let item1 = map.get_index(1).unwrap();
+    /// assert_eq!(item1.0, "ID");
+    /// assert_eq!(item1.1, "id");
     /// ```
-    pub fn to_index_map(&self) -> indexmap::IndexMap<String, String> {
-        self.iter()
-            .map(|(k, v)| (k.text().into(), v.text().into()))
-            .collect()
+    pub fn to_index_map(&self) -> indexmap::IndexMap<Token, Token> {
+        self.iter().collect()
     }
 }

@@ -1,5 +1,5 @@
-use super::{filter_token, List, ListItem};
-use crate::{syntax::SyntaxKind, SyntaxElement, SyntaxToken};
+use super::{filter_token, List, ListItem, Token};
+use crate::{syntax::SyntaxKind, SyntaxElement};
 
 impl List {
     /// Returns `true` if this list is an ordered link
@@ -17,11 +17,13 @@ impl List {
     /// assert!(list.is_ordered());
     /// ```
     pub fn is_ordered(&self) -> bool {
-        self.items()
-            .next()
-            .and_then(|item| item.bullet())
-            .map(|bullet| bullet.text().starts_with(|c: char| c.is_ascii_digit()))
-            .unwrap_or_default()
+        self.items().next().map_or_else(
+            || {
+                debug_assert!(false, "list muts contains LIST_ITEM");
+                false
+            },
+            |item| item.bullet().starts_with(|c: char| c.is_ascii_digit()),
+        )
     }
 
     /// Returns `true` if this list contains a TAG
@@ -35,14 +37,17 @@ impl List {
     /// assert!(!list.is_descriptive());
     /// ```
     pub fn is_descriptive(&self) -> bool {
-        self.items()
-            .next()
-            .map(|item| {
+        self.items().next().map_or_else(
+            || {
+                debug_assert!(false, "list must contains LIST_ITEM");
+                false
+            },
+            |item| {
                 item.syntax
                     .children()
                     .any(|it| it.kind() == SyntaxKind::LIST_ITEM_TAG)
-            })
-            .unwrap_or_default()
+            },
+        )
     }
 }
 
@@ -59,38 +64,44 @@ impl ListItem {
         self.syntax
             .children_with_tokens()
             .find_map(filter_token(SyntaxKind::LIST_ITEM_INDENT))
-            .map(|t| t.text().len())
-            .unwrap_or_else(|| {
-                debug_assert!(false, "list must contains indent token");
-                0
-            })
+            .map_or_else(
+                || {
+                    debug_assert!(false, "list item must contains LIST_ITEM_INDENT");
+                    0
+                },
+                |t| t.len(),
+            )
     }
 
     /// ```rust
     /// use orgize::{Org, ast::ListItem};
     ///
     /// let item = Org::parse("- some tag").first_node::<ListItem>().unwrap();
-    /// assert_eq!(item.bullet().unwrap().text(), "- ");
+    /// assert_eq!(item.bullet(), "- ");
     /// let item = Org::parse("2. [X] item 2").first_node::<ListItem>().unwrap();
-    /// assert_eq!(item.bullet().unwrap().text(), "2. ");
+    /// assert_eq!(item.bullet(), "2. ");
     /// ```
-    pub fn bullet(&self) -> Option<SyntaxToken> {
+    pub fn bullet(&self) -> Token {
         self.syntax
             .children_with_tokens()
             .find_map(filter_token(SyntaxKind::LIST_ITEM_BULLET))
+            .unwrap_or_else(|| {
+                debug_assert!(false, "list item must contains LIST_ITEM_BULLET");
+                Token::default()
+            })
     }
 
     /// ```rust
     /// use orgize::{Org, ast::ListItem};
     ///
     /// let item = Org::parse("- [-] item 1").first_node::<ListItem>().unwrap();
-    /// assert_eq!(item.checkbox().unwrap().text(), "-");
+    /// assert_eq!(item.checkbox().unwrap(), "-");
     /// let item = Org::parse("2. [X] item 2").first_node::<ListItem>().unwrap();
-    /// assert_eq!(item.checkbox().unwrap().text(), "X");
+    /// assert_eq!(item.checkbox().unwrap(), "X");
     /// let item = Org::parse("3) [ ] item 3").first_node::<ListItem>().unwrap();
-    /// assert_eq!(item.checkbox().unwrap().text(), " ");
+    /// assert_eq!(item.checkbox().unwrap(), " ");
     /// ```
-    pub fn checkbox(&self) -> Option<SyntaxToken> {
+    pub fn checkbox(&self) -> Option<Token> {
         self.syntax
             .children()
             .find(|n| n.kind() == SyntaxKind::LIST_ITEM_CHECK_BOX)
@@ -100,7 +111,7 @@ impl ListItem {
             })
     }
 
-    pub fn counter(&self) -> Option<SyntaxToken> {
+    pub fn counter(&self) -> Option<Token> {
         self.syntax
             .children()
             .find(|n| n.kind() == SyntaxKind::LIST_ITEM_COUNTER)

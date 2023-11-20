@@ -46,7 +46,7 @@ let config = ParseConfig {
 };
 let org = config.parse("* TASK Title 1");
 let hdl = org.first_node::<Headline>().unwrap();
-assert_eq!(hdl.todo_keyword().unwrap().text(), "TASK");
+assert_eq!(hdl.todo_keyword().unwrap(), "TASK");
 ```
 
 ## Render to html

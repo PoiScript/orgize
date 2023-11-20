@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{digit1, line_ending, space0},
-    combinator::{eof, map, opt},
+    combinator::{eof, map, opt, recognize},
     sequence::tuple,
     IResult,
 };
@@ -26,9 +26,7 @@ pub fn clock_node(input: Input) -> IResult<Input, GreenElement, ()> {
                 space0,
                 double_arrow_token,
                 space0,
-                digit1,
-                colon_token,
-                digit1,
+                recognize(tuple((digit1, colon_token, digit1))),
             ))),
             space0,
             alt((line_ending, eof)),
@@ -41,13 +39,11 @@ pub fn clock_node(input: Input) -> IResult<Input, GreenElement, ()> {
             b.text(clock);
             b.ws(ws_);
             b.push(timestamp);
-            if let Some((ws, double_arrow, ws_, hour, colon, minute)) = duration {
+            if let Some((ws, double_arrow, ws_, time)) = duration {
                 b.ws(ws);
                 b.push(double_arrow);
                 b.ws(ws_);
-                b.text(hour);
-                b.push(colon);
-                b.text(minute);
+                b.text(time);
             }
             b.ws(ws__);
             b.nl(nl);
@@ -125,9 +121,7 @@ fn parse() {
       WHITESPACE@53..54 " "
       DOUBLE_ARROW@54..56 "=>"
       WHITESPACE@56..58 "  "
-      TEXT@58..59 "1"
-      COLON@59..60 ":"
-      TEXT@60..62 "00"
+      TEXT@58..62 "1:00"
       NEW_LINE@62..63 "\n"
       BLANK_LINE@63..64 "\n"
     "###

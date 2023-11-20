@@ -12,7 +12,7 @@ fn affiliated_keyword(
     node.children()
         .take_while(|n| n.kind() == SyntaxKind::AFFILIATED_KEYWORD)
         .filter_map(AffiliatedKeyword::cast)
-        .find(|k| matches!(k.key(), Some(k) if filter(k.text())))
+        .find(|k| filter(&k.key()))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -717,8 +717,8 @@ impl Comment {
     pub fn end(&self) -> u32 {
         self.syntax.text_range().end().into()
     }
-    pub fn text(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TEXT)
+    pub fn text(&self) -> Option<super::Token> {
+        super::token(&self.syntax, TEXT)
     }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
@@ -796,8 +796,8 @@ impl FixedWidth {
     pub fn end(&self) -> u32 {
         self.syntax.text_range().end().into()
     }
-    pub fn text(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TEXT)
+    pub fn text(&self) -> Option<super::Token> {
+        super::token(&self.syntax, TEXT)
     }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
@@ -1257,9 +1257,6 @@ impl Link {
     pub fn end(&self) -> u32 {
         self.syntax.text_range().end().into()
     }
-    pub fn path(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, LINK_PATH)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1363,31 +1360,6 @@ impl Macros {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MacrosArgument {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AstNode for MacrosArgument {
-    type Language = OrgLanguage;
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == MACROS_ARGUMENT
-    }
-    fn cast(node: SyntaxNode) -> Option<MacrosArgument> {
-        Self::can_cast(node.kind()).then(|| MacrosArgument { syntax: node })
-    }
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl MacrosArgument {
-    pub fn begin(&self) -> u32 {
-        self.syntax.text_range().start().into()
-    }
-    pub fn end(&self) -> u32 {
-        self.syntax.text_range().end().into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Snippet {
     pub(crate) syntax: SyntaxNode,
 }
@@ -1409,9 +1381,6 @@ impl Snippet {
     }
     pub fn end(&self) -> u32 {
         self.syntax.text_range().end().into()
-    }
-    pub fn name(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TEXT)
     }
 }
 
@@ -1588,8 +1557,8 @@ impl Code {
     pub fn end(&self) -> u32 {
         self.syntax.text_range().end().into()
     }
-    pub fn text(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TEXT)
+    pub fn text(&self) -> Option<super::Token> {
+        super::token(&self.syntax, TEXT)
     }
 }
 
@@ -1616,34 +1585,34 @@ impl Timestamp {
     pub fn end(&self) -> u32 {
         self.syntax.text_range().end().into()
     }
-    pub fn year_start(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TIMESTAMP_YEAR)
+    pub fn year_start(&self) -> Option<super::Token> {
+        super::token(&self.syntax, TIMESTAMP_YEAR)
     }
-    pub fn month_start(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TIMESTAMP_MONTH)
+    pub fn month_start(&self) -> Option<super::Token> {
+        super::token(&self.syntax, TIMESTAMP_MONTH)
     }
-    pub fn day_start(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TIMESTAMP_DAY)
+    pub fn day_start(&self) -> Option<super::Token> {
+        super::token(&self.syntax, TIMESTAMP_DAY)
     }
-    pub fn hour_start(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TIMESTAMP_HOUR)
+    pub fn hour_start(&self) -> Option<super::Token> {
+        super::token(&self.syntax, TIMESTAMP_HOUR)
     }
-    pub fn minute_start(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, TIMESTAMP_MINUTE)
+    pub fn minute_start(&self) -> Option<super::Token> {
+        super::token(&self.syntax, TIMESTAMP_MINUTE)
     }
-    pub fn year_end(&self) -> Option<SyntaxToken> {
+    pub fn year_end(&self) -> Option<super::Token> {
         super::last_token(&self.syntax, TIMESTAMP_YEAR)
     }
-    pub fn month_end(&self) -> Option<SyntaxToken> {
+    pub fn month_end(&self) -> Option<super::Token> {
         super::last_token(&self.syntax, TIMESTAMP_MONTH)
     }
-    pub fn day_end(&self) -> Option<SyntaxToken> {
+    pub fn day_end(&self) -> Option<super::Token> {
         super::last_token(&self.syntax, TIMESTAMP_DAY)
     }
-    pub fn hour_end(&self) -> Option<SyntaxToken> {
+    pub fn hour_end(&self) -> Option<super::Token> {
         super::last_token(&self.syntax, TIMESTAMP_HOUR)
     }
-    pub fn minute_end(&self) -> Option<SyntaxToken> {
+    pub fn minute_end(&self) -> Option<super::Token> {
         super::last_token(&self.syntax, TIMESTAMP_MINUTE)
     }
 }

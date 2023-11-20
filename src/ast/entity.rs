@@ -8,9 +8,8 @@ impl Entity {
             .syntax
             .children_with_tokens()
             .find_map(filter_token(SyntaxKind::TEXT))?;
-        let token = token.text();
 
-        ENTITIES.iter().find(|i| i.0 == token)
+        ENTITIES.iter().find(|i| i.0 == token.as_ref())
     }
 
     /// Entity name
@@ -24,10 +23,13 @@ impl Entity {
     /// assert_eq!(e.name(), "     ");
     /// ```
     pub fn name(&self) -> &str {
-        self.entity().map(|e| e.0).unwrap_or_else(|| {
-            debug_assert!(false);
-            ""
-        })
+        self.entity().map_or_else(
+            || {
+                debug_assert!(false);
+                ""
+            },
+            |e| e.0,
+        )
     }
 
     /// Entity LaTeX representation
@@ -39,10 +41,13 @@ impl Entity {
     /// assert_eq!(e.latex(), "\\textperiodcentered{}");
     /// ```
     pub fn latex(&self) -> &str {
-        self.entity().map(|e| e.1).unwrap_or_else(|| {
-            debug_assert!(false);
-            ""
-        })
+        self.entity().map_or_else(
+            || {
+                debug_assert!(false);
+                ""
+            },
+            |e| e.1,
+        )
     }
 
     /// Whether entity needs to be in math mode
@@ -56,10 +61,13 @@ impl Entity {
     /// assert!(e.is_latex_math());
     /// ```
     pub fn is_latex_math(&self) -> bool {
-        self.entity().map(|e| e.2).unwrap_or_else(|| {
-            debug_assert!(false);
-            false
-        })
+        self.entity().map_or_else(
+            || {
+                debug_assert!(false);
+                false
+            },
+            |e| e.2,
+        )
     }
 
     /// Entity HTML representation
@@ -71,10 +79,13 @@ impl Entity {
     /// assert_eq!(e.html(), "&sect;");
     /// ```
     pub fn html(&self) -> &str {
-        self.entity().map(|e| e.3).unwrap_or_else(|| {
-            debug_assert!(false);
-            ""
-        })
+        self.entity().map_or_else(
+            || {
+                debug_assert!(false);
+                ""
+            },
+            |e| e.3,
+        )
     }
 
     /// Entity ASCII representation
@@ -86,10 +97,13 @@ impl Entity {
     /// assert_eq!(e.ascii(), "section");
     /// ```
     pub fn ascii(&self) -> &str {
-        self.entity().map(|e| e.4).unwrap_or_else(|| {
-            debug_assert!(false);
-            ""
-        })
+        self.entity().map_or_else(
+            || {
+                debug_assert!(false);
+                ""
+            },
+            |e| e.4,
+        )
     }
 
     /// Entity Latin1 encoding representation
@@ -103,10 +117,13 @@ impl Entity {
     /// assert_eq!(e.latin1(), ">");
     /// ```
     pub fn latin1(&self) -> &str {
-        self.entity().map(|e| e.5).unwrap_or_else(|| {
-            debug_assert!(false);
-            ""
-        })
+        self.entity().map_or_else(
+            || {
+                debug_assert!(false);
+                ""
+            },
+            |e| e.5,
+        )
     }
 
     /// Entity UTF-8 encoding representation
@@ -120,10 +137,13 @@ impl Entity {
     /// assert_eq!(e.utf8(), "›");
     /// ```
     pub fn utf8(&self) -> &str {
-        self.entity().map(|e| e.6).unwrap_or_else(|| {
-            debug_assert!(false);
-            ""
-        })
+        self.entity().map_or_else(
+            || {
+                debug_assert!(false);
+                ""
+            },
+            |e| e.6,
+        )
     }
 
     /// Entity contains optional brackets

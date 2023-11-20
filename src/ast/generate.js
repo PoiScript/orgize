@@ -180,7 +180,6 @@ const nodes = [
   {
     struct: "Link",
     kind: ["LINK"],
-    token: [["path", "LINK_PATH"]],
   },
   {
     struct: "Cookie",
@@ -199,13 +198,8 @@ const nodes = [
     kind: ["MACROS"],
   },
   {
-    struct: "MacrosArgument",
-    kind: ["MACROS_ARGUMENT"],
-  },
-  {
     struct: "Snippet",
     kind: ["SNIPPET"],
-    token: [["name", "TEXT"]],
   },
   {
     struct: "Target",
@@ -276,10 +270,10 @@ use rowan::ast::{support, AstChildren, AstNode};
 use crate::syntax::{OrgLanguage, SyntaxKind, SyntaxKind::*, SyntaxNode, SyntaxToken};
 
 fn affiliated_keyword(node: &SyntaxNode, filter: impl Fn(&str) -> bool) -> Option<AffiliatedKeyword> {
-  node.children()
-      .take_while(|n| n.kind() == SyntaxKind::AFFILIATED_KEYWORD)
-      .filter_map(AffiliatedKeyword::cast)
-      .find(|k| matches!(k.key(), Some(k) if filter(k.text())))
+    node.children()
+        .take_while(|n| n.kind() == SyntaxKind::AFFILIATED_KEYWORD)
+        .filter_map(AffiliatedKeyword::cast)
+        .find(|k| filter(&k.key()))
 }
 `;
 
@@ -308,10 +302,10 @@ impl ${node.struct} {
     }
 `;
   for (const [method, kind] of node.token || []) {
-    content += `    pub fn ${method}(&self) -> Option<SyntaxToken> { support::token(&self.syntax, ${kind}) }\n`;
+    content += `    pub fn ${method}(&self) -> Option<super::Token> { super::token(&self.syntax, ${kind}) }\n`;
   }
   for (const [method, kind] of node.last_token || []) {
-    content += `    pub fn ${method}(&self) -> Option<SyntaxToken> { super::last_token(&self.syntax, ${kind}) }\n`;
+    content += `    pub fn ${method}(&self) -> Option<super::Token> { super::last_token(&self.syntax, ${kind}) }\n`;
   }
   for (const [method, kind] of node.parent || []) {
     content += `    pub fn ${method}(&self) -> Option<${kind}> { self.syntax.parent().and_then(${kind}::cast) }\n`;

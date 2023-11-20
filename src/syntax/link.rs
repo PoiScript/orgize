@@ -48,7 +48,6 @@ fn parse() {
     let to_link = to_ast::<Link>(link_node);
 
     let link = to_link("[[#id]]");
-    assert_eq!(link.path().as_ref().map(|x| x.text()), Some("#id"));
     insta::assert_debug_snapshot!(
         link.syntax,
         @r###"
