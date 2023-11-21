@@ -20,16 +20,15 @@ fn block_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let (input, (block_begin, name)) = block_begin_node(input)?;
     let (input, pre_blank) = blank_lines(input)?;
 
-    let (kind, is_greater_block) = match name {
-        s if s.eq_ignore_ascii_case("COMMENT") => (COMMENT_BLOCK, false),
-        s if s.eq_ignore_ascii_case("EXAMPLE") => (EXAMPLE_BLOCK, false),
-        s if s.eq_ignore_ascii_case("EXPORT") => (EXPORT_BLOCK, false),
-        s if s.eq_ignore_ascii_case("SRC") => (SOURCE_BLOCK, false),
-
-        s if s.eq_ignore_ascii_case("CENTER") => (CENTER_BLOCK, true),
-        s if s.eq_ignore_ascii_case("QUOTE") => (QUOTE_BLOCK, true),
-        s if s.eq_ignore_ascii_case("VERSE") => (VERSE_BLOCK, true),
-        _ => (SPECIAL_BLOCK, true),
+    let kind = match name {
+        s if s.eq_ignore_ascii_case("COMMENT") => COMMENT_BLOCK,
+        s if s.eq_ignore_ascii_case("EXAMPLE") => EXAMPLE_BLOCK,
+        s if s.eq_ignore_ascii_case("EXPORT") => EXPORT_BLOCK,
+        s if s.eq_ignore_ascii_case("SRC") => SOURCE_BLOCK,
+        s if s.eq_ignore_ascii_case("CENTER") => CENTER_BLOCK,
+        s if s.eq_ignore_ascii_case("QUOTE") => QUOTE_BLOCK,
+        s if s.eq_ignore_ascii_case("VERSE") => VERSE_BLOCK,
+        _ => SPECIAL_BLOCK,
     };
 
     for (input, contents) in line_starts_iter(input.as_str()).map(|i| input.take_split(i)) {
@@ -38,7 +37,7 @@ fn block_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
             let mut children = vec![block_begin];
             children.extend(pre_blank);
-            if is_greater_block {
+            if kind.is_greater_element() {
                 children.push(node(BLOCK_CONTENT, element_nodes(contents)?));
             } else {
                 children.push(node(BLOCK_CONTENT, comma_quoted_text_nodes(contents)));

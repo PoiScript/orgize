@@ -143,7 +143,7 @@ pub trait Traverser {
 
             BLOCK_CONTENT | LIST_ITEM_CONTENT => traverse_children!(node),
 
-            _ => {}
+            kind => debug_assert!(!kind.is_element() && !kind.is_object()),
         }
     }
 

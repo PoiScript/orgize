@@ -222,3 +222,81 @@ impl From<SyntaxKind> for rowan::SyntaxKind {
         OrgLanguage::kind_to_raw(value)
     }
 }
+
+impl SyntaxKind {
+    /// whether this node is [object](https://orgmode.org/worg/org-syntax.html#Objects)
+    pub fn is_object(&self) -> bool {
+        matches!(
+            self,
+            SyntaxKind::ENTITY
+                | SyntaxKind::LATEX_FRAGMENT
+                | SyntaxKind::SNIPPET
+                | SyntaxKind::FN_REF
+                | SyntaxKind::INLINE_CALL
+                | SyntaxKind::INLINE_SRC
+                | SyntaxKind::LINK
+                | SyntaxKind::MACROS
+                | SyntaxKind::RADIO_TARGET
+                | SyntaxKind::COOKIE
+                | SyntaxKind::ORG_TABLE_CELL
+                | SyntaxKind::TIMESTAMP_ACTIVE
+                | SyntaxKind::TIMESTAMP_INACTIVE
+                | SyntaxKind::TIMESTAMP_DIARY
+                | SyntaxKind::BOLD
+                | SyntaxKind::ITALIC
+                | SyntaxKind::UNDERLINE
+                | SyntaxKind::VERBATIM
+                | SyntaxKind::CODE
+                | SyntaxKind::STRIKE
+        )
+    }
+
+    /// whether this node is [element](https://orgmode.org/worg/org-syntax.html#Elements)
+    pub fn is_element(&self) -> bool {
+        matches!(self, SyntaxKind::HEADLINE | SyntaxKind::SECTION)
+            || self.is_lesser_element()
+            || self.is_greater_element()
+    }
+
+    /// whether this node is [lesser element](https://orgmode.org/worg/org-syntax.html#Lesser_Elements)
+    pub fn is_lesser_element(&self) -> bool {
+        matches!(
+            self,
+            SyntaxKind::COMMENT_BLOCK
+                | SyntaxKind::EXAMPLE_BLOCK
+                | SyntaxKind::EXPORT_BLOCK
+                | SyntaxKind::SOURCE_BLOCK
+                | SyntaxKind::VERSE_BLOCK
+                | SyntaxKind::CLOCK
+                | SyntaxKind::PLANNING
+                | SyntaxKind::COMMENT
+                | SyntaxKind::FIXED_WIDTH
+                | SyntaxKind::RULE
+                | SyntaxKind::KEYWORD
+                | SyntaxKind::AFFILIATED_KEYWORD
+                | SyntaxKind::BABEL_CALL
+                | SyntaxKind::LATEX_ENVIRONMENT
+                | SyntaxKind::NODE_PROPERTY
+                | SyntaxKind::PARAGRAPH
+                | SyntaxKind::ORG_TABLE_RULE_ROW
+                | SyntaxKind::ORG_TABLE_STANDARD_ROW
+        )
+    }
+
+    /// whether this node is [greater element](https://orgmode.org/worg/org-syntax.html#Greater_Elements)
+    pub fn is_greater_element(&self) -> bool {
+        matches!(
+            self,
+            SyntaxKind::CENTER_BLOCK
+                | SyntaxKind::QUOTE_BLOCK
+                | SyntaxKind::SPECIAL_BLOCK
+                | SyntaxKind::DRAWER
+                | SyntaxKind::DYN_BLOCK
+                | SyntaxKind::FN_DEF
+                | SyntaxKind::LIST_ITEM
+                | SyntaxKind::LIST
+                | SyntaxKind::PROPERTY_DRAWER
+                | SyntaxKind::ORG_TABLE
+        )
+    }
+}
