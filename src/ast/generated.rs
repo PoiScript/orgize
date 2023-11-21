@@ -1691,3 +1691,28 @@ impl Entity {
         self.syntax.text_range().end().into()
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LineBreak {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AstNode for LineBreak {
+    type Language = OrgLanguage;
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == LINE_BREAK
+    }
+    fn cast(node: SyntaxNode) -> Option<LineBreak> {
+        Self::can_cast(node.kind()).then(|| LineBreak { syntax: node })
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl LineBreak {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}

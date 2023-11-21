@@ -140,6 +140,7 @@ pub trait Traverser {
             LATEX_FRAGMENT => traverse!(LatexFragment, latex_fragment),
             LATEX_ENVIRONMENT => traverse!(LatexEnvironment, latex_environment),
             ENTITY => traverse!(Entity, entity),
+            LINE_BREAK => traverse!(LineBreak, line_break),
 
             BLOCK_CONTENT | LIST_ITEM_CONTENT => traverse_children!(node),
 
@@ -156,97 +157,99 @@ pub trait Traverser {
     }
 
     /// Called when visiting `Text` token
-    fn text(&mut self, _token: SyntaxToken, _ctx: &mut TraversalContext);
+    fn text(&mut self, token: SyntaxToken, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Document` node
-    fn document(&mut self, _event: WalkEvent<&Document>, _ctx: &mut TraversalContext);
+    fn document(&mut self, event: WalkEvent<&Document>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Headline` node
-    fn headline(&mut self, _event: WalkEvent<&Headline>, _ctx: &mut TraversalContext);
+    fn headline(&mut self, event: WalkEvent<&Headline>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Paragraph` node
-    fn paragraph(&mut self, _event: WalkEvent<&Paragraph>, _ctx: &mut TraversalContext);
+    fn paragraph(&mut self, event: WalkEvent<&Paragraph>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Section` node
-    fn section(&mut self, _event: WalkEvent<&Section>, _ctx: &mut TraversalContext);
+    fn section(&mut self, event: WalkEvent<&Section>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Rule` node
-    fn rule(&mut self, _event: WalkEvent<&Rule>, _ctx: &mut TraversalContext);
+    fn rule(&mut self, event: WalkEvent<&Rule>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Comment` node
-    fn comment(&mut self, _event: WalkEvent<&Comment>, _ctx: &mut TraversalContext);
+    fn comment(&mut self, event: WalkEvent<&Comment>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `InlineSrc` node
-    fn inline_src(&mut self, _event: WalkEvent<&InlineSrc>, _ctx: &mut TraversalContext);
+    fn inline_src(&mut self, event: WalkEvent<&InlineSrc>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `InlineCall` node
-    fn inline_call(&mut self, _event: WalkEvent<&InlineCall>, _ctx: &mut TraversalContext);
+    fn inline_call(&mut self, event: WalkEvent<&InlineCall>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Code` node
-    fn code(&mut self, _event: WalkEvent<&Code>, _ctx: &mut TraversalContext);
+    fn code(&mut self, event: WalkEvent<&Code>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Bold` node
-    fn bold(&mut self, _event: WalkEvent<&Bold>, _ctx: &mut TraversalContext);
+    fn bold(&mut self, event: WalkEvent<&Bold>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Verbatim` node
-    fn verbatim(&mut self, _event: WalkEvent<&Verbatim>, _ctx: &mut TraversalContext);
+    fn verbatim(&mut self, event: WalkEvent<&Verbatim>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Italic` node
-    fn italic(&mut self, _event: WalkEvent<&Italic>, _ctx: &mut TraversalContext);
+    fn italic(&mut self, event: WalkEvent<&Italic>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Strike` node
-    fn strike(&mut self, _event: WalkEvent<&Strike>, _ctx: &mut TraversalContext);
+    fn strike(&mut self, event: WalkEvent<&Strike>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Underline` node
-    fn underline(&mut self, _event: WalkEvent<&Underline>, _ctx: &mut TraversalContext);
+    fn underline(&mut self, event: WalkEvent<&Underline>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `List` node
-    fn list(&mut self, _event: WalkEvent<&List>, _ctx: &mut TraversalContext);
+    fn list(&mut self, event: WalkEvent<&List>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `ListItem` node
-    fn list_item(&mut self, _event: WalkEvent<&ListItem>, _ctx: &mut TraversalContext);
+    fn list_item(&mut self, event: WalkEvent<&ListItem>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `SpecialBlock` node
-    fn special_block(&mut self, _event: WalkEvent<&SpecialBlock>, _ctx: &mut TraversalContext);
+    fn special_block(&mut self, event: WalkEvent<&SpecialBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `QuoteBlock` node
-    fn quote_block(&mut self, _event: WalkEvent<&QuoteBlock>, _ctx: &mut TraversalContext);
+    fn quote_block(&mut self, event: WalkEvent<&QuoteBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `CenterBlock` node
-    fn center_block(&mut self, _event: WalkEvent<&CenterBlock>, _ctx: &mut TraversalContext);
+    fn center_block(&mut self, event: WalkEvent<&CenterBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `VerseBlock` node
-    fn verse_block(&mut self, _event: WalkEvent<&VerseBlock>, _ctx: &mut TraversalContext);
+    fn verse_block(&mut self, event: WalkEvent<&VerseBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `CommentBlock` node
-    fn comment_block(&mut self, _event: WalkEvent<&CommentBlock>, _ctx: &mut TraversalContext);
+    fn comment_block(&mut self, event: WalkEvent<&CommentBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `ExampleBlock` node
-    fn example_block(&mut self, _event: WalkEvent<&ExampleBlock>, _ctx: &mut TraversalContext);
+    fn example_block(&mut self, event: WalkEvent<&ExampleBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `ExportBlock` node
-    fn export_block(&mut self, _event: WalkEvent<&ExportBlock>, _ctx: &mut TraversalContext);
+    fn export_block(&mut self, event: WalkEvent<&ExportBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `SourceBlock` node
-    fn source_block(&mut self, _event: WalkEvent<&SourceBlock>, _ctx: &mut TraversalContext);
+    fn source_block(&mut self, event: WalkEvent<&SourceBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `BabelCall` node
-    fn babel_call(&mut self, _event: WalkEvent<&BabelCall>, _ctx: &mut TraversalContext);
+    fn babel_call(&mut self, event: WalkEvent<&BabelCall>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Clock` node
-    fn clock(&mut self, _event: WalkEvent<&Clock>, _ctx: &mut TraversalContext);
+    fn clock(&mut self, event: WalkEvent<&Clock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Cookie` node
-    fn cookie(&mut self, _event: WalkEvent<&Cookie>, _ctx: &mut TraversalContext);
+    fn cookie(&mut self, event: WalkEvent<&Cookie>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `RadioTarget` node
-    fn radio_target(&mut self, _event: WalkEvent<&RadioTarget>, _ctx: &mut TraversalContext);
+    fn radio_target(&mut self, event: WalkEvent<&RadioTarget>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Drawer` node
-    fn drawer(&mut self, _event: WalkEvent<&Drawer>, _ctx: &mut TraversalContext);
+    fn drawer(&mut self, event: WalkEvent<&Drawer>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `DynBlock` node
-    fn dyn_block(&mut self, _event: WalkEvent<&DynBlock>, _ctx: &mut TraversalContext);
+    fn dyn_block(&mut self, event: WalkEvent<&DynBlock>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `FnDef` node
-    fn fn_def(&mut self, _event: WalkEvent<&FnDef>, _ctx: &mut TraversalContext);
+    fn fn_def(&mut self, event: WalkEvent<&FnDef>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `FnRef` node
-    fn fn_ref(&mut self, _event: WalkEvent<&FnRef>, _ctx: &mut TraversalContext);
+    fn fn_ref(&mut self, event: WalkEvent<&FnRef>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Macros` node
-    fn macros(&mut self, _event: WalkEvent<&Macros>, _ctx: &mut TraversalContext);
+    fn macros(&mut self, event: WalkEvent<&Macros>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Snippet` node
-    fn snippet(&mut self, _event: WalkEvent<&Snippet>, _ctx: &mut TraversalContext);
+    fn snippet(&mut self, event: WalkEvent<&Snippet>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Timestamp` node
-    fn timestamp(&mut self, _event: WalkEvent<&Timestamp>, _ctx: &mut TraversalContext);
+    fn timestamp(&mut self, event: WalkEvent<&Timestamp>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Target` node
-    fn target(&mut self, _event: WalkEvent<&Target>, _ctx: &mut TraversalContext);
+    fn target(&mut self, event: WalkEvent<&Target>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `FixedWidth` node
-    fn fixed_width(&mut self, _event: WalkEvent<&FixedWidth>, _ctx: &mut TraversalContext);
+    fn fixed_width(&mut self, event: WalkEvent<&FixedWidth>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `OrgTable` node
-    fn org_table(&mut self, _event: WalkEvent<&OrgTable>, _ctx: &mut TraversalContext);
+    fn org_table(&mut self, event: WalkEvent<&OrgTable>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `OrgTableRow` node
-    fn org_table_row(&mut self, _event: WalkEvent<&OrgTableRow>, _ctx: &mut TraversalContext);
+    fn org_table_row(&mut self, event: WalkEvent<&OrgTableRow>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `OrgTableCell` node
-    fn org_table_cell(&mut self, _event: WalkEvent<&OrgTableCell>, _ctx: &mut TraversalContext);
+    fn org_table_cell(&mut self, event: WalkEvent<&OrgTableCell>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Link` node
-    fn link(&mut self, _event: WalkEvent<&Link>, _ctx: &mut TraversalContext);
+    fn link(&mut self, event: WalkEvent<&Link>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `LatexFragment` node
-    fn latex_fragment(&mut self, _event: WalkEvent<&LatexFragment>, _ctx: &mut TraversalContext);
+    fn latex_fragment(&mut self, event: WalkEvent<&LatexFragment>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `LatexEnvironment` node
     fn latex_environment(
         &mut self,
-        _event: WalkEvent<&LatexEnvironment>,
-        _ctx: &mut TraversalContext,
+        event: WalkEvent<&LatexEnvironment>,
+        ctx: &mut TraversalContext,
     );
     /// Called when entering or leaving `Entity` node
-    fn entity(&mut self, _event: WalkEvent<&Entity>, _ctx: &mut TraversalContext);
+    fn entity(&mut self, event: WalkEvent<&Entity>, ctx: &mut TraversalContext);
+    /// Called when entering or leaving `LineBreak` node
+    fn line_break(&mut self, event: WalkEvent<&LineBreak>, ctx: &mut TraversalContext);
 }

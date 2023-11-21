@@ -10,6 +10,7 @@ use super::{
     inline_src::inline_src_node,
     input::Input,
     latex_fragment::latex_fragment_node,
+    line_break::line_break_node,
     link::link_node,
     macros::macros_node,
     radio_target::radio_target_node,
@@ -110,10 +111,10 @@ impl<'a> Iterator for ObjectPositions<'a> {
 /// - Statistics Cookies
 /// - Timestamps
 /// - Text Markup (bold code strike verbatim underline italic)
+/// - Line Breaks
 ///
 /// // todo:
 /// - Citations
-/// - Line Breaks
 /// - Subscript and Superscript
 pub fn object_nodes(input: Input) -> Vec<GreenElement> {
     // TODO:
@@ -124,11 +125,6 @@ pub fn object_nodes(input: Input) -> Vec<GreenElement> {
 
     'l: while !i.is_empty() {
         for (input, head) in ObjectPositions::standard(i) {
-            debug_assert!(
-                input.s.len() >= 2,
-                "object must have at least two characters: {:?}",
-                input.s
-            );
             if let Ok((input, node)) = standard_object_node(input) {
                 if !head.is_empty() {
                     nodes.push(head.text_token())
@@ -170,11 +166,6 @@ pub fn minimal_object_nodes(input: Input) -> Vec<GreenElement> {
 
     'l: while !i.is_empty() {
         for (input, head) in ObjectPositions::minimal(i) {
-            debug_assert!(
-                input.s.len() >= 2,
-                "object must have at least two characters: {:?}",
-                input.s
-            );
             if let Ok((input, node)) = minimal_object_node(input) {
                 if !head.is_empty() {
                     nodes.push(head.text_token())
@@ -205,6 +196,12 @@ pub fn minimal_object_nodes(input: Input) -> Vec<GreenElement> {
 
 /// parse an object from standard sets
 fn standard_object_node(i: Input) -> IResult<Input, GreenElement, ()> {
+    debug_assert!(
+        i.s.len() >= 2,
+        "object must have at least two characters: {:?}",
+        i.s
+    );
+
     match &i.as_bytes()[0] {
         b'*' => bold_node(i),
         b'+' => strike_node(i),
@@ -225,7 +222,13 @@ fn standard_object_node(i: Input) -> IResult<Input, GreenElement, ()> {
         b'c' => inline_call_node(i),
         b's' => inline_src_node(i),
         b'$' => latex_fragment_node(i),
-        b'\\' => entity_node(i).or_else(|_| latex_fragment_node(i)),
+        b'\\' => {
+            if i.as_bytes()[1] == b'\\' {
+                line_break_node(i)
+            } else {
+                entity_node(i).or_else(|_| latex_fragment_node(i))
+            }
+        }
         _ => Err(nom::Err::Error(())),
     }
 }

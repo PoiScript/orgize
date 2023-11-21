@@ -166,3 +166,11 @@ fn table() {
         @"<main><section><table><thead><tr></tr></thead><tbody><tr></tr></tbody><tbody><tr></tr></tbody></table></section></main>"
     );
 }
+
+#[test]
+fn line_break() {
+    insta::assert_debug_snapshot!(
+        Org::parse("aa\\\\\nbb").to_html(),
+        @r###""<main><section><p>aa<br/>bb</p></section></main>""###
+    );
+}

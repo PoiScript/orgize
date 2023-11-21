@@ -21,6 +21,7 @@ pub mod input;
 pub mod keyword;
 pub mod latex_environment;
 pub mod latex_fragment;
+pub mod line_break;
 pub mod link;
 pub mod list;
 pub mod macros;
@@ -184,6 +185,7 @@ pub enum SyntaxKind {
     INLINE_SRC,
     LINK,
     LINK_PATH,
+    LINE_BREAK,
     COOKIE,
     RADIO_TARGET,
     FN_REF,
@@ -234,6 +236,7 @@ impl SyntaxKind {
                 | SyntaxKind::FN_REF
                 | SyntaxKind::INLINE_CALL
                 | SyntaxKind::INLINE_SRC
+                | SyntaxKind::LINE_BREAK
                 | SyntaxKind::LINK
                 | SyntaxKind::MACROS
                 | SyntaxKind::RADIO_TARGET

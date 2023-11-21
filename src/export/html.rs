@@ -510,4 +510,12 @@ impl Traverser for HtmlExport {
             ctx.skip();
         }
     }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn line_break(&mut self, event: WalkEvent<&LineBreak>, ctx: &mut TraversalContext) {
+        if let WalkEvent::Enter(_) = event {
+            self.output += "<br/>";
+            ctx.skip();
+        }
+    }
 }

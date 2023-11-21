@@ -260,6 +260,10 @@ const nodes = [
     struct: "Entity",
     kind: ["ENTITY"],
   },
+  {
+    struct: "LineBreak",
+    kind: ["LINE_BREAK"],
+  },
 ];
 
 let content = `//! generated file, do not modify it directly
