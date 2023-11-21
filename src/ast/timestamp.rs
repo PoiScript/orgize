@@ -1,5 +1,3 @@
-use rowan::NodeOrToken;
-
 use super::{filter_token, Timestamp};
 use crate::syntax::SyntaxKind;
 
@@ -73,6 +71,8 @@ impl Timestamp {
     /// assert!(ts.is_range());
     /// let ts = Org::parse("[2003-09-16 Tue 09:39]--[2003-09-16 Tue 10:39]").first_node::<Timestamp>().unwrap();
     /// assert!(ts.is_range());
+    /// let ts = Org::parse("[2003-09-16]--[2003-09-16]").first_node::<Timestamp>().unwrap();
+    /// assert!(ts.is_range());
     /// let ts = Org::parse("[2003-09-16 Tue 09:39]").first_node::<Timestamp>().unwrap();
     /// assert!(!ts.is_range());
     /// ```
@@ -95,18 +95,7 @@ impl Timestamp {
     /// assert_eq!(t.repeater_type(), None);
     /// ```
     pub fn repeater_type(&self) -> Option<RepeaterType> {
-        self.syntax
-            .children_with_tokens()
-            .find_map(filter_token(SyntaxKind::TIMESTAMP_REPEATER_MARK))
-            .map(|t| match t.as_ref() {
-                "++" => RepeaterType::CatchUp,
-                "+" => RepeaterType::Cumulate,
-                ".+" => RepeaterType::Restart,
-                _ => {
-                    debug_assert!(false);
-                    RepeaterType::CatchUp
-                }
-            })
+        self.nth_repeater(0).map(|i| i.0)
     }
 
     /// ```rust
@@ -120,17 +109,7 @@ impl Timestamp {
     /// assert_eq!(t.repeater_value(), None);
     /// ```
     pub fn repeater_value(&self) -> Option<u32> {
-        self.syntax
-            .children_with_tokens()
-            .skip_while(|n| n.kind() != SyntaxKind::TIMESTAMP_REPEATER_MARK)
-            .nth(1)
-            .and_then(|e| match e {
-                NodeOrToken::Token(t) => {
-                    debug_assert!(t.kind() == SyntaxKind::TIMESTAMP_VALUE);
-                    t.text().parse().ok()
-                }
-                _ => None,
-            })
+        self.nth_repeater(0).map(|i| i.1)
     }
 
     /// ```rust
@@ -144,24 +123,7 @@ impl Timestamp {
     /// assert_eq!(t.repeater_unit(), None);
     /// ```
     pub fn repeater_unit(&self) -> Option<TimeUnit> {
-        self.syntax
-            .children_with_tokens()
-            .skip_while(|n| n.kind() != SyntaxKind::TIMESTAMP_REPEATER_MARK)
-            .nth(2)
-            .and_then(|e| match e {
-                NodeOrToken::Token(t) => {
-                    debug_assert!(t.kind() == SyntaxKind::TIMESTAMP_UNIT);
-                    match t.text() {
-                        "h" => Some(TimeUnit::Hour),
-                        "d" => Some(TimeUnit::Day),
-                        "w" => Some(TimeUnit::Week),
-                        "m" => Some(TimeUnit::Month),
-                        "y" => Some(TimeUnit::Year),
-                        _ => None,
-                    }
-                }
-                _ => None,
-            })
+        self.nth_repeater(0).map(|i| i.2)
     }
 
     /// ```rust
@@ -175,17 +137,7 @@ impl Timestamp {
     /// assert_eq!(t.warning_type(), Some(DelayType::First));
     /// ```
     pub fn warning_type(&self) -> Option<DelayType> {
-        self.syntax
-            .children_with_tokens()
-            .find_map(filter_token(SyntaxKind::TIMESTAMP_DELAY_MARK))
-            .map(|t| match t.as_ref() {
-                "-" => DelayType::All,
-                "--" => DelayType::First,
-                _ => {
-                    debug_assert!(false);
-                    DelayType::All
-                }
-            })
+        self.nth_delay(0).map(|i| i.0)
     }
 
     /// ```rust
@@ -199,17 +151,7 @@ impl Timestamp {
     /// assert_eq!(t.warning_value(), Some(10));
     /// ```
     pub fn warning_value(&self) -> Option<u32> {
-        self.syntax
-            .children_with_tokens()
-            .skip_while(|n| n.kind() != SyntaxKind::TIMESTAMP_DELAY_MARK)
-            .nth(1)
-            .and_then(|e| match e {
-                NodeOrToken::Token(t) => {
-                    debug_assert!(t.kind() == SyntaxKind::TIMESTAMP_VALUE);
-                    t.text().parse().ok()
-                }
-                _ => None,
-            })
+        self.nth_delay(0).map(|i| i.1)
     }
 
     /// ```rust
@@ -223,24 +165,72 @@ impl Timestamp {
     /// assert_eq!(t.warning_unit(), Some(TimeUnit::Month));
     /// ```
     pub fn warning_unit(&self) -> Option<TimeUnit> {
-        self.syntax
-            .children_with_tokens()
-            .skip_while(|n| n.kind() != SyntaxKind::TIMESTAMP_DELAY_MARK)
-            .nth(2)
-            .and_then(|e| match e {
-                NodeOrToken::Token(t) => {
-                    debug_assert!(t.kind() == SyntaxKind::TIMESTAMP_UNIT);
-                    match t.text() {
-                        "h" => Some(TimeUnit::Hour),
-                        "d" => Some(TimeUnit::Day),
-                        "w" => Some(TimeUnit::Week),
-                        "m" => Some(TimeUnit::Month),
-                        "y" => Some(TimeUnit::Year),
-                        _ => None,
-                    }
-                }
-                _ => None,
-            })
+        self.nth_delay(0).map(|i| i.2)
+    }
+
+    fn nth_repeater(&self, nth: usize) -> Option<(RepeaterType, u32, TimeUnit)> {
+        let mut i = nth + 1;
+
+        let mut iter = self.syntax.children_with_tokens().skip_while(|n| {
+            if n.kind() == SyntaxKind::TIMESTAMP_REPEATER_MARK {
+                i -= 1;
+                i != 0
+            } else {
+                true
+            }
+        });
+
+        let mark = iter.next().and_then(|n| match n.as_token()?.text() {
+            "++" => Some(RepeaterType::CatchUp),
+            "+" => Some(RepeaterType::Cumulate),
+            ".+" => Some(RepeaterType::Restart),
+            _ => None,
+        })?;
+        let value = iter
+            .next()
+            .and_then(|n| n.as_token()?.text().parse::<u32>().ok())?;
+        let unit = iter.next().and_then(|n| match n.as_token()?.text() {
+            "h" => Some(TimeUnit::Hour),
+            "d" => Some(TimeUnit::Day),
+            "w" => Some(TimeUnit::Week),
+            "m" => Some(TimeUnit::Month),
+            "y" => Some(TimeUnit::Year),
+            _ => None,
+        })?;
+
+        Some((mark, value, unit))
+    }
+
+    fn nth_delay(&self, nth: usize) -> Option<(DelayType, u32, TimeUnit)> {
+        let mut i = nth + 1;
+
+        let mut iter = self.syntax.children_with_tokens().skip_while(|n| {
+            if n.kind() == SyntaxKind::TIMESTAMP_DELAY_MARK {
+                i -= 1;
+                i != 0
+            } else {
+                true
+            }
+        });
+
+        let mark = iter.next().and_then(|n| match n.as_token()?.text() {
+            "-" => Some(DelayType::All),
+            "--" => Some(DelayType::First),
+            _ => None,
+        })?;
+        let value = iter
+            .next()
+            .and_then(|n| n.as_token()?.text().parse::<u32>().ok())?;
+        let unit = iter.next().and_then(|n| match n.as_token()?.text() {
+            "h" => Some(TimeUnit::Hour),
+            "d" => Some(TimeUnit::Day),
+            "w" => Some(TimeUnit::Week),
+            "m" => Some(TimeUnit::Month),
+            "y" => Some(TimeUnit::Year),
+            _ => None,
+        })?;
+
+        Some((mark, value, unit))
     }
 
     /// Converts timestamp start to chrono NaiveDateTime
