@@ -26,13 +26,26 @@ struct ObjectPositions<'a> {
 }
 
 impl ObjectPositions<'_> {
-    fn new(input: Input) -> ObjectPositions {
+    fn standard(input: Input) -> ObjectPositions {
         ObjectPositions {
             input,
             pos: 0,
             next: Some(0),
             finder: jetscii::bytes!(
-                b'@', b'<', b'[', b' ', b'(', b'{', b'\'', b'"', b'\n', b'\\', b'$'
+                b' ', b'(', b'{', b'\'', b'"', b'\n', /*  */
+                b'\\', b'$', b'@', b'<', b'['
+            ),
+        }
+    }
+
+    fn minimal(input: Input) -> ObjectPositions {
+        ObjectPositions {
+            input,
+            pos: 0,
+            next: Some(0),
+            finder: jetscii::bytes!(
+                b' ', b'(', b'{', b'\'', b'"', b'\n', /*  */
+                b'\\', b'$'
             ),
         }
     }
@@ -83,6 +96,25 @@ impl<'a> Iterator for ObjectPositions<'a> {
     }
 }
 
+/// parses standard sets of objects, including
+///
+/// - Entities
+/// - LaTeX Fragments
+/// - Export Snippets
+/// - Footnote References
+/// - Inline Babel Calls
+/// - Inline Source Blocks
+/// - Links
+/// - Macros
+/// - Targets and Radio Targets
+/// - Statistics Cookies
+/// - Timestamps
+/// - Text Markup (bold code strike verbatim underline italic)
+///
+/// // todo:
+/// - Citations
+/// - Line Breaks
+/// - Subscript and Superscript
 pub fn object_nodes(input: Input) -> Vec<GreenElement> {
     // TODO:
     // debug_assert!(!input.is_empty());
@@ -91,13 +123,13 @@ pub fn object_nodes(input: Input) -> Vec<GreenElement> {
     let mut nodes = vec![];
 
     'l: while !i.is_empty() {
-        for (input, head) in ObjectPositions::new(i) {
+        for (input, head) in ObjectPositions::standard(i) {
             debug_assert!(
                 input.s.len() >= 2,
                 "object must have at least two characters: {:?}",
                 input.s
             );
-            if let Ok((input, node)) = object_node(input) {
+            if let Ok((input, node)) = standard_object_node(input) {
                 if !head.is_empty() {
                     nodes.push(head.text_token())
                 }
@@ -125,8 +157,54 @@ pub fn object_nodes(input: Input) -> Vec<GreenElement> {
     nodes
 }
 
-/// Recognizes an org-mode element expect text
-fn object_node(i: Input) -> IResult<Input, GreenElement, ()> {
+/// parse minimal sets of objects, including
+/// - LaTeX fragments ('\\')
+/// - Text markup (bold code strike verbatim underline italic) ('*', '~', '+', '=', '_', '/')
+/// - Entities ('\\')
+///
+/// // todo:
+/// - Superscripts and Subscripts
+pub fn minimal_object_nodes(input: Input) -> Vec<GreenElement> {
+    let mut i = input;
+    let mut nodes = vec![];
+
+    'l: while !i.is_empty() {
+        for (input, head) in ObjectPositions::minimal(i) {
+            debug_assert!(
+                input.s.len() >= 2,
+                "object must have at least two characters: {:?}",
+                input.s
+            );
+            if let Ok((input, node)) = minimal_object_node(input) {
+                if !head.is_empty() {
+                    nodes.push(head.text_token())
+                }
+                nodes.push(node);
+                debug_assert!(
+                    input.input_len() < i.input_len(),
+                    "{} < {}",
+                    input.input_len(),
+                    i.input_len()
+                );
+                i = input;
+                continue 'l;
+            }
+        }
+        nodes.push(i.text_token());
+        break;
+    }
+
+    debug_assert_eq!(
+        input.as_str(),
+        nodes.iter().fold(String::new(), |s, i| s + &i.to_string()),
+        "parser must be lossless"
+    );
+
+    nodes
+}
+
+/// parse an object from standard sets
+fn standard_object_node(i: Input) -> IResult<Input, GreenElement, ()> {
     match &i.as_bytes()[0] {
         b'*' => bold_node(i),
         b'+' => strike_node(i),
@@ -152,25 +230,40 @@ fn object_node(i: Input) -> IResult<Input, GreenElement, ()> {
     }
 }
 
+/// parse an object from minimal sets
+fn minimal_object_node(i: Input) -> IResult<Input, GreenElement, ()> {
+    match &i.as_bytes()[0] {
+        b'*' => bold_node(i),
+        b'+' => strike_node(i),
+        b'/' => italic_node(i),
+        b'_' => underline_node(i),
+        b'=' => verbatim_node(i),
+        b'~' => code_node(i),
+        b'$' => latex_fragment_node(i),
+        b'\\' => entity_node(i).or_else(|_| latex_fragment_node(i)),
+        _ => Err(nom::Err::Error(())),
+    }
+}
+
 #[test]
 fn positions() {
     let config = crate::ParseConfig::default();
 
-    let vec = ObjectPositions::new(("*", &config).into()).collect::<Vec<_>>();
+    let vec = ObjectPositions::standard(("*", &config).into()).collect::<Vec<_>>();
     assert!(vec.is_empty());
 
-    let vec = ObjectPositions::new(("*{", &config).into()).collect::<Vec<_>>();
+    let vec = ObjectPositions::standard(("*{", &config).into()).collect::<Vec<_>>();
     assert_eq!(vec.len(), 1);
     assert_eq!(vec[0].0.s, "*{");
 
     // https://github.com/PoiScript/orgize/issues/69
-    let vec = ObjectPositions::new(("{3}", &config).into()).collect::<Vec<_>>();
+    let vec = ObjectPositions::standard(("{3}", &config).into()).collect::<Vec<_>>();
     assert_eq!(vec.len(), 2);
     assert_eq!(vec[0].0.s, "{3}");
     // FIXME:
     assert_eq!(vec[1].0.s, "{3}");
 
-    let vec = ObjectPositions::new(("*{()}//s\nc<<", &config).into()).collect::<Vec<_>>();
+    let vec = ObjectPositions::standard(("*{()}//s\nc<<", &config).into()).collect::<Vec<_>>();
     assert_eq!(vec.len(), 6);
     assert_eq!(vec[0].0.s, "*{()}//s\nc<<");
     assert_eq!(vec[1].0.s, "{()}//s\nc<<");

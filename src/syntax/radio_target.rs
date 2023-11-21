@@ -8,10 +8,9 @@ use nom::{
 use super::{
     combinator::{l_angle3_token, node, r_angle3_token, GreenElement},
     input::Input,
+    object::minimal_object_nodes,
     SyntaxKind::*,
 };
-
-// TODO: text-markup, entities, latex-fragments, subscript and superscript
 
 pub fn radio_target_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(
@@ -26,7 +25,10 @@ pub fn radio_target_node(input: Input) -> IResult<Input, GreenElement, ()> {
             r_angle3_token,
         )),
         |(l_angle3, contents, r_angle3)| {
-            node(RADIO_TARGET, [l_angle3, contents.text_token(), r_angle3])
+            let mut children = vec![l_angle3];
+            children.extend(minimal_object_nodes(contents));
+            children.push(r_angle3);
+            node(RADIO_TARGET, children)
         },
     );
     crate::lossless_parser!(parser, input)
@@ -55,6 +57,18 @@ fn parse() {
       L_ANGLE3@0..3 "<<<"
       TEXT@3..10 "tar get"
       R_ANGLE3@10..13 ">>>"
+    "###
+    );
+
+    insta::assert_debug_snapshot!(
+        to_radio_target("<<<\\alpha>>>").syntax,
+        @r###"
+    RADIO_TARGET@0..12
+      L_ANGLE3@0..3 "<<<"
+      ENTITY@3..9
+        BACKSLASH@3..4 "\\"
+        TEXT@4..9 "alpha"
+      R_ANGLE3@9..12 ">>>"
     "###
     );
 
