@@ -3,7 +3,9 @@ use nom::{AsBytes, IResult, InputLength, InputTake};
 use super::{
     combinator::GreenElement,
     cookie::cookie_node,
-    emphasis::{bold_node, code_node, italic_node, strike_node, underline_node, verbatim_node},
+    emphasis::{
+        self, bold_node, code_node, italic_node, strike_node, underline_node, verbatim_node,
+    },
     entity::entity_node,
     fn_ref::fn_ref_node,
     inline_call::inline_call_node,
@@ -15,6 +17,7 @@ use super::{
     macros::macros_node,
     radio_target::radio_target_node,
     snippet::snippet_node,
+    subscript_superscript::{self, subscript_node, superscript_node},
     target::target_node,
     timestamp::{timestamp_active_node, timestamp_diary_node, timestamp_inactive_node},
 };
@@ -22,7 +25,6 @@ use super::{
 struct ObjectPositions<'a> {
     input: Input<'a>,
     pos: usize,
-    next: Option<usize>,
     finder: jetscii::BytesConst,
 }
 
@@ -31,10 +33,17 @@ impl ObjectPositions<'_> {
         ObjectPositions {
             input,
             pos: 0,
-            next: Some(0),
             finder: jetscii::bytes!(
-                b' ', b'(', b'{', b'\'', b'"', b'\n', /*  */
-                b'\\', b'$', b'@', b'<', b'['
+                b'*', b'+', b'/', b'_', b'=', b'~', /* text markup */
+                b'@', /* snippet */
+                b'<', /* timestamp, target, radio target */
+                b'[', /* link, cookie, fn_ref, timestamp */
+                b'c', /* inline call */
+                b's', /* inline source */
+                b'\\', b'$', /* latex & entity */
+                b'{', /* macros */
+                b'^', /* superscript */
+                b'_'  /* subscript */
             ),
         }
     }
@@ -43,10 +52,11 @@ impl ObjectPositions<'_> {
         ObjectPositions {
             input,
             pos: 0,
-            next: Some(0),
             finder: jetscii::bytes!(
-                b' ', b'(', b'{', b'\'', b'"', b'\n', /*  */
-                b'\\', b'$'
+                b'*', b'+', b'/', b'_', b'=', b'~', /* text markup */
+                b'\\', b'$', /* latex & entity */
+                b'^', /* superscript */
+                b'_'  /* subscript */
             ),
         }
     }
@@ -60,25 +70,12 @@ impl<'a> Iterator for ObjectPositions<'a> {
             return None;
         }
 
-        if let Some(p) = self.next.take() {
-            return Some(self.input.take_split(p));
-        }
-
         let bytes = &self.input.as_bytes()[self.pos..];
         let previous = self.pos;
         let i = self.finder.find(bytes)?;
         self.pos += i + 1;
 
-        let p = match bytes[i] {
-            b'{' => {
-                if self.input.s.len() - self.pos > 2 {
-                    self.next = Some(self.pos);
-                }
-                self.pos - 1
-            }
-            b' ' | b'(' | b'\'' | b'"' | b'\n' => self.pos,
-            _ => self.pos - 1,
-        };
+        let p = self.pos - 1;
 
         debug_assert!(
             previous < self.pos && self.pos <= self.input.s.len(),
@@ -112,10 +109,10 @@ impl<'a> Iterator for ObjectPositions<'a> {
 /// - Timestamps
 /// - Text Markup (bold code strike verbatim underline italic)
 /// - Line Breaks
+/// - Subscript and Superscript
 ///
 /// // todo:
 /// - Citations
-/// - Subscript and Superscript
 pub fn object_nodes(input: Input) -> Vec<GreenElement> {
     // TODO:
     // debug_assert!(!input.is_empty());
@@ -125,11 +122,11 @@ pub fn object_nodes(input: Input) -> Vec<GreenElement> {
 
     'l: while !i.is_empty() {
         for (input, head) in ObjectPositions::standard(i) {
-            if let Ok((input, node)) = standard_object_node(input) {
+            if let Ok((input, pre)) = standard_object_node(input, head) {
                 if !head.is_empty() {
                     nodes.push(head.text_token())
                 }
-                nodes.push(node);
+                nodes.push(pre);
                 debug_assert!(
                     input.input_len() < i.input_len(),
                     "{} < {}",
@@ -157,8 +154,6 @@ pub fn object_nodes(input: Input) -> Vec<GreenElement> {
 /// - LaTeX fragments ('\\')
 /// - Text markup (bold code strike verbatim underline italic) ('*', '~', '+', '=', '_', '/')
 /// - Entities ('\\')
-///
-/// // todo:
 /// - Superscripts and Subscripts
 pub fn minimal_object_nodes(input: Input) -> Vec<GreenElement> {
     let mut i = input;
@@ -166,11 +161,11 @@ pub fn minimal_object_nodes(input: Input) -> Vec<GreenElement> {
 
     'l: while !i.is_empty() {
         for (input, head) in ObjectPositions::minimal(i) {
-            if let Ok((input, node)) = minimal_object_node(input) {
+            if let Ok((input, pre)) = minimal_object_node(input, head) {
                 if !head.is_empty() {
                     nodes.push(head.text_token())
                 }
-                nodes.push(node);
+                nodes.push(pre);
                 debug_assert!(
                     input.input_len() < i.input_len(),
                     "{} < {}",
@@ -195,7 +190,7 @@ pub fn minimal_object_nodes(input: Input) -> Vec<GreenElement> {
 }
 
 /// parse an object from standard sets
-fn standard_object_node(i: Input) -> IResult<Input, GreenElement, ()> {
+fn standard_object_node<'a>(i: Input<'a>, pre: Input<'a>) -> IResult<Input<'a>, GreenElement, ()> {
     debug_assert!(
         i.s.len() >= 2,
         "object must have at least two characters: {:?}",
@@ -203,12 +198,12 @@ fn standard_object_node(i: Input) -> IResult<Input, GreenElement, ()> {
     );
 
     match &i.as_bytes()[0] {
-        b'*' => bold_node(i),
-        b'+' => strike_node(i),
-        b'/' => italic_node(i),
-        b'_' => underline_node(i),
-        b'=' => verbatim_node(i),
-        b'~' => code_node(i),
+        b'*' if emphasis::verify_pre(pre.s) => bold_node(i),
+        b'+' if emphasis::verify_pre(pre.s) => strike_node(i),
+        b'/' if emphasis::verify_pre(pre.s) => italic_node(i),
+        b'_' if emphasis::verify_pre(pre.s) => underline_node(i),
+        b'=' if emphasis::verify_pre(pre.s) => verbatim_node(i),
+        b'~' if emphasis::verify_pre(pre.s) => code_node(i),
         b'@' => snippet_node(i),
         b'{' => macros_node(i),
         b'<' => radio_target_node(i)
@@ -219,31 +214,38 @@ fn standard_object_node(i: Input) -> IResult<Input, GreenElement, ()> {
             .or_else(|_| link_node(i))
             .or_else(|_| fn_ref_node(i))
             .or_else(|_| timestamp_inactive_node(i)),
-        b'c' => inline_call_node(i),
-        b's' => inline_src_node(i),
+        // NOTE: although not specified in document, inline call and inline src follows the
+        // same pre tokens rule as text markup
+        b'c' if emphasis::verify_pre(pre.s) => inline_call_node(i),
+        b's' if emphasis::verify_pre(pre.s) => inline_src_node(i),
         b'$' => latex_fragment_node(i),
-        b'\\' => {
-            if i.as_bytes()[1] == b'\\' {
-                line_break_node(i)
-            } else {
-                entity_node(i).or_else(|_| latex_fragment_node(i))
-            }
-        }
+        b'\\' if !pre.s.ends_with('\\') && i.as_bytes()[1] == b'\\' => line_break_node(i),
+        b'\\' => entity_node(i).or_else(|_| latex_fragment_node(i)),
+        b'^' if subscript_superscript::verify_pre(pre.s) => superscript_node(i),
+        b'_' if subscript_superscript::verify_pre(pre.s) => subscript_node(i),
         _ => Err(nom::Err::Error(())),
     }
 }
 
 /// parse an object from minimal sets
-fn minimal_object_node(i: Input) -> IResult<Input, GreenElement, ()> {
+fn minimal_object_node<'a>(i: Input<'a>, pre: Input<'a>) -> IResult<Input<'a>, GreenElement, ()> {
+    debug_assert!(
+        i.s.len() >= 2,
+        "object must have at least two characters: {:?}",
+        i.s
+    );
+
     match &i.as_bytes()[0] {
-        b'*' => bold_node(i),
-        b'+' => strike_node(i),
-        b'/' => italic_node(i),
-        b'_' => underline_node(i),
-        b'=' => verbatim_node(i),
-        b'~' => code_node(i),
+        b'*' if emphasis::verify_pre(pre.s) => bold_node(i),
+        b'+' if emphasis::verify_pre(pre.s) => strike_node(i),
+        b'/' if emphasis::verify_pre(pre.s) => italic_node(i),
+        b'_' if emphasis::verify_pre(pre.s) => underline_node(i),
+        b'=' if emphasis::verify_pre(pre.s) => verbatim_node(i),
+        b'~' if emphasis::verify_pre(pre.s) => code_node(i),
         b'$' => latex_fragment_node(i),
         b'\\' => entity_node(i).or_else(|_| latex_fragment_node(i)),
+        b'^' if subscript_superscript::verify_pre(pre.s) => superscript_node(i),
+        b'_' if subscript_superscript::verify_pre(pre.s) => subscript_node(i),
         _ => Err(nom::Err::Error(())),
     }
 }
@@ -261,19 +263,18 @@ fn positions() {
 
     // https://github.com/PoiScript/orgize/issues/69
     let vec = ObjectPositions::standard(("{3}", &config).into()).collect::<Vec<_>>();
-    assert_eq!(vec.len(), 2);
+    assert_eq!(vec.len(), 1);
     assert_eq!(vec[0].0.s, "{3}");
-    // FIXME:
-    assert_eq!(vec[1].0.s, "{3}");
 
     let vec = ObjectPositions::standard(("*{()}//s\nc<<", &config).into()).collect::<Vec<_>>();
-    assert_eq!(vec.len(), 6);
+    assert_eq!(vec.len(), 7);
     assert_eq!(vec[0].0.s, "*{()}//s\nc<<");
     assert_eq!(vec[1].0.s, "{()}//s\nc<<");
-    assert_eq!(vec[2].0.s, "()}//s\nc<<");
-    assert_eq!(vec[3].0.s, ")}//s\nc<<");
-    assert_eq!(vec[4].0.s, "c<<");
-    assert_eq!(vec[5].0.s, "<<");
+    assert_eq!(vec[2].0.s, "//s\nc<<");
+    assert_eq!(vec[3].0.s, "/s\nc<<");
+    assert_eq!(vec[4].0.s, "s\nc<<");
+    assert_eq!(vec[5].0.s, "c<<");
+    assert_eq!(vec[6].0.s, "<<");
 }
 
 #[test]
@@ -345,6 +346,17 @@ functions starting with ~org-element-~."#),
         TEXT@161..173 "org-element-"
         TILDE@173..174 "~"
       TEXT@174..175 "."
+    "###
+    );
+
+    insta::assert_debug_snapshot!(
+        t("a^abc"),
+        @r###"
+    PARAGRAPH@0..5
+      TEXT@0..1 "a"
+      SUPERSCRIPT@1..5
+        CARET@1..2 "^"
+        TEXT@2..5 "abc"
     "###
     );
 }

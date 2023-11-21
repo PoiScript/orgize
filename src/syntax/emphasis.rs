@@ -112,6 +112,16 @@ fn validate_marker(pos: usize, text: Input) -> bool {
     }
 }
 
+pub fn verify_pre(input: &str) -> bool {
+    if input.is_empty() {
+        return true;
+    }
+    matches!(
+        input.as_bytes()[input.len() - 1],
+        b'\t' | b' ' | b'-' | b'(' | b'{' | b'\\' | b'"' | b'\r' | b'\n'
+    )
+}
+
 #[test]
 fn parse() {
     use crate::{ast::Bold, tests::to_ast, ParseConfig};

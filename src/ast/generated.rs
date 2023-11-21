@@ -1716,3 +1716,53 @@ impl LineBreak {
         self.syntax.text_range().end().into()
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Superscript {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AstNode for Superscript {
+    type Language = OrgLanguage;
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SUPERSCRIPT
+    }
+    fn cast(node: SyntaxNode) -> Option<Superscript> {
+        Self::can_cast(node.kind()).then(|| Superscript { syntax: node })
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl Superscript {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Subscript {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AstNode for Subscript {
+    type Language = OrgLanguage;
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SUBSCRIPT
+    }
+    fn cast(node: SyntaxNode) -> Option<Subscript> {
+        Self::can_cast(node.kind()).then(|| Subscript { syntax: node })
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl Subscript {
+    pub fn begin(&self) -> u32 {
+        self.syntax.text_range().start().into()
+    }
+    pub fn end(&self) -> u32 {
+        self.syntax.text_range().end().into()
+    }
+}

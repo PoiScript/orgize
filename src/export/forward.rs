@@ -49,7 +49,7 @@
 ///         special_block quote_block center_block verse_block comment_block example_block export_block
 ///         source_block babel_call clock cookie radio_target drawer dyn_block fn_def fn_ref macros
 ///         snippet timestamp target fixed_width org_table org_table_row org_table_cell latex_fragment
-///         latex_environment entity line_break
+///         latex_environment entity line_break superscript subscript
 ///     }
 /// }
 ///
@@ -202,6 +202,12 @@ macro_rules! forward_handler {
     };
     (@method $handler:ty, line_break) => {
         forward_handler!(@method $handler, line_break, WalkEvent<&$crate::ast::LineBreak>);
+    };
+    (@method $handler:ty, superscript) => {
+        forward_handler!(@method $handler, superscript, WalkEvent<&$crate::ast::Superscript>);
+    };
+    (@method $handler:ty, subscript) => {
+        forward_handler!(@method $handler, subscript, WalkEvent<&$crate::ast::Subscript>);
     };
     (@method $handler:ty, $x:ident) => {
         std::compile_error!(std::concat!(std::stringify!($x), " is not a method"));

@@ -264,6 +264,14 @@ const nodes = [
     struct: "LineBreak",
     kind: ["LINE_BREAK"],
   },
+  {
+    struct: "Superscript",
+    kind: ["SUPERSCRIPT"],
+  },
+  {
+    struct: "Subscript",
+    kind: ["SUBSCRIPT"],
+  },
 ];
 
 let content = `//! generated file, do not modify it directly

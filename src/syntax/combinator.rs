@@ -59,7 +59,7 @@ token_parser!(minus2_token, "--", MINUS2);
 token_parser!(percent2_token, "%%", PERCENT2);
 // token_parser!(slash_token, "/", SLASH);
 token_parser!(backslash_token, "\\", BACKSLASH);
-// token_parser!(underscore_token, "_", UNDERSCORE);
+token_parser!(underscore_token, "_", UNDERSCORE);
 // token_parser!(star_token, "*", STAR);
 token_parser!(plus_token, "+", PLUS);
 token_parser!(minus_token, "-", MINUS);
@@ -71,6 +71,7 @@ token_parser!(dollar2_token, "$$", DOLLAR2);
 // token_parser!(equal_token, "=", EQUAL);
 // token_parser!(tilde_token, "~", TILDE);
 token_parser!(hash_plus_token, "#+", HASH_PLUS);
+token_parser!(caret_token, "^", CARET);
 token_parser!(hash_token, "#", HASH);
 token_parser!(double_arrow_token, "=>", DOUBLE_ARROW);
 

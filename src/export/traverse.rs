@@ -141,6 +141,8 @@ pub trait Traverser {
             LATEX_ENVIRONMENT => traverse!(LatexEnvironment, latex_environment),
             ENTITY => traverse!(Entity, entity),
             LINE_BREAK => traverse!(LineBreak, line_break),
+            SUPERSCRIPT => traverse!(Superscript, superscript),
+            SUBSCRIPT => traverse!(Subscript, subscript),
 
             BLOCK_CONTENT | LIST_ITEM_CONTENT => traverse_children!(node),
 
@@ -252,4 +254,8 @@ pub trait Traverser {
     fn entity(&mut self, event: WalkEvent<&Entity>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `LineBreak` node
     fn line_break(&mut self, event: WalkEvent<&LineBreak>, ctx: &mut TraversalContext);
+    /// Called when entering or leaving `Superscript` node
+    fn superscript(&mut self, event: WalkEvent<&Superscript>, ctx: &mut TraversalContext);
+    /// Called when entering or leaving `Subscript` node
+    fn subscript(&mut self, event: WalkEvent<&Subscript>, ctx: &mut TraversalContext);
 }

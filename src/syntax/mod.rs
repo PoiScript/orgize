@@ -31,6 +31,7 @@ pub mod planning;
 pub mod radio_target;
 pub mod rule;
 pub mod snippet;
+pub mod subscript_superscript;
 pub mod table;
 pub mod target;
 pub mod timestamp;
@@ -106,6 +107,7 @@ pub enum SyntaxKind {
     DOUBLE_ARROW, // '=>'
     PIPE,         // '|'
     COMMA,        // ','
+    CARET,        // '^'
     NEW_LINE,     // '\n' or '\r\n' or '\r'
     WHITESPACE,   // ' ' or '\t'
     BLANK_LINE,
@@ -200,6 +202,8 @@ pub enum SyntaxKind {
     VERBATIM,
     CODE,
     ENTITY,
+    SUPERSCRIPT,
+    SUBSCRIPT,
 
     /* timestamp */
     TIMESTAMP_ACTIVE,
@@ -241,6 +245,8 @@ impl SyntaxKind {
                 | SyntaxKind::MACROS
                 | SyntaxKind::RADIO_TARGET
                 | SyntaxKind::COOKIE
+                | SyntaxKind::SUPERSCRIPT
+                | SyntaxKind::SUBSCRIPT
                 | SyntaxKind::ORG_TABLE_CELL
                 | SyntaxKind::TIMESTAMP_ACTIVE
                 | SyntaxKind::TIMESTAMP_INACTIVE

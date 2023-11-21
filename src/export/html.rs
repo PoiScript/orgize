@@ -518,4 +518,20 @@ impl Traverser for HtmlExport {
             ctx.skip();
         }
     }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn subscript(&mut self, event: WalkEvent<&Subscript>, _ctx: &mut TraversalContext) {
+        match event {
+            WalkEvent::Enter(_) => self.output += "<sub>",
+            WalkEvent::Leave(_) => self.output += "</sub>",
+        }
+    }
+
+    #[tracing::instrument(skip(self, _ctx))]
+    fn superscript(&mut self, event: WalkEvent<&Superscript>, _ctx: &mut TraversalContext) {
+        match event {
+            WalkEvent::Enter(_) => self.output += "<sup>",
+            WalkEvent::Leave(_) => self.output += "</sup>",
+        }
+    }
 }
