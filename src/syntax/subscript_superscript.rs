@@ -103,7 +103,6 @@ fn balanced_brackets(input: Input) -> IResult<Input, Input, ()> {
 }
 
 pub fn verify_pre(s: &str) -> bool {
-    dbg!(&s);
     if s.is_empty() {
         return false;
     }
