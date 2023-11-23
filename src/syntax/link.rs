@@ -10,6 +10,7 @@ use super::{
         l_bracket2_token, l_bracket_token, node, r_bracket2_token, r_bracket_token, GreenElement,
     },
     input::Input,
+    object::link_description_object_nodes,
     SyntaxKind::*,
 };
 
@@ -30,7 +31,8 @@ pub fn link_node(input: Input) -> IResult<Input, GreenElement, ()> {
             let mut children = vec![l_bracket2, path.token(LINK_PATH)];
 
             if let Some((r_bracket, l_bracket, desc)) = desc {
-                children.extend([r_bracket, l_bracket, desc.text_token()]);
+                children.extend([r_bracket, l_bracket]);
+                children.extend(link_description_object_nodes(desc));
             }
 
             children.push(r_bracket2);
@@ -80,6 +82,24 @@ fn parse() {
       L_BRACKET2@0..2 "[["
       LINK_PATH@2..39 "file:/home/dominik/im ..."
       R_BRACKET2@39..41 "]]"
+    "###
+    );
+
+    let link = to_link("[[https://orgmode.org][*bold* description]]");
+    insta::assert_debug_snapshot!(
+        link.syntax,
+        @r###"
+    LINK@0..43
+      L_BRACKET2@0..2 "[["
+      LINK_PATH@2..21 "https://orgmode.org"
+      R_BRACKET@21..22 "]"
+      L_BRACKET@22..23 "["
+      BOLD@23..29
+        STAR@23..24 "*"
+        TEXT@24..28 "bold"
+        STAR@28..29 "*"
+      TEXT@29..41 " description"
+      R_BRACKET2@41..43 "]]"
     "###
     );
 

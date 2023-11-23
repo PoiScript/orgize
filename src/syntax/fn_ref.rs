@@ -9,7 +9,7 @@ use nom::{
 use super::{
     combinator::{colon_token, l_bracket_token, node, r_bracket_token, GreenElement},
     input::Input,
-    object::object_nodes,
+    object::standard_object_nodes,
     SyntaxKind::*,
 };
 
@@ -31,7 +31,7 @@ fn fn_ref_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut children = vec![l_bracket, fn_.text_token(), colon, label.text_token()];
     if let Some((colon, definition)) = definition {
         children.push(colon);
-        children.extend(object_nodes(definition));
+        children.extend(standard_object_nodes(definition));
     }
     children.push(r_bracket);
 

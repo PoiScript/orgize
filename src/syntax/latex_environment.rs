@@ -75,7 +75,7 @@ fn parse() {
     let to_latex = to_ast::<LatexEnvironment>(latex_environment_node);
 
     insta::assert_debug_snapshot!(
-        to_latex(r#"\begin{NAME}\end{NAME}"#).syntax,
+        to_latex(r"\begin{NAME}\end{NAME}").syntax,
         @r###"
     LATEX_ENVIRONMENT@0..22
       WHITESPACE@0..0 ""
@@ -96,10 +96,10 @@ fn parse() {
 
     insta::assert_debug_snapshot!(
         to_latex(
-        r#"\begin{align*}
+        r"\begin{align*}
     2x - 5y &= 8 \\
     3x + 9y &= -12
-    \end{align*}"#
+    \end{align*}"
         ).syntax,
         @r###"
     LATEX_ENVIRONMENT@0..70
@@ -121,6 +121,6 @@ fn parse() {
 
     let c = ParseConfig::default();
 
-    assert!(latex_environment_node((r#"\begin{equation}\end{align}"#, &c).into()).is_err());
-    assert!(latex_environment_node((r#"\begin{_}\end{_}"#, &c).into()).is_err());
+    assert!(latex_environment_node((r"\begin{equation}\end{align}", &c).into()).is_err());
+    assert!(latex_environment_node((r"\begin{_}\end{_}", &c).into()).is_err());
 }

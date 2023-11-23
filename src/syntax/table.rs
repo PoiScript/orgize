@@ -9,7 +9,7 @@ use nom::{
 use super::{
     combinator::{blank_lines, line_ends_iter, node, pipe_token, GreenElement, NodeBuilder},
     input::Input,
-    object::object_nodes,
+    object::standard_object_nodes,
     SyntaxKind::*,
 };
 
@@ -73,11 +73,11 @@ fn table_standard_row_node(input: Input) -> Result<GreenElement, nom::Err<()>> {
         {
             Some(idx) => {
                 let (ws, cell) = input.take_split(idx + 1);
-                b.push(node(ORG_TABLE_CELL, object_nodes(cell)));
+                b.push(node(ORG_TABLE_CELL, standard_object_nodes(cell)));
                 b.ws(ws);
             }
             _ => {
-                b.push(node(ORG_TABLE_CELL, object_nodes(input)));
+                b.push(node(ORG_TABLE_CELL, standard_object_nodes(input)));
             }
         }
     });

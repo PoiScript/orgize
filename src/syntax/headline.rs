@@ -15,7 +15,7 @@ use super::{
     drawer::property_drawer_node,
     element::element_nodes,
     input::Input,
-    object::object_nodes,
+    object::standard_object_nodes,
     planning::planning_node,
     SyntaxKind::*,
 };
@@ -54,7 +54,7 @@ fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let (title, tags) = opt(headline_tags_node)(title_and_tags)?;
 
     if !title.is_empty() {
-        b.push(node(HEADLINE_TITLE, object_nodes(title)));
+        b.push(node(HEADLINE_TITLE, standard_object_nodes(title)));
     }
     b.push_opt(tags);
     b.ws(ws_);

@@ -5,7 +5,7 @@ use nom::{combinator::map, AsBytes, IResult, Slice};
 use super::{
     combinator::{node, token, GreenElement},
     input::Input,
-    object::object_nodes,
+    object::standard_object_nodes,
     SyntaxKind::*,
 };
 
@@ -13,7 +13,7 @@ use super::{
 pub fn bold_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'*'), |contents| {
         let mut children = vec![token(STAR, "*")];
-        children.extend(object_nodes(contents));
+        children.extend(standard_object_nodes(contents));
         children.push(token(STAR, "*"));
         node(BOLD, children)
     });
@@ -35,7 +35,7 @@ pub fn code_node(input: Input) -> IResult<Input, GreenElement, ()> {
 pub fn strike_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'+'), |contents| {
         let mut children = vec![token(PLUS, "+")];
-        children.extend(object_nodes(contents));
+        children.extend(standard_object_nodes(contents));
         children.push(token(PLUS, "+"));
         node(STRIKE, children)
     });
@@ -57,7 +57,7 @@ pub fn verbatim_node(input: Input) -> IResult<Input, GreenElement, ()> {
 pub fn underline_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'_'), |contents| {
         let mut children = vec![token(UNDERSCORE, "_")];
-        children.extend(object_nodes(contents));
+        children.extend(standard_object_nodes(contents));
         children.push(token(UNDERSCORE, "_"));
         node(UNDERLINE, children)
     });
@@ -68,7 +68,7 @@ pub fn underline_node(input: Input) -> IResult<Input, GreenElement, ()> {
 pub fn italic_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'/'), |contents| {
         let mut children = vec![token(SLASH, "/")];
-        children.extend(object_nodes(contents));
+        children.extend(standard_object_nodes(contents));
         children.push(token(SLASH, "/"));
         node(ITALIC, children)
     });

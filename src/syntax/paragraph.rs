@@ -4,7 +4,7 @@ use super::{
     combinator::{blank_lines, line_ends_iter, node, GreenElement},
     input::Input,
     keyword::affiliated_keyword_nodes,
-    object::object_nodes,
+    object::standard_object_nodes,
     SyntaxKind,
 };
 
@@ -51,7 +51,7 @@ fn paragraph_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
     let mut children = vec![];
     children.extend(keywords);
-    children.extend(object_nodes(contents));
+    children.extend(standard_object_nodes(contents));
     children.extend(post_blank);
 
     Ok((input, node(SyntaxKind::PARAGRAPH, children)))

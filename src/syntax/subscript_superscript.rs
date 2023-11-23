@@ -9,7 +9,7 @@ use nom::{
 use crate::{
     syntax::{
         combinator::{caret_token, underscore_token},
-        object::object_nodes,
+        object::standard_object_nodes,
     },
     SyntaxKind,
 };
@@ -29,7 +29,7 @@ pub fn superscript_node(input: Input) -> IResult<Input, GreenElement, ()> {
         Ok((input, node(SyntaxKind::SUPERSCRIPT, children)))
     } else if let Ok((input, (l, contents, r))) = template1(input) {
         children.push(l);
-        children.extend(object_nodes(contents));
+        children.extend(standard_object_nodes(contents));
         children.push(r);
         Ok((input, node(SyntaxKind::SUPERSCRIPT, children)))
     } else if let Ok((input, (sign, contents))) = template2(input) {
@@ -53,7 +53,7 @@ pub fn subscript_node(input: Input) -> IResult<Input, GreenElement, ()> {
         Ok((input, node(SyntaxKind::SUBSCRIPT, children)))
     } else if let Ok((input, (l, contents, r))) = template1(input) {
         children.push(l);
-        children.extend(object_nodes(contents));
+        children.extend(standard_object_nodes(contents));
         children.push(r);
         Ok((input, node(SyntaxKind::SUBSCRIPT, children)))
     } else if let Ok((input, (sign, contents))) = template2(input) {
