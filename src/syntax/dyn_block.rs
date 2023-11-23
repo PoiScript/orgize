@@ -1,14 +1,14 @@
 use nom::{
-    branch::alt,
     bytes::complete::tag_no_case,
-    character::complete::{alpha1, line_ending, space0, space1},
-    combinator::eof,
+    character::complete::{alpha1, space0, space1},
     sequence::tuple,
     IResult, InputTake,
 };
 
 use super::{
-    combinator::{blank_lines, line_starts_iter, node, trim_line_end, GreenElement, NodeBuilder},
+    combinator::{
+        blank_lines, eol_or_eof, line_starts_iter, node, trim_line_end, GreenElement, NodeBuilder,
+    },
     input::Input,
     SyntaxKind::*,
 };
@@ -55,12 +55,8 @@ fn dyn_block_begin_node(input: Input) -> IResult<Input, GreenElement, ()> {
 }
 
 fn dyn_block_end_node(input: Input) -> IResult<Input, GreenElement, ()> {
-    let (input, (ws, end, ws_, nl)) = tuple((
-        space0,
-        tag_no_case("#+END:"),
-        space0,
-        alt((line_ending, eof)),
-    ))(input)?;
+    let (input, (ws, end, ws_, nl)) =
+        tuple((space0, tag_no_case("#+END:"), space0, eol_or_eof))(input)?;
 
     let mut b = NodeBuilder::new();
     b.ws(ws);

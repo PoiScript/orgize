@@ -1,14 +1,10 @@
 use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{line_ending, space0},
-    combinator::{eof, iterator},
-    sequence::tuple,
-    IResult,
+    branch::alt, bytes::complete::tag, character::complete::space0, combinator::iterator,
+    sequence::tuple, IResult,
 };
 
 use super::{
-    combinator::{GreenElement, NodeBuilder},
+    combinator::{eol_or_eof, GreenElement, NodeBuilder},
     input::Input,
     timestamp::{timestamp_active_node, timestamp_inactive_node},
     SyntaxKind::*,
@@ -54,7 +50,7 @@ fn planning_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
     let (input, _) = it.finish()?;
     let (input, ws) = space0(input)?;
-    let (input, nl) = alt((line_ending, eof))(input)?;
+    let (input, nl) = eol_or_eof(input)?;
 
     b.ws(ws);
     b.nl(nl);

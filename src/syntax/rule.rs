@@ -1,14 +1,10 @@
 use nom::{
-    branch::alt,
-    bytes::complete::take_while_m_n,
-    character::complete::{line_ending, space0},
-    combinator::{eof, map},
-    sequence::tuple,
+    bytes::complete::take_while_m_n, character::complete::space0, combinator::map, sequence::tuple,
     IResult,
 };
 
 use super::{
-    combinator::{blank_lines, GreenElement, NodeBuilder},
+    combinator::{blank_lines, eol_or_eof, GreenElement, NodeBuilder},
     input::Input,
     SyntaxKind::*,
 };
@@ -19,7 +15,7 @@ pub fn rule_node(input: Input) -> IResult<Input, GreenElement, ()> {
             space0,
             take_while_m_n(5, usize::max_value(), |c| c == '-'),
             space0,
-            alt((line_ending, eof)),
+            eol_or_eof,
             blank_lines,
         )),
         |(ws, dashes, ws_, nl, post_blank)| {

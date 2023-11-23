@@ -1,4 +1,4 @@
-use nom::{IResult, InputTake};
+use nom::{AsBytes, IResult, InputTake};
 
 use super::{
     combinator::{blank_lines, line_ends_iter, node, GreenElement},
@@ -9,10 +9,13 @@ use super::{
 fn fixed_width_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut start = 0;
     for i in line_ends_iter(input.as_str()) {
-        let line = &input.s[start..i];
-        let trimmed = line.trim_start();
+        let mut iter = input.as_bytes()[start..]
+            .iter()
+            .skip_while(|&&b| b == b' ' || b == b'\t');
 
-        if trimmed == ":" || trimmed == ":\n" || trimmed == ":\r\n" || trimmed.starts_with(": ") {
+        if matches!(iter.next(), Some(b':'))
+            && matches!(iter.next(), None | Some(b'\n') | Some(b'\r') | Some(b' '))
+        {
             start = i;
         } else {
             break;

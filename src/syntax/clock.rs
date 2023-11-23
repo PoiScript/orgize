@@ -1,14 +1,16 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{digit1, line_ending, space0},
-    combinator::{eof, map, opt, recognize},
+    character::complete::{digit1, space0},
+    combinator::{map, opt, recognize},
     sequence::tuple,
     IResult,
 };
 
 use super::{
-    combinator::{blank_lines, colon_token, double_arrow_token, GreenElement, NodeBuilder},
+    combinator::{
+        blank_lines, colon_token, double_arrow_token, eol_or_eof, GreenElement, NodeBuilder,
+    },
     input::Input,
     timestamp::{timestamp_active_node, timestamp_inactive_node},
     SyntaxKind,
@@ -29,7 +31,7 @@ pub fn clock_node(input: Input) -> IResult<Input, GreenElement, ()> {
                 recognize(tuple((digit1, colon_token, digit1))),
             ))),
             space0,
-            alt((line_ending, eof)),
+            eol_or_eof,
             blank_lines,
         )),
         |(ws, clock, ws_, timestamp, duration, ws__, nl, post_blank)| {

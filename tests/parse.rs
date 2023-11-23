@@ -23,9 +23,10 @@ const INPUT: &[&str] = &[
     // fuzz test
     "___\n",
     "\n\n\n",
-    "\n\n\n",
     "\n*",
-    "\r-"
+    "\r-",
+    "6\r\n",
+    "|\n\u{b}|"
 ];
 
 #[test]

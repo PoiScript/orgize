@@ -1,16 +1,15 @@
 use nom::{
-    branch::alt,
     bytes::complete::{tag_no_case, take_while1},
-    character::complete::{line_ending, space0, space1},
-    combinator::{eof, iterator, map, opt},
+    character::complete::{space0, space1},
+    combinator::{iterator, map, opt},
     sequence::tuple,
     IResult, InputTake,
 };
 
 use super::{
     combinator::{
-        blank_lines, colon_token, line_starts_iter, node, plus_token, trim_line_end, GreenElement,
-        NodeBuilder,
+        blank_lines, colon_token, eol_or_eof, line_starts_iter, node, plus_token, trim_line_end,
+        GreenElement, NodeBuilder,
     },
     input::Input,
     SyntaxKind::*,
@@ -25,7 +24,7 @@ fn drawer_begin_node(input: Input) -> IResult<Input, (GreenElement, &str), ()> {
         take_while1(|c: char| c.is_ascii_alphabetic() || c == '-' || c == '_'),
         colon_token,
         space0,
-        alt((line_ending, eof)),
+        eol_or_eof,
     ))(input)?;
 
     b.ws(ws);
@@ -45,7 +44,7 @@ fn drawer_end_node(input: Input) -> IResult<Input, GreenElement, ()> {
         tag_no_case("END"),
         colon_token,
         space0,
-        alt((line_ending, eof)),
+        eol_or_eof,
     ))(input)?;
 
     let mut b = NodeBuilder::new();

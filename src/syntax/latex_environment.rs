@@ -1,8 +1,6 @@
 use nom::{
-    branch::alt,
     bytes::complete::{tag, take_while1},
-    character::complete::{line_ending, space0},
-    combinator::eof,
+    character::complete::space0,
     sequence::tuple,
     IResult, InputTake,
 };
@@ -10,7 +8,7 @@ use nom::{
 use crate::SyntaxKind;
 
 use super::{
-    combinator::{l_curly_token, line_starts_iter, node, r_curly_token, GreenElement},
+    combinator::{eol_or_eof, l_curly_token, line_starts_iter, node, r_curly_token, GreenElement},
     input::Input,
 };
 
@@ -36,7 +34,7 @@ fn latex_environment_node_base(input: Input) -> IResult<Input, GreenElement, ()>
             tag(name1.s),
             r_curly_token,
             space0,
-            alt((line_ending, eof)),
+            eol_or_eof,
         ))(input)
         {
             return Ok((

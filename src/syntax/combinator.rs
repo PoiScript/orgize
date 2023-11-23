@@ -1,10 +1,7 @@
-use std::iter::once;
-
-use memchr::{memchr, memchr2_iter, memchr_iter};
-use nom::{
-    bytes::complete::tag, character::complete::space0, AsBytes, IResult, InputLength, InputTake,
-};
+use memchr::{memchr2, memchr2_iter, Memchr2};
+use nom::{bytes::complete::tag, AsBytes, IResult, InputTake, Slice};
 use rowan::{GreenNode, GreenToken, Language, NodeOrToken};
+use std::iter::once;
 
 use super::{input::Input, OrgLanguage, SyntaxKind, SyntaxKind::*};
 
@@ -101,13 +98,7 @@ pub fn blank_lines(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
     let mut start = 0;
     let bytes = input.as_bytes();
 
-    for index in memchr2_iter(b'\r', b'\n', bytes)
-        .map(|i| i + 1)
-        .chain(once(bytes.len()))
-    {
-        if bytes.get(index - 1) == Some(&b'\r') && bytes.get(index) == Some(&b'\n') {
-            continue;
-        }
+    for index in line_ends_iter(input.as_str()) {
         if start != index && bytes[start..index].iter().all(|b| b.is_ascii_whitespace()) {
             lines.push(token(BLANK_LINE, &input.as_str()[start..index]));
             start = index;
@@ -116,7 +107,7 @@ pub fn blank_lines(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
         }
     }
 
-    Ok((input.take_split(start).0, lines))
+    Ok((input.slice(start..), lines))
 }
 
 #[test]
@@ -159,21 +150,26 @@ fn test_blank_lines() {
 
 /// Returns 1. anything before trailing whitespace, 2. whitespace itself, 3. line feeding
 pub fn trim_line_end(input: Input) -> IResult<Input, (Input, Input, Input), ()> {
-    let (input, line) = input.take_split(
-        memchr(b'\n', input.as_bytes())
-            .map(|i| i + 1)
-            .unwrap_or(input.input_len()),
-    );
+    let bytes = input.as_bytes();
 
-    let (ws_and_nl, contents) = line.take_split(
-        line.as_bytes()
-            .iter()
-            .rposition(|u| !u.is_ascii_whitespace())
-            .map(|i| i + 1)
-            .unwrap_or(0),
-    );
+    let (input, contents, nl) = match memchr2(b'\r', b'\n', bytes) {
+        Some(i) if bytes[i] == b'\r' && matches!(bytes.get(i + 1), Some(b'\n')) => (
+            input.slice(i + 2..),
+            input.slice(0..i),
+            input.slice(i..i + 2),
+        ),
+        Some(i) => (
+            input.slice(i + 1..),
+            input.slice(0..i),
+            input.slice(i..i + 1),
+        ),
+        _ => (input.of(""), input, input.of("")),
+    };
 
-    let (nl, ws) = space0(ws_and_nl)?;
+    let (contents, ws) = match contents.bytes().rposition(|u| !u.is_ascii_whitespace()) {
+        Some(i) => (contents.slice(0..i + 1), contents.slice(i + 1..)),
+        None => (contents.of(""), contents),
+    };
 
     Ok((input, (contents, ws, nl)))
 }
@@ -200,18 +196,72 @@ fn test_trim_line_end() {
     assert_eq!(output.0.as_str(), "* hello, world :abc:");
     assert_eq!(output.1.as_str(), "  ");
     assert_eq!(output.2.as_str(), "\r\n");
+
+    let (input, output) = trim_line_end((" \rr", config).into()).unwrap();
+    assert_eq!(input.as_str(), "r");
+    assert_eq!(output.0.as_str(), "");
+    assert_eq!(output.1.as_str(), " ");
+    assert_eq!(output.2.as_str(), "\r");
+}
+
+/// Recognizes a line ending \r, \n, \r\n or end of file
+pub fn eol_or_eof(input: Input) -> IResult<Input, Input, ()> {
+    let mut bytes = input.bytes();
+
+    let count = match bytes.next() {
+        Some(b'\n') => 1,
+        Some(b'\r') => {
+            if matches!(bytes.next(), Some(b'\n')) {
+                2
+            } else {
+                1
+            }
+        }
+        None => 0,
+        _ => return Err(nom::Err::Error(())),
+    };
+
+    Ok(input.take_split(count))
+}
+
+struct LineStart<'a> {
+    bytes: &'a [u8],
+    iter: Memchr2<'a>,
+}
+
+impl<'a> LineStart<'a> {
+    fn new(input: &'a str) -> Self {
+        let bytes = input.as_bytes();
+        LineStart {
+            bytes,
+            iter: memchr2_iter(b'\r', b'\n', bytes),
+        }
+    }
+}
+
+impl<'a> Iterator for LineStart<'a> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let i = self.iter.next()?;
+        if self.bytes[i] == b'\r' && self.bytes.get(i + 1) == Some(&b'\n') {
+            let ii = self.iter.next();
+            debug_assert_eq!(i + 1, ii.unwrap());
+            Some(i + 2)
+        } else {
+            Some(i + 1)
+        }
+    }
 }
 
 /// Returns an iterator of positions of line start, including zero
 pub fn line_starts_iter(s: &str) -> impl Iterator<Item = usize> + '_ {
-    once(0).chain(memchr_iter(b'\n', s.as_bytes()).map(|i| i + 1))
+    once(0).chain(LineStart::new(s))
 }
 
 /// Returns an iterator of positions of line end, including eof
 pub fn line_ends_iter(s: &str) -> impl Iterator<Item = usize> + '_ {
-    memchr_iter(b'\n', s.as_bytes())
-        .map(|i| i + 1)
-        .chain(once(s.len()))
+    LineStart::new(s).chain(once(s.len()))
 }
 
 pub struct NodeBuilder {
@@ -233,7 +283,7 @@ impl NodeBuilder {
     pub fn nl(&mut self, i: Input) {
         if !i.is_empty() {
             debug_assert!(
-                i.s == "\n" || i.s == "\r\n",
+                i.s == "\n" || i.s == "\r\n" || i.s == "\r",
                 "{:?} should be a new line",
                 i.s
             );

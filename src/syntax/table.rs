@@ -19,7 +19,7 @@ fn org_table_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut start = 0;
     for i in line_ends_iter(input.as_str()) {
         let line = input.slice(start..i);
-        let trimmed = line.as_str().trim_start();
+        let trimmed = line.as_str().trim_start_matches([' ', '\t']);
 
         // Org tables end at the first line not starting with a vertical bar.
         if !trimmed.starts_with('|') {
@@ -81,7 +81,8 @@ fn table_standard_row_node(input: Input) -> Result<GreenElement, nom::Err<()>> {
             }
         }
     });
-    it.finish()?;
+    let (input, _) = it.finish()?;
+    debug_assert!(input.is_empty());
 
     Ok(b.finish(ORG_TABLE_STANDARD_ROW))
 }

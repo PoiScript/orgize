@@ -1,13 +1,7 @@
-use nom::{
-    branch::alt,
-    character::complete::{line_ending, space0},
-    combinator::{eof, map},
-    sequence::tuple,
-    IResult,
-};
+use nom::{character::complete::space0, combinator::map, sequence::tuple, IResult};
 
 use crate::{
-    syntax::combinator::{backslash_token, node},
+    syntax::combinator::{backslash_token, eol_or_eof, node},
     SyntaxKind,
 };
 
@@ -16,12 +10,7 @@ use super::{combinator::GreenElement, input::Input};
 pub fn line_break_node(input: Input) -> IResult<Input, GreenElement, ()> {
     debug_assert!(input.s.starts_with('\\'));
     let mut parser = map(
-        tuple((
-            backslash_token,
-            backslash_token,
-            space0,
-            alt((line_ending, eof)),
-        )),
+        tuple((backslash_token, backslash_token, space0, eol_or_eof)),
         |(b1, b2, ws, nl)| {
             node(
                 SyntaxKind::LINE_BREAK,
