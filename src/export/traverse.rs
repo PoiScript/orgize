@@ -143,10 +143,16 @@ pub trait Traverser {
             LINE_BREAK => traverse!(LineBreak, line_break),
             SUPERSCRIPT => traverse!(Superscript, superscript),
             SUBSCRIPT => traverse!(Subscript, subscript),
+            KEYWORD => traverse!(Keyword, keyword),
+            PROPERTY_DRAWER => traverse!(PropertyDrawer, property_drawer),
 
             BLOCK_CONTENT | LIST_ITEM_CONTENT => traverse_children!(node),
 
-            kind => debug_assert!(!kind.is_element() && !kind.is_object()),
+            kind => debug_assert!(
+                !kind.is_element() && !kind.is_object(),
+                "{:?} is not handled",
+                kind
+            ),
         }
     }
 
@@ -258,4 +264,8 @@ pub trait Traverser {
     fn superscript(&mut self, event: WalkEvent<&Superscript>, ctx: &mut TraversalContext);
     /// Called when entering or leaving `Subscript` node
     fn subscript(&mut self, event: WalkEvent<&Subscript>, ctx: &mut TraversalContext);
+    /// Called when entering or leaving `Keyword` node
+    fn keyword(&mut self, event: WalkEvent<&Keyword>, ctx: &mut TraversalContext);
+    /// Called when entering or leaving `PropertyDrawer` node
+    fn property_drawer(&mut self, event: WalkEvent<&PropertyDrawer>, ctx: &mut TraversalContext);
 }

@@ -7,7 +7,7 @@
 ///     ast::Headline,
 ///     export::{HtmlExport, TraversalContext, Traverser},
 ///     forward_handler,
-///     rowan::{ast::AstNode, WalkEvent, NodeOrToken},
+///     rowan::{ast::AstNode, WalkEvent},
 ///     Org,
 /// };
 /// use slugify::slugify;
@@ -33,10 +33,7 @@
 ///                 slugify!(&title)
 ///             ));
 ///             for elem in headline.title() {
-///                 match elem {
-///                     NodeOrToken::Node(node) => self.node(node, ctx),
-///                     NodeOrToken::Token(token) => self.token(token, ctx),
-///                 }
+///                 self.element(elem, ctx);
 ///             }
 ///             self.0.push_str(format!("</a></h{level}>"));
 ///         }
@@ -49,7 +46,7 @@
 ///         special_block quote_block center_block verse_block comment_block example_block export_block
 ///         source_block babel_call clock cookie radio_target drawer dyn_block fn_def fn_ref macros
 ///         snippet timestamp target fixed_width org_table org_table_row org_table_cell latex_fragment
-///         latex_environment entity line_break superscript subscript
+///         latex_environment entity line_break superscript subscript keyword property_drawer
 ///     }
 /// }
 ///
@@ -208,6 +205,12 @@ macro_rules! forward_handler {
     };
     (@method $handler:ty, subscript) => {
         forward_handler!(@method $handler, subscript, WalkEvent<&$crate::ast::Subscript>);
+    };
+    (@method $handler:ty, keyword) => {
+        forward_handler!(@method $handler, keyword, WalkEvent<&$crate::ast::Keyword>);
+    };
+    (@method $handler:ty, property_drawer) => {
+        forward_handler!(@method $handler, property_drawer, WalkEvent<&$crate::ast::PropertyDrawer>);
     };
     (@method $handler:ty, $x:ident) => {
         std::compile_error!(std::concat!(std::stringify!($x), " is not a method"));

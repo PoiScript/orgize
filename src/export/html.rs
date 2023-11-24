@@ -125,10 +125,7 @@ impl Traverser for HtmlExport {
                 WalkEvent::Enter(item) => {
                     self.output += "<dt>";
                     for elem in item.tag() {
-                        match elem {
-                            NodeOrToken::Node(n) => self.node(n, ctx),
-                            NodeOrToken::Token(t) => self.token(t, ctx),
-                        }
+                        self.element(elem, ctx);
                     }
                     self.output += "</dt><dd>";
                 }
@@ -379,10 +376,7 @@ impl Traverser for HtmlExport {
             let level = min(headline.level(), 6);
             let _ = write!(&mut self.output, "<h{level}>");
             for elem in headline.title() {
-                match elem {
-                    NodeOrToken::Node(node) => self.node(node, ctx),
-                    NodeOrToken::Token(token) => self.token(token, ctx),
-                }
+                self.element(elem, ctx);
             }
             let _ = write!(&mut self.output, "</h{level}>");
         }
@@ -533,5 +527,15 @@ impl Traverser for HtmlExport {
             WalkEvent::Enter(_) => self.output += "<sup>",
             WalkEvent::Leave(_) => self.output += "</sup>",
         }
+    }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn keyword(&mut self, _event: WalkEvent<&Keyword>, ctx: &mut TraversalContext) {
+        ctx.skip();
+    }
+
+    #[tracing::instrument(skip(self, ctx))]
+    fn property_drawer(&mut self, _event: WalkEvent<&PropertyDrawer>, ctx: &mut TraversalContext) {
+        ctx.skip()
     }
 }

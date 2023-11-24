@@ -9,7 +9,6 @@ use orgize::{
     rowan::WalkEvent,
     Org,
 };
-use rowan::NodeOrToken;
 use slugify::slugify;
 use std::cmp::min;
 use std::env::args;
@@ -34,10 +33,7 @@ impl Traverser for MyHtmlHandler {
                 slugify!(&title)
             ));
             for elem in headline.title() {
-                match elem {
-                    NodeOrToken::Node(node) => self.node(node, ctx),
-                    NodeOrToken::Token(token) => self.token(token, ctx),
-                }
+                self.element(elem, ctx);
             }
             self.0.push_str(format!("</a></h{level}>"));
         }
@@ -50,7 +46,7 @@ impl Traverser for MyHtmlHandler {
         special_block quote_block center_block verse_block comment_block example_block export_block
         source_block babel_call clock cookie radio_target drawer dyn_block fn_def fn_ref macros
         snippet timestamp target fixed_width org_table org_table_row org_table_cell latex_fragment
-        latex_environment entity line_break superscript subscript
+        latex_environment entity line_break superscript subscript keyword property_drawer
     }
 }
 

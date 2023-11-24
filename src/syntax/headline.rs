@@ -133,11 +133,8 @@ fn headline_stars(input: Input) -> IResult<Input, Input, ()> {
     if level == 0 {
         return Err(nom::Err::Error(()));
     }
-    // followed by eof, new line, or whitespace
-    else if matches!(
-        bytes.get(level),
-        None | Some(b'\n') | Some(b'\r') | Some(b' ')
-    ) {
+    // headline stars must be followed by space
+    else if matches!(bytes.get(level), Some(b' ')) {
         Ok(input.take_split(level))
     } else {
         Err(nom::Err::Error(()))
@@ -232,7 +229,7 @@ fn headline_priority_node(input: Input) -> IResult<Input, (GreenElement, Input),
 
 #[test]
 fn parse() {
-    use crate::{ast::Headline, tests::to_ast};
+    use crate::{ast::Headline, tests::to_ast, ParseConfig};
 
     let to_headline = to_ast::<Headline>(headline_node);
 
@@ -307,6 +304,16 @@ fn parse() {
       NEW_LINE@11..12 "\n"
     "###
     );
+
+    let config = &ParseConfig::default();
+
+    assert!(headline_node(("_ ", config).into()).is_err());
+    assert!(headline_node(("*", config).into()).is_err());
+    assert!(headline_node((" * ", config).into()).is_err());
+    assert!(headline_node(("**", config).into()).is_err());
+    assert!(headline_node(("**\n", config).into()).is_err());
+    assert!(headline_node(("**\r", config).into()).is_err());
+    assert!(headline_node(("**\t", config).into()).is_err());
 }
 
 #[test]

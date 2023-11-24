@@ -2,7 +2,7 @@ use memchr::{memchr, memchr2};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take},
-    character::complete::{alphanumeric1, digit1, space0},
+    character::complete::{alphanumeric1, digit1, space0, space1},
     combinator::{cond, map, opt, recognize, verify},
     sequence::{preceded, tuple},
     AsBytes, IResult, InputLength, InputTake,
@@ -10,7 +10,7 @@ use nom::{
 
 use super::{
     combinator::{
-        at_token, blank_lines, colon2_token, l_bracket_token, line_starts_iter, node,
+        at_token, blank_lines, colon2_token, eol_or_eof, l_bracket_token, line_starts_iter, node,
         r_bracket_token, GreenElement,
     },
     element::element_node,
@@ -82,25 +82,23 @@ fn list_item_node<'a>(
             preceded(digit1, tag(".")),
             preceded(digit1, tag(")")),
         )),
-        space0,
+        alt((space1, eol_or_eof)),
     )))(input)?;
 
-    // bullet must ends with whitespace,
-    if !(bullet
-        .s
-        .bytes()
-        .last()
-        .map(|b| b == b' ' || b == b'\t')
-        .unwrap_or(true)
-        // or input should be a line end
-        || input
-            .s
-            .bytes()
-            .next()
-            .map(|b| b == b'\r' || b == b'\n')
-            .unwrap_or(true))
-    {
-        return Err(nom::Err::Error(()));
+    if input.is_empty() {
+        return Ok((
+            input,
+            (
+                false,
+                node(
+                    LIST_ITEM,
+                    [
+                        indent.token(LIST_ITEM_INDENT),
+                        bullet.token(LIST_ITEM_BULLET),
+                    ],
+                ),
+            ),
+        ));
     }
 
     let is_ordered = bullet.s.starts_with(|c: char| c.is_ascii_digit());
@@ -289,8 +287,6 @@ fn parse() {
       LIST_ITEM@0..2
         LIST_ITEM_INDENT@0..0 ""
         LIST_ITEM_BULLET@0..2 "1)"
-        LIST_ITEM_CONTENT@2..2
-          PARAGRAPH@2..2
     "###
     );
 
@@ -301,8 +297,6 @@ fn parse() {
       LIST_ITEM@0..2
         LIST_ITEM_INDENT@0..0 ""
         LIST_ITEM_BULLET@0..2 "+ "
-        LIST_ITEM_CONTENT@2..2
-          PARAGRAPH@2..2
     "###
     );
 
@@ -312,10 +306,7 @@ fn parse() {
     LIST@0..2
       LIST_ITEM@0..2
         LIST_ITEM_INDENT@0..0 ""
-        LIST_ITEM_BULLET@0..1 "-"
-        LIST_ITEM_CONTENT@1..2
-          PARAGRAPH@1..2
-            BLANK_LINE@1..2 "\n"
+        LIST_ITEM_BULLET@0..2 "-\n"
     "###
     );
 
@@ -593,6 +584,13 @@ fn parse() {
               NEW_LINE@50..51 "\n"
     "###
     );
+
+    to_list("- ");
+    to_list("-\t");
+    to_list("-\r");
+    to_list("-\t\n");
+    to_list("-\r\n");
+    to_list("-");
 
     let config = &ParseConfig::default();
 
