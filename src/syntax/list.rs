@@ -85,6 +85,11 @@ fn list_item_node<'a>(
         alt((space1, eol_or_eof)),
     )))(input)?;
 
+    // list item cannot have an asterisk at the beginning of line
+    if indent.is_empty() && bullet.s.starts_with('*') {
+        return Err(nom::Err::Error(()));
+    }
+
     if input.is_empty() {
         return Ok((
             input,
@@ -420,12 +425,12 @@ fn parse() {
     );
 
     insta::assert_debug_snapshot!(
-        to_list("* item1\nitem2").syntax,
+        to_list("+ item1\nitem2").syntax,
         @r###"
     LIST@0..8
       LIST_ITEM@0..8
         LIST_ITEM_INDENT@0..0 ""
-        LIST_ITEM_BULLET@0..2 "* "
+        LIST_ITEM_BULLET@0..2 "+ "
         LIST_ITEM_CONTENT@2..8
           PARAGRAPH@2..8
             TEXT@2..8 "item1\n"
@@ -433,12 +438,12 @@ fn parse() {
     );
 
     insta::assert_debug_snapshot!(
-        to_list("* item1\n\n  still item 1").syntax,
+        to_list("+ item1\n\n  still item 1").syntax,
         @r###"
     LIST@0..23
       LIST_ITEM@0..23
         LIST_ITEM_INDENT@0..0 ""
-        LIST_ITEM_BULLET@0..2 "* "
+        LIST_ITEM_BULLET@0..2 "+ "
         LIST_ITEM_CONTENT@2..23
           PARAGRAPH@2..9
             TEXT@2..8 "item1\n"
@@ -595,4 +600,6 @@ fn parse() {
     let config = &ParseConfig::default();
 
     assert!(list_node(("-a", config).into()).is_err());
+    assert!(list_node(("*\r\n", config).into()).is_err());
+    assert!(list_node(("* ", config).into()).is_err());
 }
