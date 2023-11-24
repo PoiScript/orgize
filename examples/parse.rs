@@ -23,8 +23,8 @@ fn main() {
     if args.len() < 2 {
         eprintln!("Usage: {} <org-mode-string>", args[0]);
     } else {
-        let s = &args[1].replace(r#"\n"#, "\n").replace(r#"\r"#, "\r");
-        let org = Org::parse(&s);
+        let s = &args[1].replace(r"\n", "\n").replace(r"\r", "\r");
+        let org = Org::parse(s);
         println!("{:#?}", org.document().syntax());
     }
 }

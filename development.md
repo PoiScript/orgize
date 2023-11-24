@@ -27,6 +27,8 @@ cargo fuzz run fuzz_target_1
 ```shell
 curl -q https://orgmode.org/worg/doc.org --output ./benches/doc.org
 curl -q https://orgmode.org/worg/org-faq.org --output ./benches/org-faq.org
+curl -q https://orgmode.org/worg/org-hacks.org --output ./benches/org-hacks.org
+curl -q https://orgmode.org/worg/org-release-notes.org --output ./benches/org-release-notes.org
 curl -q https://orgmode.org/worg/org-syntax.org --output ./benches/org-syntax.org
 
 cargo bench --bench parse
