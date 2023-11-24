@@ -8,10 +8,9 @@ use nom::{
     sequence::tuple,
     IResult, InputLength, InputTake,
 };
-use rowan::GreenNode;
 
 use super::{
-    combinator::{blank_lines, hash_plus_token, trim_line_end, GreenElement},
+    combinator::{blank_lines, hash_plus_token, node, trim_line_end, GreenElement},
     input::Input,
     SyntaxKind,
 };
@@ -19,18 +18,19 @@ use super::{
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn keyword_node(input: Input) -> IResult<Input, GreenElement, ()> {
     fn f(input: Input) -> IResult<Input, GreenElement, ()> {
-        let (input, (key, mut nodes, post_blank)) = keyword_node_base(input)?;
+        let (input, (key, mut nodes)) = keyword_node_base(input)?;
+        let (input, post_blank) = blank_lines(input)?;
         nodes.extend(post_blank);
         Ok((
             input,
-            GreenElement::Node(GreenNode::new(
+            node(
                 if key == "CALL" {
-                    SyntaxKind::BABEL_CALL.into()
+                    SyntaxKind::BABEL_CALL
                 } else {
-                    SyntaxKind::KEYWORD.into()
+                    SyntaxKind::KEYWORD
                 },
                 nodes,
-            )),
+            ),
         ))
     }
     crate::lossless_parser!(f, input)
@@ -44,9 +44,11 @@ pub fn affiliated_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement
     let mut i = input;
 
     while !i.is_empty() {
-        let Ok((input_, (key, nodes, post_blank))) = keyword_node_base(i) else {
+        let Ok((input_, (key, nodes))) = keyword_node_base(i) else {
             break;
         };
+
+        let (input_, post_blank) = blank_lines(input_)?;
 
         // affiliated keyword can not followed by blank lines or eof
         if !post_blank.is_empty() || input_.is_empty() {
@@ -64,24 +66,44 @@ pub fn affiliated_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement
             input_.input_len()
         );
         i = input_;
-        children.push(GreenElement::Node(GreenNode::new(
-            SyntaxKind::AFFILIATED_KEYWORD.into(),
-            nodes,
-        )));
+        children.push(node(SyntaxKind::AFFILIATED_KEYWORD, nodes));
     }
 
     Ok((i, children))
 }
 
-fn keyword_node_base(
-    input: Input,
-) -> IResult<Input, (&str, Vec<GreenElement>, Vec<GreenElement>), ()> {
+pub fn tblfm_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
+    let mut children = vec![];
+    let mut i = input;
+
+    while !i.is_empty() {
+        let Ok((input, (key, nodes))) = keyword_node_base(i) else {
+            break;
+        };
+
+        if !key.eq_ignore_ascii_case("TBLFM") {
+            break;
+        }
+
+        debug_assert!(
+            i.input_len() > input.input_len(),
+            "{} > {}",
+            i.input_len(),
+            input.input_len()
+        );
+        i = input;
+        children.push(node(SyntaxKind::KEYWORD, nodes));
+    }
+
+    Ok((i, children))
+}
+
+fn keyword_node_base(input: Input) -> IResult<Input, (&str, Vec<GreenElement>), ()> {
     let (input, (ws, hash_plus)) = tuple((space0, hash_plus_token))(input)?;
 
     let (input, (key, optional, colon)) = alt((key_with_optional, key))(input)?;
 
     let (input, (value, ws_, nl)) = trim_line_end(input)?;
-    let (input, post_blank) = blank_lines(input)?;
 
     let mut children = vec![];
     if !ws.is_empty() {
@@ -103,7 +125,7 @@ fn keyword_node_base(
         children.push(nl.nl_token());
     }
 
-    Ok((input, (key.s, children, post_blank)))
+    Ok((input, (key.s, children)))
 }
 
 fn key(input: Input) -> IResult<Input, (Input, Option<(Input, Input, Input)>, Input), ()> {

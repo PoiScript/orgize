@@ -9,6 +9,7 @@ use nom::{
 use super::{
     combinator::{blank_lines, line_ends_iter, node, pipe_token, GreenElement, NodeBuilder},
     input::Input,
+    keyword::tblfm_keyword_nodes,
     object::standard_object_nodes,
     SyntaxKind::*,
 };
@@ -23,11 +24,7 @@ fn org_table_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
         // Org tables end at the first line not starting with a vertical bar.
         if !trimmed.starts_with('|') {
-            if start == 0 {
-                return Err(nom::Err::Error(()));
-            } else {
-                break;
-            }
+            break;
         }
 
         if trimmed.starts_with("|-") {
@@ -39,8 +36,17 @@ fn org_table_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
         start = i;
     }
 
-    let (input, post_blank) = blank_lines(input.slice(start..))?;
+    if start == 0 {
+        return Err(nom::Err::Error(()));
+    }
 
+    let input = input.slice(start..);
+
+    let (input, tblfm) = tblfm_keyword_nodes(input)?;
+
+    let (input, post_blank) = blank_lines(input)?;
+
+    children.extend(tblfm);
     children.extend(post_blank);
 
     Ok((input, node(ORG_TABLE, children)))
@@ -174,6 +180,52 @@ r#"|
         WHITESPACE@16..18 "  "
         PIPE@18..19 "|"
         WHITESPACE@19..20 "\n"
+    "###
+    );
+
+    insta::assert_debug_snapshot!(
+        to_org_table("| a |\n#+tblfm: test").syntax,
+        @r###"
+    ORG_TABLE@0..19
+      ORG_TABLE_STANDARD_ROW@0..6
+        PIPE@0..1 "|"
+        WHITESPACE@1..2 " "
+        ORG_TABLE_CELL@2..3
+          TEXT@2..3 "a"
+        WHITESPACE@3..4 " "
+        PIPE@4..5 "|"
+        WHITESPACE@5..6 "\n"
+      KEYWORD@6..19
+        HASH_PLUS@6..8 "#+"
+        TEXT@8..13 "tblfm"
+        COLON@13..14 ":"
+        TEXT@14..19 " test"
+    "###
+    );
+
+    insta::assert_debug_snapshot!(
+        to_org_table("| a |\n#+TBLFM: test1\n#+TBLFM: test2").syntax,
+        @r###"
+    ORG_TABLE@0..35
+      ORG_TABLE_STANDARD_ROW@0..6
+        PIPE@0..1 "|"
+        WHITESPACE@1..2 " "
+        ORG_TABLE_CELL@2..3
+          TEXT@2..3 "a"
+        WHITESPACE@3..4 " "
+        PIPE@4..5 "|"
+        WHITESPACE@5..6 "\n"
+      KEYWORD@6..21
+        HASH_PLUS@6..8 "#+"
+        TEXT@8..13 "TBLFM"
+        COLON@13..14 ":"
+        TEXT@14..20 " test1"
+        NEW_LINE@20..21 "\n"
+      KEYWORD@21..35
+        HASH_PLUS@21..23 "#+"
+        TEXT@23..28 "TBLFM"
+        COLON@28..29 ":"
+        TEXT@29..35 " test2"
     "###
     );
 }

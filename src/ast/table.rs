@@ -1,6 +1,6 @@
 use rowan::ast::AstNode;
 
-use super::{OrgTable, OrgTableRow};
+use super::{filter_token, OrgTable, OrgTableRow, Token};
 use crate::syntax::SyntaxKind;
 
 impl OrgTable {
@@ -47,6 +47,37 @@ impl OrgTable {
             .skip_while(|row| row.is_rule())
             .skip_while(|row| row.is_standard())
             .any(|row| !row.is_rule())
+    }
+
+    /// Formulas associated to the table
+    ///
+    /// ```rust
+    /// use orgize::{Org, ast::OrgTable};
+    ///
+    /// let table = Org::parse("| a |").first_node::<OrgTable>().unwrap();
+    /// assert_eq!(table.tblfm().count(), 0);
+    ///
+    /// let table = Org::parse("| a |\n#+tblfm: test").first_node::<OrgTable>().unwrap();
+    /// let tblfm = table.tblfm().collect::<Vec<_>>();
+    /// assert_eq!(tblfm.len(), 1);
+    /// assert_eq!(tblfm[0], " test");
+    ///
+    /// let table = Org::parse("| a |\n#+TBLFM: test1\n#+TBLFM: test2").first_node::<OrgTable>().unwrap();
+    /// let tblfm = table.tblfm().collect::<Vec<_>>();
+    /// assert_eq!(tblfm.len(), 2);
+    /// assert_eq!(tblfm[0], " test1");
+    /// assert_eq!(tblfm[1], " test2");
+    /// ```
+    pub fn tblfm(&self) -> impl Iterator<Item = Token> {
+        self.syntax.children().filter_map(|n| {
+            if n.kind() == SyntaxKind::KEYWORD {
+                n.children_with_tokens()
+                    .filter_map(filter_token(SyntaxKind::TEXT))
+                    .last()
+            } else {
+                None
+            }
+        })
     }
 }
 
