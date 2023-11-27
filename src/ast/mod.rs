@@ -3,6 +3,7 @@ mod generated;
 
 
 mod affiliated_keyword;
+mod block;
 mod clock;
 mod drawer;
 mod entity;

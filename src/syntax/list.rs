@@ -579,7 +579,6 @@ fn parse() {
               WHITESPACE@11..15 "    "
               TEXT@15..23 "#+begin_"
               TEXT@23..30 "example"
-              TEXT@30..30 ""
               NEW_LINE@30..31 "\n"
             BLOCK_CONTENT@31..37
               TEXT@31..37 "hello\n"

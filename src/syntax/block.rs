@@ -1,6 +1,7 @@
+use jetscii::Substring;
 use nom::{
-    bytes::complete::{tag, tag_no_case},
-    character::complete::{alpha1, space0},
+    bytes::complete::{tag, tag_no_case, take_while1},
+    character::complete::{space0, space1},
     sequence::tuple,
     IResult, InputTake,
 };
@@ -51,14 +52,18 @@ fn block_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 }
 
 fn block_begin_node(input: Input) -> IResult<Input, (GreenElement, &str), ()> {
-    let (input, (ws, start, name, (argument, ws_, nl))) =
-        tuple((space0, tag_no_case("#+BEGIN_"), alpha1, trim_line_end))(input)?;
+    let (input, (ws, start, name, (argument, ws_, nl))) = tuple((
+        space0,
+        tag_no_case("#+BEGIN_"),
+        take_while1(|c| c != ' ' && c != '\t' && c != '\r' && c != '\n'),
+        trim_line_end,
+    ))(input)?;
 
     let mut b = NodeBuilder::new();
     b.ws(ws);
     b.text(start);
     b.text(name);
-    b.text(argument);
+    b.children.extend(block_argument(argument)?.1);
     b.ws(ws_);
     b.nl(nl);
 
@@ -107,6 +112,55 @@ fn comma_quoted_text_nodes(input: Input) -> Vec<GreenElement> {
     nodes
 }
 
+fn block_argument(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
+    let mut b = NodeBuilder::new();
+
+    let mut i = input;
+
+    while !i.is_empty() {
+        let (input, ws) = space1(i)?;
+        b.ws(ws);
+        let (input, name) = take_while1(|c| c != ' ' && c != '\t')(input)?;
+        b.text(name);
+        if !name.s.starts_with(':') || input.is_empty() {
+            debug_assert!(
+                input.s.len() < i.s.len(),
+                "{} < {}",
+                input.s.len(),
+                i.s.len()
+            );
+            i = input;
+            continue;
+        }
+        let (input, ws) = space1(input)?;
+        b.ws(ws);
+
+        if let Some(idx) = Substring::new(" :")
+            .find(input.s)
+            .or_else(|| Substring::new("\t:").find(input.s))
+        {
+            let idx = input.s[0..idx]
+                .rfind(|c| c != ' ' && c != '\t')
+                .map(|i| i + 1)
+                .unwrap_or(idx);
+            let (input, argument) = input.take_split(idx);
+            b.text(argument);
+            debug_assert!(
+                input.s.len() < i.s.len(),
+                "{} < {}",
+                input.s.len(),
+                i.s.len()
+            );
+            i = input;
+        } else {
+            b.text(input);
+            break;
+        }
+    }
+
+    Ok((i, b.children))
+}
+
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
 pub fn block_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(block_node_base, input)
@@ -133,7 +187,6 @@ text
       BLOCK_BEGIN@0..16
         TEXT@0..8 "#+BEGIN_"
         TEXT@8..15 "EXAMPLE"
-        TEXT@15..15 ""
         NEW_LINE@15..16 "\n"
       BLOCK_CONTENT@16..42
         COMMA@16..17 ","
@@ -159,7 +212,6 @@ r#"#+BEGIN_SRC
       BLOCK_BEGIN@0..12
         TEXT@0..8 "#+BEGIN_"
         TEXT@8..11 "SRC"
-        TEXT@11..11 ""
         NEW_LINE@11..12 "\n"
       BLANK_LINE@12..13 "\n"
       BLANK_LINE@13..14 "\n"
@@ -181,7 +233,6 @@ r#"#+begin_src
       BLOCK_BEGIN@0..12
         TEXT@0..8 "#+begin_"
         TEXT@8..11 "src"
-        TEXT@11..11 ""
         NEW_LINE@11..12 "\n"
       BLOCK_CONTENT@12..12
       BLOCK_END@12..25
@@ -193,28 +244,40 @@ r#"#+begin_src
 
     insta::assert_debug_snapshot!(
         to_src_block(
-r#"#+BEGIN_SRC javascript    
+r#"#+BEGIN_SRC javascript  -n 20 -r  :var n=0, l=2  :foo=bar
 alert('Hello World!');
     #+END_SRC
 
     "#).syntax,
         @r###"
-    SOURCE_BLOCK@0..69
-      BLOCK_BEGIN@0..27
+    SOURCE_BLOCK@0..100
+      BLOCK_BEGIN@0..58
         TEXT@0..8 "#+BEGIN_"
         TEXT@8..11 "SRC"
-        TEXT@11..22 " javascript"
-        WHITESPACE@22..26 "    "
-        NEW_LINE@26..27 "\n"
-      BLOCK_CONTENT@27..50
-        TEXT@27..50 "alert('Hello World!');\n"
-      BLOCK_END@50..64
-        WHITESPACE@50..54 "    "
-        TEXT@54..60 "#+END_"
-        TEXT@60..63 "SRC"
-        NEW_LINE@63..64 "\n"
-      BLANK_LINE@64..65 "\n"
-      BLANK_LINE@65..69 "    "
+        WHITESPACE@11..12 " "
+        TEXT@12..22 "javascript"
+        WHITESPACE@22..24 "  "
+        TEXT@24..26 "-n"
+        WHITESPACE@26..27 " "
+        TEXT@27..29 "20"
+        WHITESPACE@29..30 " "
+        TEXT@30..32 "-r"
+        WHITESPACE@32..34 "  "
+        TEXT@34..38 ":var"
+        WHITESPACE@38..39 " "
+        TEXT@39..47 "n=0, l=2"
+        WHITESPACE@47..49 "  "
+        TEXT@49..57 ":foo=bar"
+        NEW_LINE@57..58 "\n"
+      BLOCK_CONTENT@58..81
+        TEXT@58..81 "alert('Hello World!');\n"
+      BLOCK_END@81..95
+        WHITESPACE@81..85 "    "
+        TEXT@85..91 "#+END_"
+        TEXT@91..94 "SRC"
+        NEW_LINE@94..95 "\n"
+      BLANK_LINE@95..96 "\n"
+      BLANK_LINE@96..100 "    "
     "###
     );
 
