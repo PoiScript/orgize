@@ -3,10 +3,7 @@
 //! ```
 
 use orgize::{
-    ast::Headline,
-    export::{HtmlExport, TraversalContext, Traverser},
-    forward_handler,
-    rowan::WalkEvent,
+    export::{Container, Event, HtmlExport, TraversalContext, Traverser},
     Org,
 };
 use slugify::slugify;
@@ -16,16 +13,9 @@ use std::env::args;
 #[derive(Default)]
 struct MyHtmlHandler(pub HtmlExport);
 
-// AsMut trait is required for using forward_handler macros
-impl AsMut<HtmlExport> for MyHtmlHandler {
-    fn as_mut(&mut self) -> &mut HtmlExport {
-        &mut self.0
-    }
-}
-
 impl Traverser for MyHtmlHandler {
-    fn headline(&mut self, event: WalkEvent<&Headline>, ctx: &mut TraversalContext) {
-        if let WalkEvent::Enter(headline) = event {
+    fn event(&mut self, event: Event, ctx: &mut TraversalContext) {
+        if let Event::Enter(Container::Headline(headline)) = event {
             let level = min(headline.level(), 6);
             let title = headline.title().map(|e| e.to_string()).collect::<String>();
             self.0.push_str(format!(
@@ -36,17 +26,10 @@ impl Traverser for MyHtmlHandler {
                 self.element(elem, ctx);
             }
             self.0.push_str(format!("</a></h{level}>"));
+        } else {
+            // forwrad to default html export
+            self.0.event(event, ctx);
         }
-    }
-
-    forward_handler! {
-        HtmlExport,
-        link text document paragraph section rule comment
-        inline_src inline_call code bold verbatim italic strike underline list list_item
-        special_block quote_block center_block verse_block comment_block example_block export_block
-        source_block babel_call clock cookie radio_target drawer dyn_block fn_def fn_ref macros
-        snippet timestamp target fixed_width org_table org_table_row org_table_cell latex_fragment
-        latex_environment entity line_break superscript subscript keyword property_drawer
     }
 }
 

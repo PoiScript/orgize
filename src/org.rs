@@ -5,6 +5,7 @@ use crate::ast::Document;
 use crate::config::ParseConfig;
 use crate::export::{HtmlExport, TraversalContext, Traverser};
 use crate::syntax::{OrgLanguage, SyntaxNode};
+use crate::SyntaxElement;
 
 #[derive(Debug)]
 pub struct Org {
@@ -46,9 +47,12 @@ impl Org {
     }
 
     /// Walk through org element tree using given traverser
-    pub fn traverse<T: Traverser>(&self, h: &mut T) {
+    pub fn traverse<T: Traverser>(&self, t: &mut T) {
         let mut ctx = TraversalContext::default();
-        h.node(SyntaxNode::new_root(self.green.clone()), &mut ctx);
+        t.element(
+            SyntaxElement::Node(SyntaxNode::new_root(self.green.clone())),
+            &mut ctx,
+        );
     }
 
     /// Returns the first node in org element tree in depth first order
