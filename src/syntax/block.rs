@@ -4,7 +4,7 @@ use nom::{
     character::complete::{alpha1, space0, space1},
     combinator::{cond, opt},
     sequence::{separated_pair, tuple},
-    IResult, InputLength, InputTake,
+    IResult, InputTake,
 };
 
 use super::{
@@ -32,7 +32,7 @@ fn block_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
         _ => SPECIAL_BLOCK,
     };
 
-    for (input, contents) in line_starts_iter(input.as_str()).map(|i| input.take_split(i)) {
+    for (input, contents) in line_starts_iter(&input).map(|i| input.take_split(i)) {
         if let Ok((input, block_end)) = block_end_node(input, name) {
             let (input, post_blank) = blank_lines(input)?;
 
@@ -60,7 +60,7 @@ fn block_begin_node(input: Input) -> IResult<Input, (GreenElement, &str), ()> {
     b.text(begin);
     b.text(name);
 
-    if name.s.eq_ignore_ascii_case("SRC") {
+    if name.eq_ignore_ascii_case("SRC") {
         let (input, language) = opt(tuple((
             space1,
             take_while1(|c: char| c != ' ' && c != '\t' && c != '\n' && c != '\r'),
@@ -84,7 +84,7 @@ fn block_begin_node(input: Input) -> IResult<Input, (GreenElement, &str), ()> {
         b.ws(ws2);
         b.nl(nl);
         Ok((input, (b.finish(BLOCK_BEGIN), name.as_str())))
-    } else if name.s.eq_ignore_ascii_case("EXPORT") {
+    } else if name.eq_ignore_ascii_case("EXPORT") {
         let (input, ty) = opt(tuple((
             space1,
             take_while1(|c: char| c != ' ' && c != '\t' && c != '\n' && c != '\r'),
@@ -114,7 +114,7 @@ fn source_block_switches(input: Input) -> IResult<Input, Input, ()> {
 
     while !i.is_empty() {
         match tuple::<_, _, (), _>((
-            cond(i.input_len() != input.input_len(), space1),
+            cond(i.len() != input.len(), space1),
             alt((
                 separated_pair(
                     alt((tag("-l"), tag("-n"))),
@@ -131,7 +131,7 @@ fn source_block_switches(input: Input) -> IResult<Input, Input, ()> {
         }
     }
 
-    let len = input.input_len() - i.input_len();
+    let len = input.len() - i.len();
 
     if len == 0 {
         Err(nom::Err::Error(()))

@@ -1,4 +1,4 @@
-use nom::{IResult, InputLength, InputTake};
+use nom::{IResult, InputTake};
 
 use super::{
     combinator::{blank_lines, line_ends_iter, node, GreenElement},
@@ -20,12 +20,7 @@ pub fn paragraph_nodes(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> 
     while !i.is_empty() {
         let (input, node) = paragraph_node(i)?;
         children.push(node);
-        debug_assert!(
-            i.input_len() > input.input_len(),
-            "{} > {}",
-            i.input_len(),
-            input.input_len()
-        );
+        debug_assert!(i.len() > input.len(), "{} > {}", i.len(), input.len());
         i = input;
     }
     Ok(children)

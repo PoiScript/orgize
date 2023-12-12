@@ -5,7 +5,7 @@ use nom::{
     character::complete::{alphanumeric1, digit1, space0, space1},
     combinator::{cond, map, opt, recognize, verify},
     sequence::{preceded, tuple},
-    AsBytes, IResult, InputLength, InputTake,
+    IResult, InputTake,
 };
 
 use super::{
@@ -39,7 +39,7 @@ fn list_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     while !ends_with_empty_blank_lines && !input.is_empty() {
         let (input_, indent) = space0(input)?;
 
-        if indent.input_len() != first_indent.input_len() {
+        if indent.len() != first_indent.len() {
             break;
         }
 
@@ -50,10 +50,10 @@ fn list_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
         children.push(list_item);
         debug_assert!(
-            input.input_len() > input_.input_len(),
+            input.len() > input_.len(),
             "{} > {}",
-            input.input_len(),
-            input_.input_len(),
+            input.len(),
+            input_.len(),
         );
         input = input_;
 
@@ -111,7 +111,7 @@ fn list_item_node<'a>(
     let (input, checkbox) = opt(list_item_checkbox)(input)?;
     let (input, tag) = cond(!is_ordered, opt(list_item_tag))(input)?;
     let (input, (ends_with_empty_blank_lines, content)) =
-        list_item_content_node(input, indent.input_len())?;
+        list_item_content_node(input, indent.len())?;
     let (input, post_blank) = cond(!ends_with_empty_blank_lines, blank_lines)(input)?;
 
     let mut children = vec![
@@ -240,12 +240,7 @@ fn list_item_content_node(input: Input, indent: usize) -> IResult<Input, (bool, 
                             children.extend(paragraph_nodes(head)?);
                         }
                         children.push(element);
-                        debug_assert!(
-                            input.input_len() < i.input_len(),
-                            "{} < {}",
-                            input.input_len(),
-                            i.input_len()
-                        );
+                        debug_assert!(input.len() < i.len(), "{} < {}", input.len(), i.len());
                         i = input;
                         skip_one = false;
                         continue 'l;

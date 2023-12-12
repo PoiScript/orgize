@@ -1,5 +1,5 @@
 use memchr::{memchr2, memchr2_iter, Memchr2};
-use nom::{bytes::complete::tag, AsBytes, IResult, InputTake, Slice};
+use nom::{bytes::complete::tag, IResult, InputTake, Slice};
 use rowan::{GreenNode, GreenToken, Language, NodeOrToken};
 use std::iter::once;
 
@@ -78,7 +78,7 @@ macro_rules! lossless_parser {
         let (i, o) = $parser($input)?;
         tracing::trace!(consumed = o.to_string());
         debug_assert_eq!(
-            &i_.as_str()[0..(i_.s.len() - i.s.len())],
+            &i_.as_str()[0..(i_.len() - i.len())],
             &o.to_string(),
             stringify!("parser must be lossless")
         );

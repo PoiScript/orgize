@@ -1,7 +1,7 @@
 use std::iter::once;
 
 use memchr::memchr2_iter;
-use nom::{AsBytes, IResult, InputLength, InputTake};
+use nom::{IResult, InputTake};
 
 use super::{
     block::block_node,
@@ -44,12 +44,7 @@ pub fn element_nodes(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> {
                     nodes.extend(paragraph_nodes(head)?);
                 }
                 nodes.push(element);
-                debug_assert!(
-                    input.input_len() < i.input_len(),
-                    "{} < {}",
-                    input.input_len(),
-                    i.input_len()
-                );
+                debug_assert!(input.len() < i.len(), "{} < {}", input.len(), i.len());
                 i = input;
                 continue 'l;
             }

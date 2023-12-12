@@ -3,7 +3,7 @@ use nom::{
     bytes::complete::{take_until1, take_while1},
     character::complete::alpha1,
     sequence::tuple,
-    AsBytes, IResult, InputTake,
+    IResult, InputTake,
 };
 
 use crate::SyntaxKind;

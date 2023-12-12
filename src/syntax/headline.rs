@@ -4,7 +4,7 @@ use nom::{
     character::complete::{anychar, space0},
     combinator::{map, opt},
     sequence::tuple,
-    AsBytes, IResult, InputLength, InputTake, Slice,
+    IResult, InputTake, Slice,
 };
 
 use super::{
@@ -82,7 +82,7 @@ fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     b.push_opt(section);
 
     let mut i = input;
-    let current_level = stars.input_len();
+    let current_level = stars.len();
     while !i.is_empty() {
         let next_level = i.bytes().take_while(|&c| c == b'*').count();
 
@@ -92,12 +92,7 @@ fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 
         let (input, headline) = headline_node(i)?;
         b.push(headline);
-        debug_assert!(
-            i.input_len() > input.input_len(),
-            "{} > {}",
-            i.input_len(),
-            input.input_len()
-        );
+        debug_assert!(i.len() > input.len(), "{} > {}", i.len(), input.len());
         i = input;
     }
 
@@ -122,7 +117,7 @@ fn section_text(input: Input) -> IResult<Input, Input, ()> {
         }
     }
 
-    Ok(input.take_split(input.input_len()))
+    Ok(input.take_split(input.len()))
 }
 
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
@@ -151,7 +146,7 @@ fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
 
     // we're going to skip to first colon, so we start from the
     // second last character
-    let mut i = input.input_len() - 1;
+    let mut i = input.len() - 1;
     let mut can_not_be_ws = true;
     let mut children = vec![token(COLON, ":")];
 

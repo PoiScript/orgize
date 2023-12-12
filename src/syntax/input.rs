@@ -1,11 +1,11 @@
 use nom::{
     error::{ErrorKind, ParseError},
-    AsBytes, Compare, CompareResult, Err, FindSubstring, IResult, InputIter, InputLength,
-    InputTake, InputTakeAtPosition, Needed, Offset, Slice,
+    Compare, CompareResult, Err, FindSubstring, IResult, InputIter, InputLength, InputTake,
+    InputTakeAtPosition, Needed, Offset, Slice,
 };
 use std::{
-    ops::{Range, RangeFrom, RangeFull, RangeTo},
-    str::{Bytes, CharIndices, Chars},
+    ops::{Deref, Range, RangeFrom, RangeFull, RangeTo},
+    str::{CharIndices, Chars},
 };
 
 use super::{
@@ -35,11 +35,6 @@ impl<'a> Input<'a> {
     }
 
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.s.is_empty()
-    }
-
-    #[inline]
     pub fn token(&self, kind: SyntaxKind) -> GreenElement {
         token(kind, self.s)
     }
@@ -58,10 +53,14 @@ impl<'a> Input<'a> {
     pub fn nl_token(&self) -> GreenElement {
         token(SyntaxKind::NEW_LINE, self.s)
     }
+}
+
+impl<'a> Deref for Input<'a> {
+    type Target = str;
 
     #[inline]
-    pub fn bytes(&self) -> Bytes {
-        self.s.bytes()
+    fn deref(&self) -> &'a str {
+        self.s
     }
 }
 
@@ -71,13 +70,6 @@ impl<'a> From<(&'a str, &'a ParseConfig)> for Input<'a> {
             s: value.0,
             c: value.1,
         }
-    }
-}
-
-impl<'a> AsBytes for Input<'a> {
-    #[inline]
-    fn as_bytes(&self) -> &[u8] {
-        self.s.as_bytes()
     }
 }
 
@@ -126,7 +118,7 @@ impl<'a, 'b> Compare<&'b str> for Input<'a> {
 impl<'a> InputLength for Input<'a> {
     #[inline]
     fn input_len(&self) -> usize {
-        self.s.len()
+        self.len()
     }
 }
 

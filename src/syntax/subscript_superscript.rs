@@ -3,7 +3,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
     combinator::opt,
-    AsBytes, IResult, InputTake,
+    IResult, InputTake,
 };
 
 use crate::{

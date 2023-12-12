@@ -3,7 +3,7 @@ use nom::{
     bytes::complete::{tag, take_while},
     combinator::opt,
     sequence::tuple,
-    AsBytes, Err, IResult, InputTake,
+    Err, IResult, InputTake,
 };
 
 use super::{

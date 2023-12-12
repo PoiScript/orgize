@@ -2,7 +2,7 @@ use nom::{
     bytes::complete::{take_until, take_while1},
     combinator::{map, opt, verify},
     sequence::tuple,
-    AsBytes, IResult,
+    IResult,
 };
 
 use super::{

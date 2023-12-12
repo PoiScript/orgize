@@ -1,4 +1,4 @@
-use nom::{AsBytes, IResult, InputTake};
+use nom::{IResult, InputTake};
 
 use super::{
     combinator::{blank_lines, line_ends_iter, node, GreenElement},

@@ -1,4 +1,4 @@
-use nom::{combinator::opt, IResult, InputLength};
+use nom::{combinator::opt, IResult};
 
 use super::{
     combinator::{blank_lines, node, GreenElement},
@@ -31,12 +31,7 @@ fn document_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut i = input;
     while !i.is_empty() {
         let (input, headline) = headline_node(i)?;
-        debug_assert!(
-            i.input_len() > input.input_len(),
-            "{} > {}",
-            i.input_len(),
-            input.input_len(),
-        );
+        debug_assert!(i.len() > input.len(), "{} > {}", i.len(), input.len(),);
         i = input;
         children.push(headline);
     }

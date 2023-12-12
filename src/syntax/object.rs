@@ -1,4 +1,4 @@
-use nom::{AsBytes, IResult, InputLength, InputTake};
+use nom::{IResult, InputTake};
 
 use super::{
     combinator::GreenElement,
@@ -84,7 +84,7 @@ impl<'a> Iterator for ObjectPositions<'a> {
     type Item = (Input<'a>, Input<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.input.input_len() < 2 || self.pos >= self.input.input_len() {
+        if self.input.len() < 2 || self.pos >= self.input.len() {
             return None;
         }
 
@@ -236,12 +236,7 @@ where
                     nodes.push(head.text_token())
                 }
                 nodes.push(pre);
-                debug_assert!(
-                    input.input_len() < i.input_len(),
-                    "{} < {}",
-                    input.input_len(),
-                    i.input_len()
-                );
+                debug_assert!(input.len() < i.len(), "{} < {}", input.len(), i.len());
                 i = input;
                 continue 'l;
             }

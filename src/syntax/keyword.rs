@@ -6,7 +6,7 @@ use nom::{
     character::complete::space0,
     combinator::{recognize, verify},
     sequence::tuple,
-    IResult, InputLength, InputTake,
+    IResult, InputTake,
 };
 
 use super::{
@@ -59,12 +59,7 @@ pub fn affiliated_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement
             break;
         }
 
-        debug_assert!(
-            i.input_len() > input_.input_len(),
-            "{} > {}",
-            i.input_len(),
-            input_.input_len()
-        );
+        debug_assert!(i.len() > input_.len(), "{} > {}", i.len(), input_.len());
         i = input_;
         children.push(node(SyntaxKind::AFFILIATED_KEYWORD, nodes));
     }
@@ -85,12 +80,7 @@ pub fn tblfm_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement>, ()
             break;
         }
 
-        debug_assert!(
-            i.input_len() > input.input_len(),
-            "{} > {}",
-            i.input_len(),
-            input.input_len()
-        );
+        debug_assert!(i.len() > input.len(), "{} > {}", i.len(), input.len());
         i = input;
         children.push(node(SyntaxKind::KEYWORD, nodes));
     }
@@ -134,9 +124,9 @@ fn key(input: Input) -> IResult<Input, (Input, Option<(Input, Input, Input)>, In
             take_till(|c: char| c.is_ascii_whitespace() || c == ':'),
             take_while1(|c: char| c == ':'),
         ))),
-        |i: &Input| i.input_len() >= 2,
+        |i: &Input| i.len() >= 2,
     )(input)?;
-    let (colon, key) = output.take_split(output.input_len() - 1);
+    let (colon, key) = output.take_split(output.len() - 1);
     Ok((input, (key, None, colon)))
 }
 

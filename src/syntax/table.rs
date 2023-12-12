@@ -3,7 +3,7 @@ use nom::{
     character::complete::{multispace0, space0},
     combinator::iterator,
     sequence::tuple,
-    AsBytes, Err, IResult, InputTake, Slice,
+    Err, IResult, InputTake, Slice,
 };
 
 use super::{
