@@ -10,6 +10,7 @@ mod entity;
 mod headline;
 mod inline_call;
 mod inline_src;
+mod keyword;
 mod link;
 mod list;
 mod macros;

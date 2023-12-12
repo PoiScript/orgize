@@ -1,9 +1,10 @@
-use jetscii::Substring;
 use nom::{
-    bytes::complete::{tag, tag_no_case, take_while1},
-    character::complete::{space0, space1},
-    sequence::tuple,
-    IResult, InputTake,
+    branch::alt,
+    bytes::complete::{tag, tag_no_case, take_while, take_while1},
+    character::complete::{alpha1, space0, space1},
+    combinator::{cond, opt},
+    sequence::{separated_pair, tuple},
+    IResult, InputLength, InputTake,
 };
 
 use super::{
@@ -52,22 +53,91 @@ fn block_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
 }
 
 fn block_begin_node(input: Input) -> IResult<Input, (GreenElement, &str), ()> {
-    let (input, (ws, start, name, (argument, ws_, nl))) = tuple((
-        space0,
-        tag_no_case("#+BEGIN_"),
-        take_while1(|c| c != ' ' && c != '\t' && c != '\r' && c != '\n'),
-        trim_line_end,
-    ))(input)?;
+    let (input, (ws1, begin, name)) = tuple((space0, tag_no_case("#+BEGIN_"), alpha1))(input)?;
 
     let mut b = NodeBuilder::new();
-    b.ws(ws);
-    b.text(start);
+    b.ws(ws1);
+    b.text(begin);
     b.text(name);
-    b.children.extend(block_argument(argument)?.1);
-    b.ws(ws_);
-    b.nl(nl);
 
-    Ok((input, (b.finish(BLOCK_BEGIN), name.as_str())))
+    if name.s.eq_ignore_ascii_case("SRC") {
+        let (input, language) = opt(tuple((
+            space1,
+            take_while1(|c: char| c != ' ' && c != '\t' && c != '\n' && c != '\r'),
+        )))(input)?;
+        let (input, switches) = opt(tuple((space1, source_block_switches)))(input)?;
+        let (input, ws1) = space0(input)?;
+        let (input, (parameters, ws2, nl)) = trim_line_end(input)?;
+
+        if let Some((ws, language)) = language {
+            b.ws(ws);
+            b.token(SRC_BLOCK_LANGUAGE, language);
+        }
+        if let Some((ws, switches)) = switches {
+            b.ws(ws);
+            b.token(SRC_BLOCK_SWITCHES, switches);
+        }
+        b.ws(ws1);
+        if !parameters.is_empty() {
+            b.token(SRC_BLOCK_PARAMETERS, parameters);
+        }
+        b.ws(ws2);
+        b.nl(nl);
+        Ok((input, (b.finish(BLOCK_BEGIN), name.as_str())))
+    } else if name.s.eq_ignore_ascii_case("EXPORT") {
+        let (input, ty) = opt(tuple((
+            space1,
+            take_while1(|c: char| c != ' ' && c != '\t' && c != '\n' && c != '\r'),
+        )))(input)?;
+        let (input, data) = take_while(|c: char| c != '\n' && c != '\r')(input)?;
+        let (input, nl) = eol_or_eof(input)?;
+
+        if let Some((ws, ty)) = ty {
+            b.ws(ws);
+            b.token(EXPORT_BLOCK_TYPE, ty);
+        }
+        b.text(data);
+        b.nl(nl);
+        Ok((input, (b.finish(BLOCK_BEGIN), name.as_str())))
+    } else {
+        let (input, data) = take_while(|c: char| c != '\n' && c != '\r')(input)?;
+        let (input, nl) = eol_or_eof(input)?;
+
+        b.text(data);
+        b.nl(nl);
+        Ok((input, (b.finish(BLOCK_BEGIN), name.as_str())))
+    }
+}
+
+fn source_block_switches(input: Input) -> IResult<Input, Input, ()> {
+    let mut i = input;
+
+    while !i.is_empty() {
+        match tuple::<_, _, (), _>((
+            cond(i.input_len() != input.input_len(), space1),
+            alt((
+                separated_pair(
+                    alt((tag("-l"), tag("-n"))),
+                    space1,
+                    take_while1(|c: char| c != ' ' && c != '\t' && c != '\n' && c != '\r'),
+                ),
+                tuple((tag("+"), alpha1)),
+                tuple((tag("-"), alpha1)),
+            )),
+        ))(i)
+        {
+            Ok((i_, _)) => i = i_,
+            _ => break,
+        }
+    }
+
+    let len = input.input_len() - i.input_len();
+
+    if len == 0 {
+        Err(nom::Err::Error(()))
+    } else {
+        Ok(input.take_split(len))
+    }
 }
 
 fn block_end_node<'a>(input: Input<'a>, name: &str) -> IResult<Input<'a>, GreenElement, ()> {
@@ -110,55 +180,6 @@ fn comma_quoted_text_nodes(input: Input) -> Vec<GreenElement> {
     }
 
     nodes
-}
-
-fn block_argument(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
-    let mut b = NodeBuilder::new();
-
-    let mut i = input;
-
-    while !i.is_empty() {
-        let (input, ws) = space1(i)?;
-        b.ws(ws);
-        let (input, name) = take_while1(|c| c != ' ' && c != '\t')(input)?;
-        b.text(name);
-        if !name.s.starts_with(':') || input.is_empty() {
-            debug_assert!(
-                input.s.len() < i.s.len(),
-                "{} < {}",
-                input.s.len(),
-                i.s.len()
-            );
-            i = input;
-            continue;
-        }
-        let (input, ws) = space1(input)?;
-        b.ws(ws);
-
-        if let Some(idx) = Substring::new(" :")
-            .find(input.s)
-            .or_else(|| Substring::new("\t:").find(input.s))
-        {
-            let idx = input.s[0..idx]
-                .rfind(|c| c != ' ' && c != '\t')
-                .map(|i| i + 1)
-                .unwrap_or(idx);
-            let (input, argument) = input.take_split(idx);
-            b.text(argument);
-            debug_assert!(
-                input.s.len() < i.s.len(),
-                "{} < {}",
-                input.s.len(),
-                i.s.len()
-            );
-            i = input;
-        } else {
-            b.text(input);
-            break;
-        }
-    }
-
-    Ok((i, b.children))
 }
 
 #[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
@@ -255,19 +276,11 @@ alert('Hello World!');
         TEXT@0..8 "#+BEGIN_"
         TEXT@8..11 "SRC"
         WHITESPACE@11..12 " "
-        TEXT@12..22 "javascript"
+        SRC_BLOCK_LANGUAGE@12..22 "javascript"
         WHITESPACE@22..24 "  "
-        TEXT@24..26 "-n"
-        WHITESPACE@26..27 " "
-        TEXT@27..29 "20"
-        WHITESPACE@29..30 " "
-        TEXT@30..32 "-r"
+        SRC_BLOCK_SWITCHES@24..32 "-n 20 -r"
         WHITESPACE@32..34 "  "
-        TEXT@34..38 ":var"
-        WHITESPACE@38..39 " "
-        TEXT@39..47 "n=0, l=2"
-        WHITESPACE@47..49 "  "
-        TEXT@49..57 ":foo=bar"
+        SRC_BLOCK_PARAMETERS@34..57 ":var n=0, l=2  :foo=bar"
         NEW_LINE@57..58 "\n"
       BLOCK_CONTENT@58..81
         TEXT@58..81 "alert('Hello World!');\n"

@@ -76,7 +76,7 @@ macro_rules! lossless_parser {
     ($parser:expr, $input:expr) => {{
         let i_ = $input;
         let (i, o) = $parser($input)?;
-        tracing::info!(consumed = o.to_string());
+        tracing::trace!(consumed = o.to_string());
         debug_assert_eq!(
             &i_.as_str()[0..(i_.s.len() - i.s.len())],
             &o.to_string(),
@@ -292,7 +292,9 @@ impl NodeBuilder {
     }
 
     pub fn text(&mut self, i: Input) {
-        self.children.push(i.text_token())
+        if !i.is_empty() {
+            self.children.push(i.text_token())
+        }
     }
 
     pub fn token(&mut self, kind: SyntaxKind, i: Input) {

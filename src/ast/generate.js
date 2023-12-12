@@ -27,6 +27,7 @@ const nodes = [
     first_child: [
       ["section", "Section"],
       ["planning", "Planning"],
+      ["properties", "PropertyDrawer"],
     ],
     children: [["headlines", "Headline"]],
     post_blank: true,

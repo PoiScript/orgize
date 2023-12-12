@@ -160,6 +160,9 @@ impl Headline {
     pub fn planning(&self) -> Option<Planning> {
         support::child(&self.syntax)
     }
+    pub fn properties(&self) -> Option<PropertyDrawer> {
+        support::child(&self.syntax)
+    }
     pub fn headlines(&self) -> AstChildren<Headline> {
         support::children(&self.syntax)
     }

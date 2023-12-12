@@ -110,7 +110,6 @@ fn parse() {
       COLON@3..4 ":"
       TEXT@4..8 "WORD"
       R_BRACKET@8..9 "]"
-      TEXT@9..9 ""
     "###
     );
 
