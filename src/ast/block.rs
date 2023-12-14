@@ -66,6 +66,26 @@ impl SourceBlock {
             .flat_map(|n| n.children_with_tokens())
             .find_map(filter_token(SyntaxKind::SRC_BLOCK_PARAMETERS))
     }
+
+    /// Return unescaped source code string
+    ///
+    /// ```rust
+    /// use orgize::{Org, ast::SourceBlock};
+    ///
+    /// let block = Org::parse("#+begin_src\n#+end_src").first_node::<SourceBlock>().unwrap();
+    /// assert_eq!(block.value(), "");
+    /// let block = Org::parse("#+begin_src\n,* foo \n,#+ bar\n#+end_src").first_node::<SourceBlock>().unwrap();
+    /// assert_eq!(block.value(), "* foo \n#+ bar\n");
+    /// ````
+    pub fn value(&self) -> String {
+        self.syntax
+            .children()
+            .find(|e| e.kind() == SyntaxKind::BLOCK_CONTENT)
+            .into_iter()
+            .flat_map(|n| n.children_with_tokens())
+            .filter_map(filter_token(SyntaxKind::TEXT))
+            .fold(String::new(), |acc, value| acc + &value)
+    }
 }
 
 impl ExportBlock {
