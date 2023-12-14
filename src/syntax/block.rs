@@ -14,10 +14,12 @@ use super::{
     },
     element::element_nodes,
     input::Input,
+    keyword::affiliated_keyword_nodes,
     SyntaxKind::*,
 };
 
 fn block_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
+    let (input, affiliated_keywords) = affiliated_keyword_nodes(input)?;
     let (input, (block_begin, name)) = block_begin_node(input)?;
     let (input, pre_blank) = blank_lines(input)?;
 
@@ -36,7 +38,9 @@ fn block_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
         if let Ok((input, block_end)) = block_end_node(input, name) {
             let (input, post_blank) = blank_lines(input)?;
 
-            let mut children = vec![block_begin];
+            let mut children = vec![];
+            children.extend(affiliated_keywords);
+            children.push(block_begin);
             children.extend(pre_blank);
             if kind.is_greater_element() {
                 children.push(node(BLOCK_CONTENT, element_nodes(contents)?));
