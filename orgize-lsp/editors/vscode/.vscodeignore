@@ -1,0 +1,6 @@
+**
+!dist/
+!syntaxes/
+!package.json
+!org.configuration.json
+!README.md

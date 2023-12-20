@@ -1,49 +1,21 @@
-[package]
-name = "orgize"
+[workspace]
+resolver = "2"
+members = [
+    ".",
+    "./orgize",
+    "./orgize-cli",
+    "./orgize-common",
+    "./orgize-lsp",
+    "./orgize-wasm",
+]
+
+[workspace.package]
 version = "0.10.0-alpha.6"
 authors = ["PoiScript <poiscript@gmail.com>"]
-description = "A Rust library for parsing org-mode files."
 repository = "https://github.com/PoiScript/orgize"
-readme = "README.md"
-edition = "2018"
+edition = "2021"
 license = "MIT"
-keywords = ["orgmode", "org-mode", "emacs", "parser"]
-exclude = ["/wasm", "/.github"]
-
-[package.metadata.docs.rs]
-all-features = true
-
-[features]
-default = []
-indexmap = ["dep:indexmap"]
-chrono = ["dep:chrono"]
-
-[workspace]
-members = [".", "./wasm"]
-
-[dependencies]
-bytecount = "0.6"
-chrono = { version = "0.4", optional = true }
-indexmap = { version = "2.1", optional = true }
-jetscii = "0.5"
-memchr = "2.5"
-nom = { version = "7.1", default-features = false, features = ["std"] }
-rowan = "0.15"
-tracing = "0.1"
-
-[dev-dependencies]
-criterion = "0.5"
-insta = "1.29"
-slugify = "0.1"
-tracing-subscriber = { version = "0.3", features = ["fmt"] }
 
 [profile.dev.package]
 insta.opt-level = 3
 similar.opt-level = 3
-
-[profile.bench]
-debug = true
-
-[[bench]]
-name = "parse"
-harness = false

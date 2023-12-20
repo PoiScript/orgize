@@ -1,0 +1,8 @@
+a: c s
+
+c:
+    pnpm run -C client-vscode package --no-dependencies
+    pnpm run -C client-vscode install --no-dependencies
+
+s:
+    cargo install --path ./server --offline

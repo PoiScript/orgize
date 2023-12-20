@@ -1,0 +1,39 @@
+[package]
+name = "orgize"
+version.workspace = true
+authors.workspace = true
+description = "A Rust library for parsing org-mode files."
+repository.workspace = true
+readme = "README.md"
+edition.workspace = true
+license.workspace = true
+keywords = ["orgmode", "org-mode", "emacs", "parser"]
+exclude = ["/wasm", "/.github"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+default = []
+indexmap = ["dep:indexmap"]
+chrono = ["dep:chrono"]
+
+[dependencies]
+bytecount = "0.6"
+chrono = { version = "0.4", optional = true }
+indexmap = { version = "2.1", optional = true }
+jetscii = "0.5"
+memchr = "2.5"
+nom = { version = "7.1", default-features = false, features = ["std"] }
+rowan = "0.15"
+tracing = "0.1"
+
+[dev-dependencies]
+criterion = "0.5"
+insta = "1.29"
+slugify = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+
+[[bench]]
+name = "parse"
+harness = false

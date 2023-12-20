@@ -2,6 +2,6 @@
 **/*.rs.bk
 Cargo.lock
 
-benches/*.org
+.vscode
 .gdb_history
 perf.data*
