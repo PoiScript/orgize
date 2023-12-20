@@ -1,5 +1,6 @@
 mod code_lens;
 mod commands;
+mod completion;
 mod document_link;
 mod document_link_resolve;
 mod document_symbol;
@@ -83,6 +84,11 @@ impl LanguageServer for Backend {
                 }),
                 document_formatting_provider: Some(OneOf::Left(true)),
                 document_symbol_provider: Some(OneOf::Left(true)),
+                completion_provider: Some(CompletionOptions {
+                    resolve_provider: Some(false),
+                    trigger_characters: Some(completion::trigger_characters()),
+                    ..Default::default()
+                }),
                 ..ServerCapabilities::default()
             },
         })
@@ -133,8 +139,12 @@ impl LanguageServer for Backend {
 
     async fn did_change_watched_files(&self, _: DidChangeWatchedFilesParams) {}
 
-    async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
-        Ok(None)
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        Ok(completion::completion(params, &self))
+    }
+
+    async fn completion_resolve(&self, params: CompletionItem) -> Result<CompletionItem> {
+        Ok(params)
     }
 
     async fn semantic_tokens_full(
@@ -265,7 +275,6 @@ impl LanguageServer for Backend {
 
         let mut t = DocumentSymbolTraverser::new(&doc);
         doc.traverse(&mut t);
-        dbg!(&t.symbols);
         Ok(Some(DocumentSymbolResponse::Nested(t.symbols)))
     }
 }
