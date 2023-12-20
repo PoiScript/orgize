@@ -1,6 +1,6 @@
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
-    Position, Range, TextEdit,
+    InsertTextFormat, Position, Range, TextEdit,
 };
 
 use crate::Backend;
@@ -23,20 +23,23 @@ pub fn completion(params: CompletionParams, backend: &Backend) -> Option<Complet
     let (label, new_text) = match filter_text {
         "<a" => (
             "ASCI export block",
-            "#+BEGIN_EXPORT ascii\n\n#+END_EXPORT\n",
+            "#+BEGIN_EXPORT ascii\n${0}\n#+END_EXPORT\n",
         ),
-        "<c" => ("Center block", "#+BEGIN_CENTER\n\n#+END_CENTER\n"),
-        "<C" => ("Comment block", "#+BEGIN_COMMENT\n\n#+END_COMMENT\n"),
-        "<e" => ("Example block", "#+BEGIN_EXAMPLE\n\n#+END_EXAMPLE\n"),
-        "<E" => ("Export block", "#+BEGIN_EXPORT\n\n#+END_EXPORT\n"),
-        "<h" => ("HTML export block", "#+BEGIN_EXPORT html\n\n#+END_EXPORT\n"),
+        "<c" => ("Center block", "#+BEGIN_CENTER\n${0}\n#+END_CENTER\n"),
+        "<C" => ("Comment block", "#+BEGIN_COMMENT\n${0}\n#+END_COMMENT\n"),
+        "<e" => ("Example block", "#+BEGIN_EXAMPLE\n${0}\n#+END_EXAMPLE\n"),
+        "<E" => ("Export block", "#+BEGIN_EXPORT\n${0}\n#+END_EXPORT\n"),
+        "<h" => (
+            "HTML export block",
+            "#+BEGIN_EXPORT html\n${0}\n#+END_EXPORT\n",
+        ),
         "<l" => (
             "LaTeX export block",
-            "#+BEGIN_EXPORT latex\n\n#+END_EXPORT\n",
+            "#+BEGIN_EXPORT latex\n${0}\n#+END_EXPORT\n",
         ),
-        "<q" => ("Quote block", "#+BEGIN_QUOTE\n\n#+END_QUOTE\n"),
-        "<s" => ("Source block", "#+BEGIN_SRC\n\n#+END_SRC\n"),
-        "<v" => ("Verse block", "#+BEGIN_VERSE\n\n#+END_VERSE\n"),
+        "<q" => ("Quote block", "#+BEGIN_QUOTE\n${0}\n#+END_QUOTE\n"),
+        "<s" => ("Source block", "#+BEGIN_SRC ${1}\n${0}\n#+END_SRC\n"),
+        "<v" => ("Verse block", "#+BEGIN_VERSE\n${0}\n#+END_VERSE\n"),
         _ => return None,
     };
 
@@ -44,8 +47,9 @@ pub fn completion(params: CompletionParams, backend: &Backend) -> Option<Complet
 
     Some(CompletionResponse::Array(vec![CompletionItem {
         label: label.into(),
-        kind: Some(CompletionItemKind::TEXT),
+        kind: Some(CompletionItemKind::SNIPPET),
         insert_text: Some(new_text.into()),
+        insert_text_format: Some(InsertTextFormat::SNIPPET),
         filter_text: Some(filter_text.into()),
         text_edit: Some(CompletionTextEdit::Edit(TextEdit {
             new_text: new_text.into(),
