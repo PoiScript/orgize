@@ -8,7 +8,7 @@ import {
 } from "vscode-languageclient/node";
 
 import SyntaxTreeProvider from "./syntax-tree";
-import PreviewHtmlProvider from "./preview-html";
+import { register } from "./preview-html";
 
 export let client: LanguageClient;
 
@@ -42,7 +42,7 @@ export function activate(context: ExtensionContext) {
   client.start();
 
   context.subscriptions.push(SyntaxTreeProvider.register());
-  context.subscriptions.push(PreviewHtmlProvider.register());
+  register(context);
 }
 
 export function deactivate(): Thenable<void> | undefined {

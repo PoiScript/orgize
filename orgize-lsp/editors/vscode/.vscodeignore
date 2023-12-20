@@ -1,6 +1,7 @@
 **
 !dist/
 !syntaxes/
+!media/
 !package.json
 !org.configuration.json
 !README.md

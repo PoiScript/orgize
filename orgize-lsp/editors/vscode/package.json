@@ -18,7 +18,8 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^9.0.1",
+    "vscode-uri": "^3.0.8"
   },
   "devDependencies": {
     "@types/node": "~16.11.68",
@@ -36,7 +37,11 @@
     "commands": [
       {
         "command": "orgize.syntax-tree",
-        "title": "(Debug) Show org syntax tree"
+        "title": "Orgize (debug): Show org syntax tree"
+      },
+      {
+        "command": "orgize.preview-html",
+        "title": "Orgize: Preview in HTML"
       }
     ],
     "languages": [

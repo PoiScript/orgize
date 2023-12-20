@@ -1,81 +1,24 @@
 import {
   Disposable,
   ExtensionContext,
-  TextDocumentContentProvider,
   Uri,
   ViewColumn,
-  Webview,
-  WebviewOptions,
   WebviewPanel,
   commands,
   window,
   workspace,
 } from "vscode";
+import { Utils } from "vscode-uri";
 
 import { client } from "./main";
 
 export const register = (context: ExtensionContext) => {
-  const provider = new PreviewHtmlProvider();
-
   context.subscriptions.push(
-    workspace.registerTextDocumentContentProvider(
-      "orgize-lsp-preview",
-      provider
-    )
+    commands.registerTextEditorCommand("orgize.preview-html", (editor) => {
+      PreviewHtmlPanel.createOrShow(context.extensionUri, editor.document.uri);
+    })
   );
 };
-
-export default class PreviewHtmlProvider
-  implements TextDocumentContentProvider
-{
-  static readonly scheme = "orgize-preview-html";
-
-  static register(): Disposable {
-    const provider = new PreviewHtmlProvider();
-
-    // register content provider for scheme `references`
-    // register document link provider for scheme `references`
-    const providerRegistrations = workspace.registerTextDocumentContentProvider(
-      PreviewHtmlProvider.scheme,
-      provider
-    );
-
-    // register command that crafts an uri with the `references` scheme,
-    // open the dynamic document, and shows it in the next editor
-    const commandRegistration = commands.registerTextEditorCommand(
-      "orgize.preview-html",
-      (editor) => {
-        return workspace
-          .openTextDocument(encode(editor.document.uri))
-          .then((doc) => window.showTextDocument(doc, editor.viewColumn! + 1));
-      }
-    );
-
-    return Disposable.from(
-      provider,
-      commandRegistration,
-      providerRegistrations
-    );
-  }
-
-  dispose() {
-    // this._subscriptions.dispose();
-    // this._documents.clear();
-    // this._editorDecoration.dispose();
-    // this._onDidChange.dispose();
-  }
-
-  async provideTextDocumentContent(uri: Uri): Promise<string> {
-    if (!client) {
-      return "LSP server is not ready...";
-    }
-
-    return client.sendRequest("workspace/executeCommand", {
-      command: "orgize.syntax-tree",
-      arguments: [uri.toString()],
-    });
-  }
-}
 
 class PreviewHtmlPanel {
   /**
@@ -86,37 +29,49 @@ class PreviewHtmlPanel {
   public static readonly viewType = "orgizePreviewHtml";
 
   private readonly _panel: WebviewPanel;
+  private _orgUri: Uri;
   private readonly _extensionUri: Uri;
+
   private _disposables: Disposable[] = [];
 
-  public static createOrShow(uri: Uri) {
-    const column = window.activeTextEditor
-      ? window.activeTextEditor.viewColumn
-      : undefined;
+  public static createOrShow(extensionUri: Uri, orgUri: Uri) {
+    const column = window.activeTextEditor.viewColumn! + 1;
 
     // If we already have a panel, show it.
     if (PreviewHtmlPanel.currentPanel) {
       PreviewHtmlPanel.currentPanel._panel.reveal(column);
+      PreviewHtmlPanel.currentPanel._orgUri = orgUri;
+      PreviewHtmlPanel.currentPanel.refresh();
       return;
     }
 
     // Otherwise, create a new panel.
     const panel = window.createWebviewPanel(
       PreviewHtmlPanel.viewType,
-      "Preview of " + uri.fsPath,
+      "Preview of " + Utils.basename(orgUri),
       column || ViewColumn.One,
-      getWebviewOptions(uri)
+      {
+        // Enable javascript in the webview
+        enableScripts: true,
+
+        // And restrict the webview to only loading content from our extension's `media` directory.
+        localResourceRoots: [
+          Uri.joinPath(extensionUri, "media"),
+          ...workspace.workspaceFolders.map((folder) => folder.uri),
+        ],
+      }
     );
 
-    PreviewHtmlPanel.currentPanel = new PreviewHtmlPanel(panel, uri);
+    PreviewHtmlPanel.currentPanel = new PreviewHtmlPanel(
+      panel,
+      extensionUri,
+      orgUri
+    );
   }
 
-  public static revive(panel: WebviewPanel, extensionUri: Uri) {
-    PreviewHtmlPanel.currentPanel = new PreviewHtmlPanel(panel, extensionUri);
-  }
-
-  private constructor(panel: WebviewPanel, extensionUri: Uri) {
+  private constructor(panel: WebviewPanel, extensionUri: Uri, orgUri: Uri) {
     this._panel = panel;
+    this._orgUri = orgUri;
     this._extensionUri = extensionUri;
 
     // Set the webview's initial html content
@@ -132,16 +87,97 @@ class PreviewHtmlPanel {
       this._disposables
     );
 
+    workspace.onDidChangeTextDocument((event) => {
+      if (event.document.uri.fsPath === this._orgUri.fsPath) {
+        this.refresh();
+      }
+    }, this._disposables);
+
+    workspace.onDidOpenTextDocument((document) => {
+      if (document.uri.fsPath === this._orgUri.fsPath) {
+        this.refresh();
+      }
+    }, this._disposables);
+
     // Update the content based on view changes
     this._panel.onDidChangeViewState(
       (e) => {
         if (this._panel.visible) {
-          this._update();
+          this.refresh();
         }
       },
       null,
       this._disposables
     );
+  }
+
+  private readonly _delay = 300;
+  private _throttleTimer: any;
+  private _firstUpdate = true;
+
+  public refresh() {
+    // Schedule update if none is pending
+    if (!this._throttleTimer) {
+      if (this._firstUpdate) {
+        this._update();
+      } else {
+        this._throttleTimer = setTimeout(() => this._update(), this._delay);
+      }
+    }
+
+    this._firstUpdate = false;
+  }
+
+  private async _update() {
+    clearTimeout(this._throttleTimer);
+    this._throttleTimer = undefined;
+
+    if (!client) {
+      return;
+    }
+
+    try {
+      const content: string = await client.sendRequest(
+        "workspace/executeCommand",
+        {
+          command: "orgize.preview-html",
+          arguments: [this._orgUri.with({ scheme: "file" }).toString()],
+        }
+      );
+      this._panel.webview.html = this._makeHtml(content);
+    } catch {}
+  }
+
+  private _makeHtml(content: string): string {
+    const stylesPath = Uri.joinPath(
+      this._extensionUri,
+      "media",
+      "org-mode.css"
+    );
+
+    return `<!doctype html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+          />
+
+          <base
+            href="${this._panel.webview.asWebviewUri(this._orgUri)}"
+          />
+
+          <link
+            href="${this._panel.webview.asWebviewUri(stylesPath)}"
+            rel="stylesheet"
+          />
+        </head>
+        <body>
+          ${content}
+        </body>
+      </html>`;
   }
 
   public dispose() {
@@ -157,78 +193,4 @@ class PreviewHtmlPanel {
       }
     }
   }
-
-  private _update() {
-    const webview = this._panel.webview;
-    this._panel.webview.html = this._getHtmlForWebview(webview);
-  }
-
-  private _getHtmlForWebview(webview: Webview): string {
-    // // Local path to main script run in the webview
-    // const scriptPathOnDisk = Uri.joinPath(
-    //   this._extensionUri,
-    //   "media",
-    //   "main.js"
-    // );
-
-    // // And the uri we use to load this script in the webview
-    // const scriptUri = webview.asWebviewUri(scriptPathOnDisk);
-
-    // // Local path to css styles
-    // const styleResetPath = Uri.joinPath(
-    //   this._extensionUri,
-    //   "media",
-    //   "reset.css"
-    // );
-
-    // const stylesPathMainPath = Uri.joinPath(
-    //   this._extensionUri,
-    //   "media",
-    //   " css"
-    // );
-
-    // // Uri to load styles into webview
-    // const stylesResetUri = webview.asWebviewUri(styleResetPath);
-    // const stylesMainUri = webview.asWebviewUri(stylesPathMainPath);
-
-    // Use a nonce to only allow specific scripts to be run
-    // const nonce = getNonce();
-
-    return `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-				<title>Cat Coding</title>
-			</head>
-			<body>
-				<img width="300" />
-				<h1 id="lines-of-code-counter">0</h1>
-			</body>
-			</html>`;
-  }
 }
-
-const getWebviewOptions = (extensionUri: Uri): WebviewOptions => {
-  return {
-    // Enable javascript in the webview
-    enableScripts: true,
-
-    // And restrict the webview to only loading content from our extension's `media` directory.
-    localResourceRoots: [Uri.joinPath(extensionUri, "media")],
-  };
-};
-
-const encode = (uri: Uri): Uri => {
-  return uri.with({
-    scheme: PreviewHtmlProvider.scheme,
-    query: uri.path,
-    path: "tree.syntax",
-  });
-};
-
-const decode = (uri: Uri): Uri => {
-  return uri.with({ scheme: "file", path: uri.query, query: "" });
-};
