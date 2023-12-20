@@ -115,6 +115,15 @@ impl Traverser for HtmlExport {
             Event::Enter(Container::Code(_)) => self.output += "<code>",
             Event::Leave(Container::Code(_)) => self.output += "</code>",
 
+            Event::Enter(Container::SourceBlock(block)) => {
+                let _ = write!(
+                    &mut self.output,
+                    r#"<pre><code class="language-{}">"#,
+                    HtmlEscape(&block.language().unwrap_or_default())
+                );
+            }
+            Event::Leave(Container::SourceBlock(_)) => self.output += "</code></pre>",
+
             Event::Enter(Container::QuoteBlock(_)) => self.output += "<blockquote>",
             Event::Leave(Container::QuoteBlock(_)) => self.output += "</blockquote>",
 
@@ -248,6 +257,7 @@ impl Traverser for HtmlExport {
 
             Event::Enter(Container::Link(link)) => {
                 let path = link.path();
+                let path = path.trim_start_matches("file:");
 
                 if link.is_image() {
                     let _ = write!(&mut self.output, r#"<img src="{}">"#, HtmlEscape(&path));
