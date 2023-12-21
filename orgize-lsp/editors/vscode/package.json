@@ -1,10 +1,23 @@
 {
   "name": "orgize-lsp",
   "private": true,
-  "version": "0.0.0-dev",
+  "version": "0.10.0-alpha.0",
   "engines": {
     "vscode": "^1.75.0"
   },
+  "displayName": "Orgize LSP",
+  "description": "Language server for org-mode files, builtin with orgize.",
+  "icon": "./images/extension-icon.png",
+  "publisher": "PoiScript",
+  "preview": true,
+  "categories": [
+    "Programming Languages",
+    "Formatters"
+  ],
+  "keywords": [
+    "org",
+    "org-mode"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -55,7 +68,11 @@
         "extensions": [
           ".org"
         ],
-        "configuration": "./org.configuration.json"
+        "configuration": "./org.configuration.json",
+        "icon": {
+          "light": "./images/language-light-icon.png",
+          "dark": "./images/language-dark-icon.png"
+        }
       }
     ],
     "grammars": [

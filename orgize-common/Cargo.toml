@@ -5,7 +5,7 @@ authors.workspace = true
 repository.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Shared code between orgize-lsp and orgize-lsp."
+description = "Shared code for orgize-cli and orgize-lsp"
 
 [dependencies]
 anyhow = "1.0.75"

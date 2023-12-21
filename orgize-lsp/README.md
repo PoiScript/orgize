@@ -1,6 +1,8 @@
 # `orgize-lsp`
 
-Language server for org-mode, powered by orgize.
+Language server for org-mode, builtin with [`orgize`].
+
+[`orgize`]: https://crates.io/crates/orgize
 
 ## Install
 
@@ -45,6 +47,10 @@ $ code --install-extension ./editors/vscode/orgize-lsp.vsix --force
 
    - Evaluate source block
 
-6. Commands
+6. Completion
+
+   - Various blocks: `<a`, `<c`, `<C`, `<e`, `<E`, `<h`, `<l`, `<q`, `<s`, `<v`, `<I`
+
+7. Commands
 
    - Show syntax tree

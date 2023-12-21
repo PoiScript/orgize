@@ -5,7 +5,8 @@ authors.workspace = true
 repository.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Language server for Org-mode, powered by orgize."
+description = "Language server for org-mode files, builtin with orgize."
+exclude = ["editors"]
 
 [dependencies]
 orgize = { path = "../orgize" }

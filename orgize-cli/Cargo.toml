@@ -5,7 +5,7 @@ authors.workspace = true
 repository.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "CLI tools for org-mode file, powered by orgize."
+description = "Common line utility for org-mode files, builtin with orgize."
 
 [dependencies]
 anyhow = "1.0.75"

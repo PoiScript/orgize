@@ -1,6 +1,6 @@
 {
   "name": "orgize",
-  "version": "0.0.3",
+  "version": "0.10.0-alpha.0",
   "license": "MIT",
   "author": "PoiScript <poiscript@gmail.com>",
   "scripts": {
@@ -10,8 +10,8 @@
     "type": "git",
     "url": "https://github.com/PoiScript/orgize"
   },
-  "module": "orgize.js",
-  "typings": "orgize.d.ts",
+  "module": "./dist/orgize.js",
+  "typings": "./dist/orgize.d.ts",
   "exports": {
     ".": {
       "types": "./dist/orgize.d.ts",

@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    ".",
     "./orgize",
     "./orgize-cli",
     "./orgize-common",

@@ -140,7 +140,7 @@ impl LanguageServer for Backend {
     async fn did_change_watched_files(&self, _: DidChangeWatchedFilesParams) {}
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        Ok(completion::completion(params, &self))
+        Ok(completion::completion(params, self))
     }
 
     async fn completion_resolve(&self, params: CompletionItem) -> Result<CompletionItem> {
