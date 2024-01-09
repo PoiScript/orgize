@@ -75,6 +75,29 @@
         }
       }
     ],
+    "semanticTokenScopes": [
+      {
+        "language": "org",
+        "scopes": {
+          "headlineTodoKeyword": [
+            "invalid.illegal.org"
+          ],
+          "headlineDoneKeyword": [
+            "keyword.control.org"
+          ],
+          "headlineTags": [
+            "markup.italic.org",
+            "keyword.control.org"
+          ],
+          "headlinePriority": [
+            "keyword.control.org"
+          ],
+          "timestamp": [
+            "variable.org"
+          ]
+        }
+      }
+    ],
     "grammars": [
       {
         "language": "org",

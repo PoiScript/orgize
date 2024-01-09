@@ -1864,9 +1864,6 @@
     "common": {
       "patterns": [
         {
-          "include": "#timestamp"
-        },
-        {
           "include": "#link"
         },
         {
@@ -1899,23 +1896,6 @@
       "patterns": [
         {
           "include": "#common"
-        },
-        {
-          "include": "#todo"
-        },
-        {
-          "include": "#done"
-        },
-        {
-          "include": "#userKeywords"
-        }
-      ]
-    },
-    "timestamp": {
-      "patterns": [
-        {
-          "name": "variable.org",
-          "match": "\\[\\d{4}-\\d{1,2}-\\d{1,2}(?: \\w{3})?\\]"
         }
       ]
     },
@@ -1950,30 +1930,6 @@
               "name": "punctuation.definition.string.end.org"
             }
           }
-        }
-      ]
-    },
-    "todo": {
-      "patterns": [
-        {
-          "name": "invalid.illegal.org",
-          "match": "\\bTODO\\b"
-        }
-      ]
-    },
-    "done": {
-      "patterns": [
-        {
-          "name": "keyword.control.org",
-          "match": "\\bDONE\\b"
-        }
-      ]
-    },
-    "userKeywords": {
-      "patterns": [
-        {
-          "name": "string.quoted.double.org",
-          "match": "\\b([A-Z]{3,})\\b"
         }
       ]
     },
