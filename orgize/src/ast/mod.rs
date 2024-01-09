@@ -77,6 +77,12 @@ pub fn filter_token(
 pub struct Token(pub(crate) Option<SyntaxToken>);
 
 impl Token {
+    pub fn syntax(&self) -> Option<&SyntaxToken> {
+        self.0.as_ref()
+    }
+}
+
+impl Token {
     pub fn start(&self) -> u32 {
         match &self.0 {
             Some(t) => t.text_range().start().into(),
