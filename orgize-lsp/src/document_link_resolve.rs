@@ -16,7 +16,7 @@ pub fn document_link_resolve(
     let data = data.as_array()?;
 
     match (
-        data.get(0)?.as_str()?,
+        data.first()?.as_str()?,
         data.get(1)?.as_str()?,
         data.get(2)?.as_str()?,
     ) {

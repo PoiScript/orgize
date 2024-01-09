@@ -64,7 +64,7 @@ impl OrgizeCommand {
 pub async fn execute(params: &ExecuteCommandParams, backend: &Backend) -> Option<Value> {
     let result = match (
         params.command.as_str(),
-        params.arguments.get(0).and_then(|x| x.as_str()),
+        params.arguments.first().and_then(|x| x.as_str()),
         params.arguments.get(1).and_then(|x| x.as_u64()),
     ) {
         ("orgize.src-block.execute", Some(s), Some(n)) => backend

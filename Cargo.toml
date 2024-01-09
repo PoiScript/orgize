@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.10.0-alpha.6"
+version = "0.10.0-alpha.7"
 authors = ["PoiScript <poiscript@gmail.com>"]
 repository = "https://github.com/PoiScript/orgize"
 edition = "2021"
