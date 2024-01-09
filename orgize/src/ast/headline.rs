@@ -76,12 +76,17 @@ impl Headline {
             })
     }
 
+    /// Returns parsed title
+    ///
     /// ```rust
-    /// use orgize::{Org, ast::Headline};
+    /// use orgize::{Org, ast::Headline, SyntaxKind};
     ///
     /// let hdl = Org::parse("*** abc *abc* /abc/ :tag:").first_node::<Headline>().unwrap();
-    /// let title = hdl.title().map(|n| n.to_string()).collect::<String>();
-    /// assert_eq!(title, "abc *abc* /abc/ ");
+    /// let title = hdl.title().collect::<Vec<_>>();
+    /// assert_eq!(title[1].kind(), SyntaxKind::BOLD);
+    /// assert_eq!(title[1].to_string(), "*abc*");
+    /// assert_eq!(title[3].kind(), SyntaxKind::ITALIC);
+    /// assert_eq!(title[3].to_string(), "/abc/");
     /// ```
     pub fn title(&self) -> impl Iterator<Item = SyntaxElement> {
         self.syntax
@@ -89,6 +94,23 @@ impl Headline {
             .find(|n| n.kind() == SyntaxKind::HEADLINE_TITLE)
             .into_iter()
             .flat_map(|n| n.children_with_tokens())
+    }
+
+    /// Returns title raw string
+    ///
+    /// ```rust
+    /// use orgize::{Org, ast::Headline};
+    ///
+    /// let hdl = Org::parse("*** abc *abc* /abc/ :tag:").first_node::<Headline>().unwrap();
+    /// let title = hdl.title_raw();
+    /// assert_eq!(title, "abc *abc* /abc/ ");
+    /// ```
+    pub fn title_raw(&self) -> String {
+        self.syntax
+            .children()
+            .find(|n| n.kind() == SyntaxKind::HEADLINE_TITLE)
+            .map(|n| n.to_string())
+            .unwrap_or_default()
     }
 
     /// Return `true` if this headline contains a COMMENT keyword
