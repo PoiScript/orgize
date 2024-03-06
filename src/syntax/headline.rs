@@ -135,7 +135,7 @@ fn headline_stars(input: Input) -> IResult<Input, Input, ()> {
     let level = bytes.iter().take_while(|&&c| c == b'*').count();
 
     if level == 0 {
-        return Err(nom::Err::Error(()));
+        Err(nom::Err::Error(()))
     }
     // headline stars must be followed by space
     else if matches!(bytes.get(level), Some(b' ')) {
