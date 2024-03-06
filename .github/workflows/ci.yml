@@ -45,12 +45,12 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build
-        run: wasm-pack build -t web -d ./dist --out-name orgize ./orgize-wasm/
+        run: wasm-pack build -t web -d ./dist --out-name orgize ./wasm/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          path: "./orgize-wasm"
+          path: "./wasm"
 
       - name: Deploy to GitHub Pages
         id: deployment
