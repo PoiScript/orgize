@@ -1,12 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "./orgize",
-    "./orgize-cli",
-    "./orgize-common",
-    "./orgize-lsp",
-    "./orgize-wasm",
-]
+members = ["./orgize", "./orgize-wasm"]
 
 [workspace.package]
 version = "0.10.0-alpha.7"
