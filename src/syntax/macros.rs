@@ -13,7 +13,10 @@ use super::{
     SyntaxKind::*,
 };
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn macros_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(
         tuple((

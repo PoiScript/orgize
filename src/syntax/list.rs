@@ -21,7 +21,10 @@ use super::{
     SyntaxKind::*,
 };
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn list_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(list_node_base, input)
 }
@@ -69,7 +72,10 @@ fn list_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     Ok((input, node(LIST, children)))
 }
 
-#[tracing::instrument(level = "debug", skip(input, indent), fields(input = input.s))]
+#[cfg_attr(
+  feature = "tracing",
+  tracing::instrument(level = "debug", skip(input, indent), fields(input = input.s))
+)]
 fn list_item_node<'a>(
     indent: Input<'a>,
     input: Input<'a>,
@@ -140,7 +146,10 @@ fn list_item_node<'a>(
     ))
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 fn list_item_counter(input: Input) -> IResult<Input, (GreenElement, Input), ()> {
     let (input, node) = map(
         tuple((l_bracket_token, at_token, alphanumeric1, r_bracket_token)),
@@ -157,7 +166,10 @@ fn list_item_counter(input: Input) -> IResult<Input, (GreenElement, Input), ()> 
     Ok((input, (node, ws)))
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 fn list_item_checkbox(input: Input) -> IResult<Input, (GreenElement, Input), ()> {
     let (input, node) = map(
         tuple((
@@ -180,7 +192,10 @@ fn list_item_checkbox(input: Input) -> IResult<Input, (GreenElement, Input), ()>
     Ok((input, (node, ws)))
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 fn list_item_tag(input: Input) -> IResult<Input, (GreenElement, Input), ()> {
     let bytes = input.as_bytes();
 
@@ -197,7 +212,10 @@ fn list_item_tag(input: Input) -> IResult<Input, (GreenElement, Input), ()> {
     Ok((input, (node(LIST_ITEM_TAG, children), ws)))
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 fn list_item_content_node(input: Input, indent: usize) -> IResult<Input, (bool, GreenElement), ()> {
     if memchr(b'\n', input.as_bytes()).is_none() {
         return Ok((

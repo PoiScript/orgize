@@ -124,12 +124,18 @@ fn table_el_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     Ok((input, node(TABLE_EL, children)))
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn org_table_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(org_table_node_base, input)
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn table_el_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(table_el_node_base, input)
 }

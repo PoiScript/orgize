@@ -9,7 +9,10 @@ use super::{
     SyntaxKind::*,
 };
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn bold_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'*'), |contents| {
         let mut children = vec![token(STAR, "*")];
@@ -20,7 +23,10 @@ pub fn bold_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(parser, input)
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn code_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'~'), |contents| {
         node(
@@ -31,7 +37,10 @@ pub fn code_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(parser, input)
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn strike_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'+'), |contents| {
         let mut children = vec![token(PLUS, "+")];
@@ -42,7 +51,10 @@ pub fn strike_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(parser, input)
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn verbatim_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'='), |contents| {
         node(
@@ -53,7 +65,10 @@ pub fn verbatim_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(parser, input)
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn underline_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'_'), |contents| {
         let mut children = vec![token(UNDERSCORE, "_")];
@@ -64,7 +79,10 @@ pub fn underline_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(parser, input)
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn italic_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(emphasis(b'/'), |contents| {
         let mut children = vec![token(SLASH, "/")];

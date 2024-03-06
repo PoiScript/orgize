@@ -20,7 +20,10 @@ use super::{
     SyntaxKind::*,
 };
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn headline_node(input: Input) -> IResult<Input, GreenElement, ()> {
     debug_assert!(!input.is_empty());
     crate::lossless_parser!(headline_node_base, input)
@@ -99,7 +102,10 @@ fn headline_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     Ok((i, b.finish(HEADLINE)))
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn section_node(input: Input) -> IResult<Input, GreenElement, ()> {
     debug_assert!(!input.is_empty());
     let (input, section) = section_text(input)?;
@@ -120,7 +126,10 @@ fn section_text(input: Input) -> IResult<Input, Input, ()> {
     Ok(input.take_split(input.len()))
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 fn headline_stars(input: Input) -> IResult<Input, Input, ()> {
     let bytes = input.as_bytes();
     let level = bytes.iter().take_while(|&&c| c == b'*').count();
@@ -136,7 +145,10 @@ fn headline_stars(input: Input) -> IResult<Input, Input, ()> {
     }
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 fn headline_tags_node(input: Input) -> IResult<Input, GreenElement, ()> {
     if !input.s.ends_with(':') {
         return Err(nom::Err::Error(()));

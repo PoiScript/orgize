@@ -17,7 +17,10 @@ use super::{
     SyntaxKind::*,
 };
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn timestamp_diary_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(
         tuple((
@@ -222,7 +225,10 @@ fn timestamp_node_base(
     }
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn timestamp_active_node(input: Input) -> IResult<Input, GreenElement, ()> {
     fn parser(input: Input) -> IResult<Input, GreenElement, ()> {
         let (input, children) = timestamp_node_base(input, l_angle_token, r_angle_token)?;
@@ -231,7 +237,10 @@ pub fn timestamp_active_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(parser, input)
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn timestamp_inactive_node(input: Input) -> IResult<Input, GreenElement, ()> {
     fn parser(input: Input) -> IResult<Input, GreenElement, ()> {
         let (input, children) = timestamp_node_base(input, l_bracket_token, r_bracket_token)?;

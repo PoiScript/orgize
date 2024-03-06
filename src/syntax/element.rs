@@ -24,7 +24,10 @@ use super::{
 /// Recognizes multiple org-mode elements
 ///
 /// input must not contains blank line in the beginning
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn element_nodes(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> {
     debug_assert!(!input.is_empty());
     // TODO:
@@ -63,7 +66,10 @@ pub fn element_nodes(input: Input) -> Result<Vec<GreenElement>, nom::Err<()>> {
 }
 
 /// Recognizes an org-mode element expect paragraph
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn element_node(input: Input) -> IResult<Input, GreenElement, ()> {
     // skip affiliated keyword first
     let (i, nodes) = affiliated_keyword_nodes(input)?;

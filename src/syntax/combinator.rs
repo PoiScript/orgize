@@ -76,7 +76,11 @@ macro_rules! lossless_parser {
     ($parser:expr, $input:expr) => {{
         let i_ = $input;
         let (i, o) = $parser($input)?;
-        tracing::trace!(consumed = o.to_string());
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "tracing")] {
+                tracing::trace!(consumed = o.to_string());
+            }
+        }
         debug_assert_eq!(
             &i_.as_str()[0..(i_.len() - i.len())],
             &o.to_string(),

@@ -15,7 +15,10 @@ use super::{
     SyntaxKind,
 };
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn keyword_node(input: Input) -> IResult<Input, GreenElement, ()> {
     fn f(input: Input) -> IResult<Input, GreenElement, ()> {
         let (input, (key, mut nodes)) = keyword_node_base(input)?;
@@ -38,7 +41,10 @@ pub fn keyword_node(input: Input) -> IResult<Input, GreenElement, ()> {
 
 /// Return empty vector if input doesn't contain affiliated keyword, or affiliated keyword is
 /// followed by blank lines.
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn affiliated_keyword_nodes(input: Input) -> IResult<Input, Vec<GreenElement>, ()> {
     let mut children = vec![];
     let mut i = input;

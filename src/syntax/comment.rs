@@ -50,7 +50,10 @@ fn comment_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     Ok((input, b.finish(SyntaxKind::COMMENT)))
 }
 
-#[tracing::instrument(level = "debug", skip(input), fields(input = input.s))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(input), fields(input = input.s))
+)]
 pub fn comment_node(input: Input) -> IResult<Input, GreenElement, ()> {
     crate::lossless_parser!(comment_node_base, input)
 }
