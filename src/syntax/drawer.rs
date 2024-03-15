@@ -11,6 +11,7 @@ use super::{
         blank_lines, colon_token, eol_or_eof, line_starts_iter, node, plus_token, trim_line_end,
         GreenElement, NodeBuilder,
     },
+    element::element_nodes,
     input::Input,
     SyntaxKind::*,
 };
@@ -68,7 +69,11 @@ fn drawer_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
             let (input, post_blank) = blank_lines(input)?;
             let mut children = vec![begin];
             children.extend(pre_blank);
-            children.push(contents.text_token());
+            if !contents.is_empty() {
+                children.push(node(DRAWER_CONTENT, element_nodes(contents)?));
+            } else {
+                children.push(node(DRAWER_CONTENT, []));
+            }
             children.push(end);
             children.extend(post_blank);
 
@@ -161,7 +166,13 @@ fn parse() {
         TEXT@1..7 "DRAWER"
         COLON@7..8 ":"
         NEW_LINE@8..9 "\n"
-      TEXT@9..26 "  :CUSTOM_ID: id\n"
+      DRAWER_CONTENT@9..26
+        PARAGRAPH@9..26
+          TEXT@9..18 "  :CUSTOM"
+          SUBSCRIPT@18..21
+            UNDERSCORE@18..19 "_"
+            TEXT@19..21 "ID"
+          TEXT@21..26 ": id\n"
       DRAWER_END@26..33
         WHITESPACE@26..28 "  "
         COLON@28..29 ":"
@@ -186,7 +197,7 @@ fn parse() {
         COLON@7..8 ":"
         NEW_LINE@8..9 "\n"
       BLANK_LINE@9..10 "\n"
-      TEXT@10..10 ""
+      DRAWER_CONTENT@10..10
       DRAWER_END@10..18
         WHITESPACE@10..12 "  "
         COLON@12..13 ":"

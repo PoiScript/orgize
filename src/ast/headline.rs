@@ -1,8 +1,8 @@
-use rowan::NodeOrToken;
+use rowan::{ast::AstNode, NodeOrToken};
 
 use crate::{syntax::SyntaxKind, SyntaxElement};
 
-use super::{filter_token, Headline, Timestamp, Token};
+use super::{filter_token, Clock, Drawer, Headline, Section, Timestamp, Token};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TodoType {
@@ -215,6 +215,39 @@ impl Headline {
                 n.children_with_tokens()
                     .find_map(filter_token(SyntaxKind::TEXT))
             })
+    }
+
+    /// Returns an iterator of clock element affiliated with this headline
+    ///
+    /// ```rust
+    /// use orgize::{Org, ast::Headline};
+    ///
+    /// let org = Org::parse(r#"* TODO
+    /// foo
+    /// :LOGBOOK:
+    /// bar
+    /// CLOCK:
+    /// CLOCK: [2024-10-12]
+    /// baz
+    /// CLOCK: [2024-10-12]
+    /// [2024-10-12]
+    /// :END:
+    /// foo"#);
+    /// let hdl = org.first_node::<Headline>().unwrap();
+    /// assert_eq!(hdl.clocks().count(), 2);
+    /// ```
+    pub fn clocks(&self) -> impl Iterator<Item = Clock> {
+        self.syntax
+            .children()
+            .flat_map(Section::cast)
+            .flat_map(|x| x.syntax.children().filter_map(Drawer::cast))
+            .filter(|d| d.name().eq_ignore_ascii_case("LOGBOOK"))
+            .filter_map(|d| {
+                d.syntax
+                    .children()
+                    .find(|children| children.kind() == SyntaxKind::DRAWER_CONTENT)
+            })
+            .flat_map(|x| x.children().filter_map(Clock::cast))
     }
 }
 

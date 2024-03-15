@@ -152,6 +152,7 @@ pub enum SyntaxKind {
     DRAWER,
     DRAWER_BEGIN,
     DRAWER_END,
+    DRAWER_CONTENT,
     KEYWORD,
     BABEL_CALL,
     AFFILIATED_KEYWORD,

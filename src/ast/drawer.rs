@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{filter_token, SyntaxKind, Token};
+use super::{filter_token, Drawer, SyntaxKind, Token};
 use crate::ast::PropertyDrawer;
 
 impl PropertyDrawer {
@@ -60,5 +60,26 @@ impl PropertyDrawer {
     /// ```
     pub fn to_index_map(&self) -> indexmap::IndexMap<Token, Token> {
         self.iter().collect()
+    }
+}
+
+impl Drawer {
+    /// ```rust
+    /// use orgize::{Org, ast::Drawer};
+    ///
+    /// let org = Org::parse("* Heading\n:LOGBOOK:\n:END:");
+    /// let drawer = org.first_node::<Drawer>().unwrap();
+    /// assert_eq!(drawer.name(), "LOGBOOK");
+    /// ```
+    pub fn name(&self) -> Token {
+        self.syntax
+            .first_child()
+            .and_then(|n| {
+                n.children_with_tokens()
+                    .filter_map(|e| e.into_token())
+                    .find(|e| e.kind() == SyntaxKind::TEXT)
+            })
+            .map(|t| Token(Some(t)))
+            .unwrap_or_default()
     }
 }
