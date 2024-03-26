@@ -223,3 +223,64 @@ pub trait Traverser {
         };
     }
 }
+
+pub struct FromFn<F: FnMut(Event)>(F);
+
+impl<F: FnMut(Event)> Traverser for FromFn<F> {
+    fn event(&mut self, event: Event, _: &mut TraversalContext) {
+        (self.0)(event)
+    }
+}
+
+pub struct FromFnWithCtx<F: FnMut(Event, &mut TraversalContext)>(F);
+
+impl<F: FnMut(Event, &mut TraversalContext)> Traverser for FromFnWithCtx<F> {
+    fn event(&mut self, event: Event, ctx: &mut TraversalContext) {
+        (self.0)(event, ctx)
+    }
+}
+
+/// A helper for creating traverser
+///
+/// ```rust
+/// use orgize::{
+///     export::{from_fn, Container, Event, Traverser},
+///     Org,
+/// };
+///
+/// let mut count = 0;
+/// let mut handler = from_fn(|event| {
+///     if matches!(event, Event::Enter(Container::Headline(_))) {
+///         count += 1;
+///     }
+/// });
+/// Org::parse("* 1\n** 2\n*** 3\n****4").traverse(&mut handler);
+/// assert_eq!(count, 3);
+/// ```
+pub fn from_fn<F: FnMut(Event)>(f: F) -> FromFn<F> {
+    FromFn(f)
+}
+
+/// A helper for creating traverser
+///
+/// ```rust
+/// use orgize::{
+///     export::{from_fn_with_ctx, Container, Event, Traverser},
+///     Org,
+/// };
+///
+/// let mut count = 0;
+/// let mut handler = from_fn_with_ctx(|event, ctx| {
+///     if let Event::Enter(Container::Headline(hdl)) = event {
+///         count += 1;
+///         if &hdl.title_raw() == "cow" {
+///             ctx.stop();
+///         }
+///     }
+/// });
+/// Org::parse("* 1\n* cow\n* 3").traverse(&mut handler);
+/// assert_eq!(count, 2);
+/// ```
+pub fn from_fn_with_ctx<F: FnMut(Event, &mut TraversalContext)>(f: F) -> FromFnWithCtx<F> {
+    FromFnWithCtx(f)
+}

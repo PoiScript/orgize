@@ -6,4 +6,4 @@ mod traverse;
 
 pub use event::{Container, Event};
 pub use html::{HtmlEscape, HtmlExport};
-pub use traverse::{TraversalContext, Traverser};
+pub use traverse::{from_fn, from_fn_with_ctx, FromFn, FromFnWithCtx, TraversalContext, Traverser};
