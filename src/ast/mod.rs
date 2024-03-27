@@ -37,7 +37,7 @@ use crate::{
     syntax::{SyntaxKind, SyntaxNode},
     SyntaxToken,
 };
-use rowan::{ast::AstNode, NodeOrToken};
+use rowan::{ast::AstNode, NodeOrToken, TextSize};
 
 pub fn blank_lines(parent: &SyntaxNode) -> usize {
     parent
@@ -83,17 +83,17 @@ impl Token {
 }
 
 impl Token {
-    pub fn start(&self) -> u32 {
+    pub fn start(&self) -> TextSize {
         match &self.0 {
-            Some(t) => t.text_range().start().into(),
-            None => 0,
+            Some(t) => t.text_range().start(),
+            None => TextSize::new(0),
         }
     }
 
-    pub fn end(&self) -> u32 {
+    pub fn end(&self) -> TextSize {
         match &self.0 {
-            Some(t) => t.text_range().end().into(),
-            None => 0,
+            Some(t) => t.text_range().end(),
+            None => TextSize::new(0),
         }
     }
 }

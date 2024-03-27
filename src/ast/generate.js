@@ -279,7 +279,7 @@ let content = `//! generated file, do not modify it directly
 #![allow(clippy::all)]
 #![allow(unused)]
 
-use rowan::ast::{support, AstChildren, AstNode};
+use rowan::{ast::{support, AstChildren, AstNode}, TextSize};
 use crate::syntax::{OrgLanguage, SyntaxKind, SyntaxKind::*, SyntaxNode, SyntaxToken};
 
 fn affiliated_keyword(node: &SyntaxNode, filter: impl Fn(&str) -> bool) -> Option<AffiliatedKeyword> {
@@ -307,11 +307,13 @@ impl AstNode for ${node.struct} {
     fn syntax(&self) -> &SyntaxNode { &self.syntax }
 }
 impl ${node.struct} {
-    pub fn begin(&self) -> u32 {
-        self.syntax.text_range().start().into()
+    /// Equals to \`self.syntax().text_range().start()\`
+    pub fn start(&self) -> TextSize {
+        self.syntax.text_range().start()
     }
-    pub fn end(&self) -> u32 {
-        self.syntax.text_range().end().into()
+    /// Equals to \`self.syntax().text_range().end()\`
+    pub fn end(&self) -> TextSize {
+        self.syntax.text_range().end()
     }
 `;
   for (const [method, kind] of node.token || []) {
