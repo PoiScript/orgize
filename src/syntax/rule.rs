@@ -13,7 +13,7 @@ pub fn rule_node(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(
         tuple((
             space0,
-            take_while_m_n(5, usize::max_value(), |c| c == '-'),
+            take_while_m_n(5, usize::MAX, |c| c == '-'),
             space0,
             eol_or_eof,
             blank_lines,
