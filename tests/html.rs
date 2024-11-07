@@ -174,3 +174,18 @@ fn line_break() {
         @r###""<main><section><p>aa<br/>bb</p></section></main>""###
     );
 }
+
+#[test]
+fn footnote() {
+    insta::assert_debug_snapshot!(
+        Org::parse("[fn:1] In particular, the parser requires stars at column 0 to be\n").to_html(),
+        @r##""<main><section><aside class=\"footnote-definition\" ><a href=\"#footnote_1\" class=\"footnote-reference\" >[1]</a><span class=\"footnote-content\" id=\"footnote_1\" > In particular, the parser requires stars at column 0 to be</span></aside></section></main>""##
+    );
+    // "~org-inlinetask-min-level~[fn:oiml:The default value of \n~org-inlinetask-min-level~ is =15=.]"
+    insta::assert_debug_snapshot!(
+        Org::parse(
+            "~org-inlinetask-min-level~[fn:oiml:The default value of \n~org-inlinetask-min-level~ is =15=.]"
+        ).to_html(),
+        @r##""<main><section><p><code>org-inlinetask-min-level</code><a href=\"#footnote_oiml\" class=\"footnote-reference\">[oiml]</a><span class=\"footnote-content\" id=\"footnote_oiml\" >The default value of \n<code>org-inlinetask-min-level</code> is <code>15</code>.</span></p></section></main>""##
+    );
+}

@@ -199,6 +199,8 @@ pub enum SyntaxKind {
     COOKIE,
     RADIO_TARGET,
     FN_REF,
+    FN_LABEL,
+    FN_CONTENT,
     LATEX_FRAGMENT,
     MACROS,
     SNIPPET,

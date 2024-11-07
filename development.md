@@ -3,7 +3,7 @@
 ```shell
 cargo fmt -- --check
 cargo test --all-features
-cargo clippy --allow-dirty --allow-staged
+cargo clippy --fix --lib -p orgize --allow-dirty --allow-staged
 ```
 
 ## Update snapshot testing
@@ -18,8 +18,8 @@ cargo insta review
 
 ```shell
 cargo install cargo-fuzz
-rustup default nightly
-cargo fuzz run fuzz_target_1
+rustup toolchain install nightly
+cargo +nightly fuzz run fuzz_target_1
 ```
 
 ## Benchmark

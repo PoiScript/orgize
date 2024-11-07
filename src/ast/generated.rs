@@ -847,6 +847,70 @@ impl FnDef {
     pub fn raw(&self) -> String {
         self.syntax.to_string()
     }
+    pub fn label(&self) -> Option<super::Token> {
+        super::token(&self.syntax, FN_LABEL)
+    }
+    pub fn description(&self) -> Option<super::Token> {
+        super::token(&self.syntax, FN_CONTENT)
+    }
+    pub fn post_blank(&self) -> usize {
+        super::blank_lines(&self.syntax)
+    }
+    pub fn caption(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "CAPTION")
+    }
+    pub fn header(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "HEADER")
+    }
+    pub fn name(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "NAME")
+    }
+    pub fn plot(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "PLOT")
+    }
+    pub fn results(&self) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| k == "RESULTS")
+    }
+    pub fn attr(&self, backend: &str) -> Option<AffiliatedKeyword> {
+        affiliated_keyword(&self.syntax, |k| {
+            k.starts_with("ATTR_") && &k[5..] == backend
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FnContent {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AstNode for FnContent {
+    type Language = OrgLanguage;
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == FN_CONTENT
+    }
+    fn cast(node: SyntaxNode) -> Option<FnContent> {
+        Self::can_cast(node.kind()).then(|| FnContent { syntax: node })
+    }
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl FnContent {
+    /// Beginning position of this element
+    pub fn start(&self) -> TextSize {
+        self.syntax.text_range().start()
+    }
+    /// Ending position of this element
+    pub fn end(&self) -> TextSize {
+        self.syntax.text_range().end()
+    }
+    /// Range of this element
+    pub fn text_range(&self) -> TextRange {
+        self.syntax.text_range()
+    }
+    /// Raw text of this element
+    pub fn raw(&self) -> String {
+        self.syntax.to_string()
+    }
     pub fn post_blank(&self) -> usize {
         super::blank_lines(&self.syntax)
     }
@@ -1679,6 +1743,9 @@ impl FnRef {
     /// Raw text of this element
     pub fn raw(&self) -> String {
         self.syntax.to_string()
+    }
+    pub fn label(&self) -> Option<super::Token> {
+        super::token(&self.syntax, FN_LABEL)
     }
 }
 

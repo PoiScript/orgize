@@ -181,6 +181,7 @@ pub trait Traverser {
                     DYN_BLOCK => walk!(DynBlock),
                     FN_DEF => walk!(FnDef),
                     FN_REF => walk!(FnRef),
+                    FN_CONTENT => walk!(FnContent),
                     MACROS => walk!(@Macros),
                     SNIPPET => walk!(@Snippet),
                     TIMESTAMP_ACTIVE | TIMESTAMP_INACTIVE | TIMESTAMP_DIARY => walk!(@Timestamp),
@@ -210,12 +211,17 @@ pub trait Traverser {
                     _ => {}
                 }
             }
-            SyntaxElement::Token(token) => {
-                if token.kind() == TEXT {
+            SyntaxElement::Token(token) => match token.kind() {
+                TEXT => {
                     self.event(Event::Text(Token(token)), ctx);
                     take_control!();
                 }
-            }
+                FN_LABEL => {
+                    self.event(Event::FnLabel(Token(token)), ctx);
+                    take_control!();
+                }
+                _ => {}
+            },
         };
     }
 }

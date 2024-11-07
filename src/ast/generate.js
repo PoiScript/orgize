@@ -103,6 +103,16 @@ const nodes = [
   {
     struct: "FnDef",
     kind: ["FN_DEF"],
+    token: [
+      ["label", "FN_LABEL"],
+      ["description", "FN_CONTENT"],
+    ],
+    post_blank: true,
+    affiliated_keywords: true,
+  },
+  {
+    struct: "FnContent",
+    kind: ["FN_CONTENT"],
     post_blank: true,
     affiliated_keywords: true,
   },
@@ -188,6 +198,7 @@ const nodes = [
   {
     struct: "FnRef",
     kind: ["FN_REF"],
+    token: [["label", "FN_LABEL"]],
   },
   {
     struct: "Macros",

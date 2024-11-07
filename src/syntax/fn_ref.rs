@@ -31,10 +31,10 @@ fn fn_ref_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
         r_bracket_token,
     ))(input)?;
 
-    let mut children = vec![l_bracket, fn_.text_token(), colon, label.text_token()];
+    let mut children = vec![l_bracket, fn_.token(KEYWORD), colon, label.token(FN_LABEL)];
     if let Some((colon, definition)) = definition {
         children.push(colon);
-        children.extend(standard_object_nodes(definition));
+        children.push(node(FN_CONTENT, standard_object_nodes(definition)));
     }
     children.push(r_bracket);
 
@@ -64,56 +64,59 @@ fn parse() {
 
     insta::assert_debug_snapshot!(
         to_fn_ref("[fn:1]").syntax,
-        @r###"
+        @r#"
     FN_REF@0..6
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..5 "1"
+      FN_LABEL@4..5 "1"
       R_BRACKET@5..6 "]"
-    "###
+    "#
     );
 
     insta::assert_debug_snapshot!(
         to_fn_ref("[fn:1:2]").syntax,
-        @r###"
+        @r#"
     FN_REF@0..8
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..5 "1"
+      FN_LABEL@4..5 "1"
       COLON@5..6 ":"
-      TEXT@6..7 "2"
+      FN_CONTENT@6..7
+        TEXT@6..7 "2"
       R_BRACKET@7..8 "]"
-    "###
+    "#
     );
 
     insta::assert_debug_snapshot!(
         to_fn_ref("[fn::2]").syntax,
-        @r###"
+        @r#"
     FN_REF@0..7
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..4 ""
+      FN_LABEL@4..4 ""
       COLON@4..5 ":"
-      TEXT@5..6 "2"
+      FN_CONTENT@5..6
+        TEXT@5..6 "2"
       R_BRACKET@6..7 "]"
-    "###
+    "#
     );
 
     insta::assert_debug_snapshot!(
         to_fn_ref("[fn::[]]").syntax,
-        @r###"
+        @r#"
     FN_REF@0..8
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..4 ""
+      FN_LABEL@4..4 ""
       COLON@4..5 ":"
-      TEXT@5..7 "[]"
+      FN_CONTENT@5..7
+        TEXT@5..7 "[]"
       R_BRACKET@7..8 "]"
-    "###
+    "#
     );
 
     let config = &ParseConfig::default();

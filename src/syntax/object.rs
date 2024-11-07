@@ -305,7 +305,7 @@ fn parse() {
 
     insta::assert_debug_snapshot!(
         t("~org-inlinetask-min-level~[fn:oiml:The default value of \n~org-inlinetask-min-level~ is =15=.]"),
-        @r###"
+        @r#"
     PARAGRAPH@0..93
       CODE@0..26
         TILDE@0..1 "~"
@@ -313,23 +313,24 @@ fn parse() {
         TILDE@25..26 "~"
       FN_REF@26..93
         L_BRACKET@26..27 "["
-        TEXT@27..29 "fn"
+        KEYWORD@27..29 "fn"
         COLON@29..30 ":"
-        TEXT@30..34 "oiml"
+        FN_LABEL@30..34 "oiml"
         COLON@34..35 ":"
-        TEXT@35..57 "The default value of \n"
-        CODE@57..83
-          TILDE@57..58 "~"
-          TEXT@58..82 "org-inlinetask-min-level"
-          TILDE@82..83 "~"
-        TEXT@83..87 " is "
-        VERBATIM@87..91
-          EQUAL@87..88 "="
-          TEXT@88..90 "15"
-          EQUAL@90..91 "="
-        TEXT@91..92 "."
+        FN_CONTENT@35..92
+          TEXT@35..57 "The default value of \n"
+          CODE@57..83
+            TILDE@57..58 "~"
+            TEXT@58..82 "org-inlinetask-min-level"
+            TILDE@82..83 "~"
+          TEXT@83..87 " is "
+          VERBATIM@87..91
+            EQUAL@87..88 "="
+            TEXT@88..90 "15"
+            EQUAL@90..91 "="
+          TEXT@91..92 "."
         R_BRACKET@92..93 "]"
-    "###
+    "#
     );
 
     insta::assert_debug_snapshot!(

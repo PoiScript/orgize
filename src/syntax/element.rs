@@ -286,11 +286,12 @@ fn affiliated_keywords() {
           TEXT@10..25 " a footnote def"
           NEW_LINE@25..26 "\n"
         L_BRACKET@26..27 "["
-        TEXT@27..29 "fn"
+        KEYWORD@27..29 "fn"
         COLON@29..30 ":"
-        TEXT@30..34 "WORD"
+        FN_LABEL@30..34 "WORD"
         R_BRACKET@34..35 "]"
-        TEXT@35..55 " https://orgmode.org"
+        FN_CONTENT@35..55
+          TEXT@35..55 " https://orgmode.org"
     "###
     );
 

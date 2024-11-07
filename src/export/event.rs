@@ -19,6 +19,7 @@ pub enum Container {
     DynBlock(DynBlock),
 
     FnDef(FnDef),
+    FnContent(FnContent),
     Comment(Comment),
     FixedWidth(FixedWidth),
     SpecialBlock(SpecialBlock),
@@ -57,6 +58,7 @@ pub enum Event {
     Text(Token),
     Macros(Macros),
     Cookie(Cookie),
+    FnLabel(Token),
     InlineCall(InlineCall),
     InlineSrc(InlineSrc),
     Clock(Clock),

@@ -7,12 +7,13 @@ use nom::{
 
 use super::{
     combinator::{
-        blank_lines, colon_token, l_bracket_token, r_bracket_token, trim_line_end, GreenElement,
-        NodeBuilder,
+        blank_lines, colon_token, l_bracket_token, node, r_bracket_token, trim_line_end,
+        GreenElement, NodeBuilder,
     },
     input::Input,
     keyword::affiliated_keyword_nodes,
-    SyntaxKind,
+    object::standard_object_nodes,
+    SyntaxKind::*,
 };
 
 #[cfg_attr(
@@ -20,6 +21,10 @@ use super::{
   tracing::instrument(level = "debug", skip(input), fields(input = input.s))
 )]
 pub fn fn_def_node(input: Input) -> IResult<Input, GreenElement, ()> {
+    crate::lossless_parser!(fn_def_node_base, input)
+}
+
+fn fn_def_node_base(input: Input) -> IResult<Input, GreenElement, ()> {
     let mut parser = map(
         tuple((
             affiliated_keyword_nodes,
@@ -42,20 +47,25 @@ pub fn fn_def_node(input: Input) -> IResult<Input, GreenElement, ()> {
             post_blank,
         )| {
             let mut b = NodeBuilder::new();
+
             b.children.extend(affiliated_keywords);
             b.push(l_bracket);
-            b.text(fn_);
+            b.push(fn_.token(KEYWORD));
             b.push(colon);
-            b.text(label);
+            b.push(label.token(FN_LABEL));
             b.push(r_bracket);
-            b.text(content);
+
+            let content_node = node(FN_CONTENT, standard_object_nodes(content));
+            b.push(content_node);
+
             b.ws(ws_);
             b.nl(nl);
             b.children.extend(post_blank);
-            b.finish(SyntaxKind::FN_DEF)
+            b.finish(FN_DEF)
         },
     );
-    crate::lossless_parser!(parser, input)
+    let (i, fn_def) = parser(input)?;
+    Ok((i, fn_def))
 }
 
 #[test]
@@ -66,68 +76,78 @@ fn parse() {
     let to_fn_def = to_ast::<FnDef>(fn_def_node);
 
     insta::assert_debug_snapshot!(
-         to_fn_def("[fn:1] https://orgmode.org").syntax,
-         @r###"
-    FN_DEF@0..26
+         to_fn_def("[fn:1] *bold* -  https://orgmode.org").syntax,
+         @r#"
+    FN_DEF@0..36
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..5 "1"
+      FN_LABEL@4..5 "1"
       R_BRACKET@5..6 "]"
-      TEXT@6..26 " https://orgmode.org"
-    "###
+      FN_CONTENT@6..36
+        TEXT@6..7 " "
+        BOLD@7..13
+          STAR@7..8 "*"
+          TEXT@8..12 "bold"
+          STAR@12..13 "*"
+        TEXT@13..36 " -  https://orgmode.org"
+    "#
     );
 
     insta::assert_debug_snapshot!(
          to_fn_def("[fn:word_1] https://orgmode.org").syntax,
-         @r###"
+         @r#"
     FN_DEF@0..31
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..10 "word_1"
+      FN_LABEL@4..10 "word_1"
       R_BRACKET@10..11 "]"
-      TEXT@11..31 " https://orgmode.org"
-    "###
+      FN_CONTENT@11..31
+        TEXT@11..31 " https://orgmode.org"
+    "#
     );
 
     insta::assert_debug_snapshot!(
          to_fn_def("[fn:WORD-1] https://orgmode.org").syntax,
-         @r###"
+         @r#"
     FN_DEF@0..31
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..10 "WORD-1"
+      FN_LABEL@4..10 "WORD-1"
       R_BRACKET@10..11 "]"
-      TEXT@11..31 " https://orgmode.org"
-    "###
+      FN_CONTENT@11..31
+        TEXT@11..31 " https://orgmode.org"
+    "#
     );
 
     insta::assert_debug_snapshot!(
          to_fn_def("[fn:WORD]").syntax,
-         @r###"
+         @r#"
     FN_DEF@0..9
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..8 "WORD"
+      FN_LABEL@4..8 "WORD"
       R_BRACKET@8..9 "]"
-    "###
+      FN_CONTENT@9..9
+    "#
     );
 
     insta::assert_debug_snapshot!(
          to_fn_def("[fn:1] In particular, the parser requires stars at column 0 to be\n").syntax,
-         @r###"
+         @r#"
     FN_DEF@0..66
       L_BRACKET@0..1 "["
-      TEXT@1..3 "fn"
+      KEYWORD@1..3 "fn"
       COLON@3..4 ":"
-      TEXT@4..5 "1"
+      FN_LABEL@4..5 "1"
       R_BRACKET@5..6 "]"
-      TEXT@6..65 " In particular, the p ..."
+      FN_CONTENT@6..65
+        TEXT@6..65 " In particular, the p ..."
       NEW_LINE@65..66 "\n"
-    "###
+    "#
     );
 
     let config = &ParseConfig::default();
@@ -138,7 +158,7 @@ fn parse() {
 
     insta::assert_debug_snapshot!(
          to_fn_def("#+ATTR_poi: 1\n[fn:WORD-1] https://orgmode.org").syntax,
-         @r###"
+         @r##"
     FN_DEF@0..45
       AFFILIATED_KEYWORD@0..14
         HASH_PLUS@0..2 "#+"
@@ -147,11 +167,12 @@ fn parse() {
         TEXT@11..13 " 1"
         NEW_LINE@13..14 "\n"
       L_BRACKET@14..15 "["
-      TEXT@15..17 "fn"
+      KEYWORD@15..17 "fn"
       COLON@17..18 ":"
-      TEXT@18..24 "WORD-1"
+      FN_LABEL@18..24 "WORD-1"
       R_BRACKET@24..25 "]"
-      TEXT@25..45 " https://orgmode.org"
-    "###
+      FN_CONTENT@25..45
+        TEXT@25..45 " https://orgmode.org"
+    "##
     );
 }

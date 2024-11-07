@@ -1,3 +1,4 @@
+use rowan::ast::AstNode;
 use rowan::NodeOrToken;
 use std::cmp::min;
 use std::fmt;
@@ -6,6 +7,7 @@ use std::fmt::Write as _;
 use super::event::{Container, Event};
 use super::TraversalContext;
 use super::Traverser;
+use crate::ast::token;
 use crate::{SyntaxElement, SyntaxKind, SyntaxNode};
 
 /// A wrapper for escaping sensitive characters in html.
@@ -51,6 +53,9 @@ impl<S: AsRef<str>> fmt::Display for HtmlEscape<S> {
 pub struct HtmlExport {
     output: String,
 
+    ///TODO: track footnotes and citations within the export struct and
+    /// construct them after the document is fully parsed?
+    //footnotes: HashMap<String, String>,
     in_descriptive_list: Vec<bool>,
 
     table_row: TableRow,
@@ -106,6 +111,55 @@ impl Traverser for HtmlExport {
                 let _ = write!(&mut self.output, "</h{level}>");
             }
             Event::Leave(Container::Headline(_)) => {}
+
+            Event::Enter(Container::FnRef(t)) => {
+                if let Some(label) = t.label() {
+                    let _ = write!(
+                        &mut self.output,
+                        "<a href=\"#footnote_{}\" class=\"footnote-reference\">[{}]",
+                        label.syntax().text(),
+                        label.syntax().text()
+                    );
+                }
+                self.output += "</a>";
+            }
+            Event::Leave(Container::FnRef(_)) => {}
+
+            Event::Enter(Container::FnDef(t)) => {
+                self.output += "<aside ";
+                self.output += r#"class="footnote-definition" "#;
+                self.output += ">";
+
+                if let Some(label) = t.label() {
+                    self.output += "<a ";
+                    let _ = write!(
+                        &mut self.output,
+                        "href=\"#footnote_{}\" ",
+                        label.syntax().text()
+                    );
+                    self.output += "class=\"footnote-reference\" ";
+                    self.output += ">";
+                    let _ = write!(&mut self.output, "[{}]", label.syntax().text());
+                    self.output += "</a>";
+                }
+            }
+            Event::Leave(Container::FnDef(_)) => {
+                self.output += "</aside>";
+            }
+
+            Event::Enter(Container::FnContent(c)) => {
+                self.output += "<span class=\"footnote-content\" ";
+                if let Some(parent) = c.syntax().parent() {
+                    if parent.kind() == SyntaxKind::FN_REF || parent.kind() == SyntaxKind::FN_DEF {
+                        let label = token(&parent, SyntaxKind::FN_LABEL).unwrap();
+                        let _ = write!(&mut self.output, "id=\"footnote_{}\" ", label);
+                    }
+                }
+                self.output += ">";
+            }
+            Event::Leave(Container::FnContent(_)) => {
+                self.output += "</span>";
+            }
 
             Event::Enter(Container::Paragraph(_)) => self.output += "<p>",
             Event::Leave(Container::Paragraph(_)) => self.output += "</p>",
@@ -296,6 +350,8 @@ impl Traverser for HtmlExport {
             Event::Text(text) => {
                 let _ = write!(&mut self.output, "{}", HtmlEscape(text));
             }
+
+            Event::FnLabel(_) => {}
 
             Event::LineBreak(_) => self.output += "<br/>",
 
