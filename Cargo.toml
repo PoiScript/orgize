@@ -31,7 +31,7 @@ indexmap = { version = "2.1", optional = true }
 jetscii = "0.5"
 memchr = "2.5"
 nom = { version = "7.1", default-features = false, features = ["std"] }
-rowan = "0.15"
+rowan = "0.16"
 tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
