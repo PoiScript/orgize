@@ -45,6 +45,11 @@ pub struct ParseConfig {
     ///
     /// Equivalent to [`org-element-affiliated-keywords`](https://git.sr.ht/~bzg/org-mode/tree/6f960f3c6a4dfe137fbd33fef9f7dadfd229600c/item/lisp/org-element.el#L331)
     pub affiliated_keywords: Vec<String>,
+
+    /// Control tag parsing
+    ///
+    /// Defaults to org-mode's permitted characters: alphanumeric and `_@#%`.
+    pub is_tag_char: fn(char) -> bool,
 }
 
 impl ParseConfig {
@@ -82,6 +87,7 @@ impl Default for ParseConfig {
                 "SRCNAME".into(),
                 "TBLNAME".into(),
             ],
+            is_tag_char: |c| c.is_alphanumeric() || c == '_' || c == '@' || c == '#' || c == '%',
         }
     }
 }
